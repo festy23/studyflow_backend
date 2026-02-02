@@ -1,0 +1,71 @@
+image: golang:1.24-alpine
+
+services:
+  - docker:dind
+
+stages:
+  - test
+  - build
+
+variables:
+  DOCKER_HOST: tcp://docker:2376
+  DOCKER_TLS_CERTDIR: "/certs"
+  COMPOSE_VERSION: "v2.23.0"
+  CGO_ENABLED: "1"
+  GOOS: "linux"
+  TELEGRAM_SECRET: "anxious-secret-value"
+
+before_script:
+  - apk add --no-cache docker-cli docker-cli-compose build-base
+  - docker --version
+  - docker compose version
+
+test_payment_service:
+  stage: test
+  script:
+    - cd payment_service/internal/service
+    - |
+      echo "[INFO]: 🚀Running tests with coverage check..."
+      coverage=$(go test -cover ./... | grep -E 'coverage:.*%' | awk '{gsub(/%/,"",$5); print $5}')
+      echo "[INFO]: 📒Actual test coverage: ${coverage}%"
+
+      if [ $(echo "$coverage < 30" | bc -l) -eq 1 ]; then
+        echo "[ERROR]: Coverage ${coverage}% is below 30% threshold"
+        exit 1
+      else
+        echo "[PASS]: ✅ Coverage check passed"
+      fi
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+test_schedule_service:
+  stage: test
+  script:
+    - cd schedule_service/internal/service/service
+    - |
+      echo "[INFO]: 🚀Running tests with coverage check..."
+      coverage=$(go test -cover ./... | grep -E 'coverage:.*%' | awk '{gsub(/%/,"",$5); print $5}')
+      echo "[INFO]: 📒Actual test coverage: ${coverage}%"
+
+      if [ $(echo "$coverage < 30" | bc -l) -eq 1 ]; then
+        echo "[ERROR]: Coverage ${coverage}% is below 30% threshold"
+        exit 1
+      else
+        echo "[PASS]: ✅ Coverage check passed"
+      fi
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+build_services:
+  stage: build
+  needs: ["test_payment_service", "test_schedule_service"]
+  parallel: 3
+  script:
+    - unset DOCKER_HOST
+    - docker compose build --parallel
+  artifacts:
+    paths:
+      - ./*/Dockerfile
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
