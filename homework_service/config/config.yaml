@@ -1,0 +1,26 @@
+grpc:
+  address: ":50051"
+  timeout: 30s
+
+db:
+  host: "postgres"
+  port: 5432
+  user: "homework_user"
+  password: "password"
+  dbname: "homework_db"
+  sslmode: "disable"
+
+kafka:
+  brokers:
+    - "kafka:9092"
+  topic: "assignment-reminders"
+  group_id: "homework-service-group"
+  worker_pool_size: 5
+
+services:
+  user_service:
+    address: "user-service:50051"
+    timeout: 10s
+  file_service:
+    address: "file-service:50052"
+    timeout: 10s
