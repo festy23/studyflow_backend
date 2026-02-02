@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package payment.v1;
+
+option go_package = "payment_service/proto";
+
+import "google/protobuf/timestamp.proto";
+
+service PaymentService {
+  rpc GetPaymentInfo(GetPaymentInfoRequest) returns (PaymentInfo);
+  rpc SubmitPaymentReceipt(SubmitPaymentReceiptRequest) returns (Receipt);
+  rpc GetReceipt(GetReceiptRequest) returns (Receipt);
+  rpc VerifyReceipt(VerifyReceiptRequest) returns (Receipt);
+  rpc GetReceiptFile(GetReceiptFileRequest) returns (ReceiptFileURL);
+}
+
+// ==== REQUESTS ====
+
+message GetPaymentInfoRequest {
+  optional string lesson_id = 1;
+}
+
+message SubmitPaymentReceiptRequest {
+  optional string lesson_id = 1;
+  optional string file_id = 2; // чек (file_service.files.id)
+}
+
+message GetReceiptRequest {
+  string receipt_id = 1;
+}
+
+message VerifyReceiptRequest {
+  string receipt_id = 1;
+}
+
+message GetReceiptFileRequest {
+  string receipt_id = 1;
+}
+
+
+// ==== RESPONSES ====
+
+message PaymentInfo {
+  optional string lesson_id = 1;
+  optional int32 price_rub = 2;
+  optional string payment_info = 3;
+}
+
+message Receipt {
+  string id = 1;                 // UUIDv7
+  optional string lesson_id = 2;          // Refers to schedule.lessons.id
+  optional string file_id = 3;            // Refers to file_service.files.id
+  bool is_verified = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp edited_at = 6;
+}
+
+message ReceiptFileURL {
+  optional string url = 1; // временная ссылка на файл из file-service
+}
