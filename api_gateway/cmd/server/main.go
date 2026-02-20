@@ -86,7 +86,7 @@ func main() {
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 
 	r.Route("/users", func(r chi.Router) {
@@ -114,8 +114,9 @@ func main() {
 	logger.Info(ctx, "Starting server", zap.String("port", port))
 
 	srv := &http.Server{
-		Addr:    port,
-		Handler: r,
+		Addr:              port,
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	go func() {

@@ -52,10 +52,10 @@ func (s *FileService) InitUpload(ctx context.Context, input *model.InitUploadInp
 	}
 	extension := strings.ToLower(path.Ext(input.Filename))
 	if extension == "" {
-		return nil, fmt.Errorf("invalid file extension: %w", errdefs.ValidationErr)
+		return nil, fmt.Errorf("invalid file extension: %w", errdefs.ErrValidation)
 	}
 	if !allowedExtensions[extension] {
-		return nil, fmt.Errorf("file extension %s not allowed: %w", extension, errdefs.ValidationErr)
+		return nil, fmt.Errorf("file extension %s not allowed: %w", extension, errdefs.ErrValidation)
 	}
 	fileInput := &model.RepositoryCreateFileInput{
 		Id:         id,

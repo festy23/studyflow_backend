@@ -43,7 +43,7 @@ func NewUserClient(adress string) (*UserClient, error) {
 
 }
 func (c *UserClient) Close() {
-	c.conn.Close()
+	_ = c.conn.Close()
 }
 
 func (c *UserClient) GetTutorStudent(ctx context.Context, tutorID, studentID string) (*userpb.TutorStudent, error) {

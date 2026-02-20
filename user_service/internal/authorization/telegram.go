@@ -16,7 +16,7 @@ func GetTelegramId(secret string, header string) (int64, error) {
 	if len(payload) != 3 {
 		return 0, fmt.Errorf(
 			"authorization: header payload len mismatch got %d: %w",
-			len(payload), errdefs.AuthenticationErr,
+			len(payload), errdefs.ErrAuthentication,
 		)
 	}
 
@@ -24,7 +24,7 @@ func GetTelegramId(secret string, header string) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf(
 			"authorization: cannot parse tgId %s: %w",
-			payload[0], errdefs.AuthenticationErr,
+			payload[0], errdefs.ErrAuthentication,
 		)
 	}
 
@@ -32,15 +32,15 @@ func GetTelegramId(secret string, header string) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf(
 			"authorization: cannot parse timestamp %s: %w",
-			payload[1], errdefs.AuthenticationErr,
+			payload[1], errdefs.ErrAuthentication,
 		)
 	}
 	now := time.Now().Unix()
 	var diffSeconds int64 = 5 * 60
-	if !(now-diffSeconds < timestamp && timestamp < now+diffSeconds) {
+	if now-diffSeconds >= timestamp || timestamp >= now+diffSeconds {
 		return 0, fmt.Errorf(
 			"authorization: timestamp expired %s: %w",
-			payload[1], errdefs.AuthenticationErr,
+			payload[1], errdefs.ErrAuthentication,
 		)
 	}
 
@@ -48,7 +48,7 @@ func GetTelegramId(secret string, header string) (int64, error) {
 	if !ValidMAC(message, secret, payload[2]) {
 		return 0, fmt.Errorf(
 			"authorization: invalid hmac: %w",
-			errdefs.AuthenticationErr,
+			errdefs.ErrAuthentication,
 		)
 	}
 

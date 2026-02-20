@@ -324,13 +324,14 @@ func (s *ScheduleServer) CreateLesson(ctx context.Context, req *pb.CreateLessonR
 
 	var tutorID, studentID string
 
-	if userID == slot.TutorID {
+	switch userID {
+	case slot.TutorID:
 		tutorID = userID
 		studentID = req.StudentId
-	} else if userID == req.StudentId {
+	case req.StudentId:
 		tutorID = slot.TutorID
 		studentID = userID
-	} else {
+	default:
 		return nil, StatusPermissionDenied
 	}
 

@@ -46,7 +46,7 @@ func RetryWithBackoff[T any](
 		}
 
 		if i < maxRetries-1 {
-			jitter := time.Duration(rand.Int63n(int64(baseDelay)))
+			jitter := time.Duration(rand.Int63n(int64(baseDelay))) //nolint:gosec // jitter doesn't need crypto rand
 			delay := time.Duration(math.Pow(2, float64(i)))*baseDelay + jitter
 			select {
 			case <-ctx.Done():
@@ -87,8 +87,7 @@ var ErrCircuitOpen = fmt.Errorf("circuit breaker is open")
 
 func (cb *CircuitBreaker) Execute(fn func() error) error {
 	cb.mu.Lock()
-	switch cb.state {
-	case StateOpen:
+	if cb.state == StateOpen {
 		if time.Since(cb.lastFailureTime) > cb.resetTimeout {
 			cb.state = StateHalfOpen
 		} else {

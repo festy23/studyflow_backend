@@ -63,8 +63,8 @@ func createPool(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, error) 
 		return nil, fmt.Errorf("failed to parse connection string: %w", err)
 	}
 
-	pgxCfg.MaxConns = int32(cfg.PostgresMaxConn)
-	pgxCfg.MinConns = int32(cfg.PostgresMinConn)
+	pgxCfg.MaxConns = int32(cfg.PostgresMaxConn) //nolint:gosec // config values are small
+	pgxCfg.MinConns = int32(cfg.PostgresMinConn) //nolint:gosec // config values are small
 
 	pool, err := pgxpool.NewWithConfig(ctx, pgxCfg)
 	if err != nil {

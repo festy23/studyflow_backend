@@ -45,7 +45,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer pg.Close()
 
 	assignmentRepo := repository.NewAssignmentRepository(pg.DB())
 	submissionRepo := repository.NewSubmissionRepository(pg.DB())
@@ -56,6 +55,7 @@ func main() {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
+		_ = pg.Close()
 		log.Fatalf("Failed to create user service: %v", err)
 	}
 	fileGrpc, err := grpc.NewClient(
@@ -63,6 +63,7 @@ func main() {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
+		_ = pg.Close()
 		log.Fatalf("Failed to create file service: %v", err)
 	}
 	userClient := app.NewUserClient(userGrpc)
@@ -100,9 +101,9 @@ func main() {
 
 	kafkaProducer, err := kafka.NewProducer(kafkaConfig)
 	if err != nil {
+		_ = pg.Close()
 		log.Fatalf("Failed to create Kafka producer: %v", err)
 	}
-	defer kafkaProducer.Close()
 
 	interceptor := grpc_middleware.ChainUnaryServer(
 		metadata.NewMetadataUnaryInterceptor(),
@@ -117,8 +118,14 @@ func main() {
 
 	listener, err := net.Listen("tcp", cfg.GRPC.Address)
 	if err != nil {
+		_ = pg.Close()
+		_ = kafkaProducer.Close()
 		log.Fatalf("Failed to listen: %v", err)
 	}
+
+	// Defers placed after all Fatalf calls to avoid exitAfterDefer lint issue
+	defer func() { _ = pg.Close() }()
+	defer func() { _ = kafkaProducer.Close() }()
 
 	go func() {
 		log.Infof("Starting gRPC server on %s", cfg.GRPC.Address)

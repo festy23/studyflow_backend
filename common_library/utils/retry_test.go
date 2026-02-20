@@ -120,7 +120,7 @@ func TestCircuitBreaker_OpensAfterThreshold(t *testing.T) {
 	cb := NewCircuitBreaker(3, 1*time.Second)
 
 	for i := 0; i < 3; i++ {
-		cb.Execute(func() error {
+		_ = cb.Execute(func() error {
 			return status.Error(codes.Unavailable, "unavailable")
 		})
 	}
@@ -141,7 +141,7 @@ func TestCircuitBreaker_ResetsAfterTimeout(t *testing.T) {
 	cb := NewCircuitBreaker(2, 50*time.Millisecond)
 
 	for i := 0; i < 2; i++ {
-		cb.Execute(func() error {
+		_ = cb.Execute(func() error {
 			return status.Error(codes.Unavailable, "unavailable")
 		})
 	}
@@ -166,7 +166,7 @@ func TestCircuitBreaker_NonRetriableErrorDoesNotCount(t *testing.T) {
 	cb := NewCircuitBreaker(2, 1*time.Second)
 
 	for i := 0; i < 5; i++ {
-		cb.Execute(func() error {
+		_ = cb.Execute(func() error {
 			return status.Error(codes.NotFound, "not found")
 		})
 	}

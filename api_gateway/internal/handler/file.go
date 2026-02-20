@@ -51,7 +51,7 @@ func (h *FileHandler) GetFileMeta(w http.ResponseWriter, r *http.Request) {
 func getFileMetaParsePath(ctx context.Context, httpReq *http.Request, grpcReq *filepb.GetFileMetaRequest) error {
 	id := chi.URLParam(httpReq, "id")
 	if id == "" {
-		return fmt.Errorf("%w: %s", BadRequestError, "studentId is required")
+		return fmt.Errorf("%w: %s", ErrBadRequest, "studentId is required")
 	}
 	grpcReq.FileId = id
 
@@ -76,7 +76,7 @@ func (h *FileHandler) proxyToMinio(method string, path string) http.HandlerFunc 
 			return
 		}
 
-		req, err := http.NewRequest(method, targetURL, r.Body)
+		req, err := http.NewRequest(method, targetURL, r.Body) //nolint:gosec // URL validated above (scheme+host check)
 		if err != nil {
 			http.Error(w, "Failed to create proxy request", http.StatusInternalServerError)
 			return
@@ -90,7 +90,7 @@ func (h *FileHandler) proxyToMinio(method string, path string) http.HandlerFunc 
 		if logger, ok := logging.GetFromContext(r.Context()); ok {
 			logger.Debug(r.Context(), "making proxy request", zap.String("URL", targetURL), zap.String("method", method), zap.Any("headers", req.Header))
 		}
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := http.DefaultClient.Do(req) //nolint:gosec // URL validated above (scheme+host check)
 		if err != nil {
 			if logger, ok := logging.GetFromContext(r.Context()); ok {
 				logger.Error(r.Context(), "Failed to proxy request", zap.Error(err))
@@ -98,12 +98,12 @@ func (h *FileHandler) proxyToMinio(method string, path string) http.HandlerFunc 
 			http.Error(w, "Failed to reach MinIO", http.StatusBadGateway)
 			return
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		for k, v := range resp.Header {
 			w.Header()[k] = v
 		}
 		w.WriteHeader(resp.StatusCode)
-		io.Copy(w, resp.Body)
+		_, _ = io.Copy(w, resp.Body)
 	}
 }

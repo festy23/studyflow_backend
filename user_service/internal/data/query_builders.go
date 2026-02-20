@@ -139,7 +139,6 @@ func buildListTutorStudentsQuery(tutorID uuid.UUID, studentID uuid.UUID) (string
 	if studentID != uuid.Nil {
 		where = append(where, fmt.Sprintf("student_id = $%d", argIdx))
 		args = append(args, studentID)
-		argIdx++
 	}
 
 	query := `

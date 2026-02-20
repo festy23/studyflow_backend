@@ -58,7 +58,7 @@ func TestInitUpload_NoExtension(t *testing.T) {
 
 	assert.Nil(t, result)
 	assert.Error(t, err)
-	assert.True(t, errors.Is(err, errdefs.ValidationErr))
+	assert.True(t, errors.Is(err, errdefs.ErrValidation))
 	mockRepo.AssertNotCalled(t, "CreateFile", mock.Anything, mock.Anything)
 }
 
@@ -75,7 +75,7 @@ func TestInitUpload_DisallowedExtension(t *testing.T) {
 
 	assert.Nil(t, result)
 	assert.Error(t, err)
-	assert.True(t, errors.Is(err, errdefs.ValidationErr))
+	assert.True(t, errors.Is(err, errdefs.ErrValidation))
 	mockRepo.AssertNotCalled(t, "CreateFile", mock.Anything, mock.Anything)
 }
 

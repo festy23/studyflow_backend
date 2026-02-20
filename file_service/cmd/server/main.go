@@ -80,9 +80,7 @@ func main() {
 		}
 	}()
 
-	select {
-	case <-ctx.Done():
-		server.Stop()
-		logger.Info(ctx, "Server Stopped")
-	}
+	<-ctx.Done()
+	server.Stop()
+	logger.Info(ctx, "Server Stopped")
 }

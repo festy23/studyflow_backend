@@ -229,7 +229,7 @@ func (r *PostgresRepository) CreateLessonAndBookSlot(ctx context.Context, lesson
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	var isBooked bool
 	err = tx.QueryRow(ctx, "SELECT is_booked FROM slots WHERE id = $1 FOR UPDATE", slotID).Scan(&isBooked)
@@ -307,7 +307,7 @@ func (r *PostgresRepository) CancelLessonAndFreeSlot(ctx context.Context, lesson
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	_, err = tx.Exec(ctx,
 		"UPDATE lessons SET status = $1, edited_at = $2 WHERE id = $3",

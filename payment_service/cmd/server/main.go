@@ -29,7 +29,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	//zapLogger, err := zap.NewDevelopment()
+	// zapLogger, err := zap.NewDevelopment()
 	zapLogger, err := zap.NewProduction()
 
 	if err != nil {
@@ -89,9 +89,7 @@ func main() {
 			logger.Fatal(ctx, "failed to serve", zap.Error(err))
 		}
 	}()
-	select {
-	case <-ctx.Done():
-		server.Stop()
-		logger.Info(ctx, "Server Stopped")
-	}
+	<-ctx.Done()
+	server.Stop()
+	logger.Info(ctx, "Server Stopped")
 }

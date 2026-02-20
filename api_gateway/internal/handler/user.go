@@ -185,7 +185,7 @@ func (h *UserHandler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 func acceptInvitationParsePath(ctx context.Context, httpReq *http.Request, grpcReq *userpb.AcceptInvitationFromTutorRequest) error {
 	tutorId := chi.URLParam(httpReq, "tutor_id")
 	if tutorId == "" {
-		return fmt.Errorf("%w: %s", BadRequestError, "tutorId is required")
+		return fmt.Errorf("%w: %s", ErrBadRequest, "tutorId is required")
 	}
 	grpcReq.TutorId = tutorId
 	if logger, ok := logging.GetFromContext(ctx); ok {
@@ -197,7 +197,7 @@ func acceptInvitationParsePath(ctx context.Context, httpReq *http.Request, grpcR
 func getUserParsePath(ctx context.Context, httpReq *http.Request, grpcReq *userpb.GetUserRequest) error {
 	userId := chi.URLParam(httpReq, "id")
 	if userId == "" {
-		return fmt.Errorf("%w: %s", BadRequestError, "userId is required")
+		return fmt.Errorf("%w: %s", ErrBadRequest, "userId is required")
 	}
 	grpcReq.Id = userId
 	if logger, ok := logging.GetFromContext(ctx); ok {
@@ -209,7 +209,7 @@ func getUserParsePath(ctx context.Context, httpReq *http.Request, grpcReq *userp
 func updateUserParsePath(ctx context.Context, httpReq *http.Request, grpcReq *userpb.UpdateUserRequest) error {
 	userId := chi.URLParam(httpReq, "id")
 	if userId == "" {
-		return fmt.Errorf("%w: %s", BadRequestError, "userId is required")
+		return fmt.Errorf("%w: %s", ErrBadRequest, "userId is required")
 	}
 	grpcReq.Id = userId
 	if logger, ok := logging.GetFromContext(ctx); ok {
@@ -221,7 +221,7 @@ func updateUserParsePath(ctx context.Context, httpReq *http.Request, grpcReq *us
 func getTutorProfileParsePath(ctx context.Context, httpReq *http.Request, grpcReq *userpb.GetTutorProfileByUserIdRequest) error {
 	userId := chi.URLParam(httpReq, "id")
 	if userId == "" {
-		return fmt.Errorf("%w: %s", BadRequestError, "userId is required")
+		return fmt.Errorf("%w: %s", ErrBadRequest, "userId is required")
 	}
 	grpcReq.UserId = userId
 	if logger, ok := logging.GetFromContext(ctx); ok {
@@ -233,7 +233,7 @@ func getTutorProfileParsePath(ctx context.Context, httpReq *http.Request, grpcRe
 func updateTutorProfileParsePath(ctx context.Context, httpReq *http.Request, grpcReq *userpb.UpdateTutorProfileRequest) error {
 	userId := chi.URLParam(httpReq, "id")
 	if userId == "" {
-		return fmt.Errorf("%w: %s", BadRequestError, "userId is required")
+		return fmt.Errorf("%w: %s", ErrBadRequest, "userId is required")
 	}
 	grpcReq.UserId = userId
 	if logger, ok := logging.GetFromContext(ctx); ok {
@@ -245,7 +245,7 @@ func updateTutorProfileParsePath(ctx context.Context, httpReq *http.Request, grp
 func listTutorStudentsByTutorParsePath(ctx context.Context, httpReq *http.Request, grpcReq *userpb.ListTutorStudentsRequest) error {
 	userId := chi.URLParam(httpReq, "id")
 	if userId == "" {
-		return fmt.Errorf("%w: %s", BadRequestError, "userId is required")
+		return fmt.Errorf("%w: %s", ErrBadRequest, "userId is required")
 	}
 	grpcReq.TutorId = userId
 	if logger, ok := logging.GetFromContext(ctx); ok {
@@ -257,7 +257,7 @@ func listTutorStudentsByTutorParsePath(ctx context.Context, httpReq *http.Reques
 func listTutorStudentsByStudentParsePath(ctx context.Context, httpReq *http.Request, grpcReq *userpb.ListTutorsForStudentRequest) error {
 	userId := chi.URLParam(httpReq, "id")
 	if userId == "" {
-		return fmt.Errorf("%w: %s", BadRequestError, "userId is required")
+		return fmt.Errorf("%w: %s", ErrBadRequest, "userId is required")
 	}
 	grpcReq.StudentId = userId
 	if logger, ok := logging.GetFromContext(ctx); ok {
@@ -269,13 +269,13 @@ func listTutorStudentsByStudentParsePath(ctx context.Context, httpReq *http.Requ
 func getTutorStudentParsePath(ctx context.Context, httpReq *http.Request, grpcReq *userpb.GetTutorStudentRequest) error {
 	tutorId := chi.URLParam(httpReq, "tutor_id")
 	if tutorId == "" {
-		return fmt.Errorf("%w: %s", BadRequestError, "tutorId is required")
+		return fmt.Errorf("%w: %s", ErrBadRequest, "tutorId is required")
 	}
 	grpcReq.TutorId = tutorId
 
 	studentId := chi.URLParam(httpReq, "student_id")
 	if studentId == "" {
-		return fmt.Errorf("%w: %s", BadRequestError, "studentId is required")
+		return fmt.Errorf("%w: %s", ErrBadRequest, "studentId is required")
 	}
 	grpcReq.StudentId = studentId
 
@@ -288,13 +288,13 @@ func getTutorStudentParsePath(ctx context.Context, httpReq *http.Request, grpcRe
 func updateTutorStudentParsePath(ctx context.Context, httpReq *http.Request, grpcReq *userpb.UpdateTutorStudentRequest) error {
 	tutorId := chi.URLParam(httpReq, "tutor_id")
 	if tutorId == "" {
-		return fmt.Errorf("%w: %s", BadRequestError, "tutorId is required")
+		return fmt.Errorf("%w: %s", ErrBadRequest, "tutorId is required")
 	}
 	grpcReq.TutorId = tutorId
 
 	studentId := chi.URLParam(httpReq, "student_id")
 	if studentId == "" {
-		return fmt.Errorf("%w: %s", BadRequestError, "studentId is required")
+		return fmt.Errorf("%w: %s", ErrBadRequest, "studentId is required")
 	}
 	grpcReq.StudentId = studentId
 
@@ -307,13 +307,13 @@ func updateTutorStudentParsePath(ctx context.Context, httpReq *http.Request, grp
 func deleteTutorStudentParsePath(ctx context.Context, httpReq *http.Request, grpcReq *userpb.DeleteTutorStudentRequest) error {
 	tutorId := chi.URLParam(httpReq, "tutor_id")
 	if tutorId == "" {
-		return fmt.Errorf("%w: %s", BadRequestError, "tutorId is required")
+		return fmt.Errorf("%w: %s", ErrBadRequest, "tutorId is required")
 	}
 	grpcReq.TutorId = tutorId
 
 	studentId := chi.URLParam(httpReq, "student_id")
 	if studentId == "" {
-		return fmt.Errorf("%w: %s", BadRequestError, "studentId is required")
+		return fmt.Errorf("%w: %s", ErrBadRequest, "studentId is required")
 	}
 	grpcReq.StudentId = studentId
 

@@ -20,9 +20,9 @@ import (
 )
 
 var (
-	NilMethodError     = errors.New("grpc method is nil")
-	BadRequestError    = errors.New("bad request")
-	WrongGrpcTypeError = errors.New("wrong grpc request type")
+	ErrNilMethod    = errors.New("grpc method is nil")
+	ErrBadRequest   = errors.New("bad request")
+	ErrWrongGrpcType = errors.New("wrong grpc request type")
 )
 
 type Cache interface {
@@ -32,7 +32,7 @@ type Cache interface {
 }
 
 func mapErr(err error) int {
-	if errors.Is(err, BadRequestError) {
+	if errors.Is(err, ErrBadRequest) {
 		return http.StatusBadRequest
 	}
 	if st, ok := status.FromError(err); ok {
@@ -58,15 +58,15 @@ func Handle[Req any, Resp any](
 	parseBody bool,
 ) (http.HandlerFunc, error) {
 	if method == nil {
-		return nil, NilMethodError
+		return nil, ErrNilMethod
 	}
 
 	if _, ok := any(new(Req)).(proto.Message); !ok {
-		return nil, WrongGrpcTypeError
+		return nil, ErrWrongGrpcType
 	}
 
 	if _, ok := any(new(Resp)).(proto.Message); !ok {
-		return nil, WrongGrpcTypeError
+		return nil, ErrWrongGrpcType
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -140,7 +140,7 @@ func Handle[Req any, Resp any](
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(data)
+		_, _ = w.Write(data) //nolint:gosec // protojson-serialized response
 	}, nil
 }
 
@@ -153,13 +153,13 @@ func HandleWithCache[Req any, Resp any](
 	ttl time.Duration,
 ) (http.HandlerFunc, error) {
 	if method == nil {
-		return nil, NilMethodError
+		return nil, ErrNilMethod
 	}
 	if _, ok := any(new(Req)).(proto.Message); !ok {
-		return nil, WrongGrpcTypeError
+		return nil, ErrWrongGrpcType
 	}
 	if _, ok := any(new(Resp)).(proto.Message); !ok {
-		return nil, WrongGrpcTypeError
+		return nil, ErrWrongGrpcType
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -176,7 +176,7 @@ func HandleWithCache[Req any, Resp any](
 			if data, ok := cache.Get(ctx, key); ok {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				w.Write(data)
+				_, _ = w.Write(data) //nolint:gosec // cached protojson response
 				return
 			}
 		}
@@ -213,7 +213,7 @@ func HandleWithCache[Req any, Resp any](
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(data)
+		_, _ = w.Write(data) //nolint:gosec // protojson-serialized response
 
 		if key != "" {
 			cache.Set(ctx, key, data, ttl)
@@ -225,7 +225,7 @@ func writeErrorJSON(w http.ResponseWriter, statusCode int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	resp, _ := json.Marshal(map[string]string{"error": message})
-	w.Write(resp)
+	_, _ = w.Write(resp)
 }
 
 func parsePathParam(r *http.Request, key string) (string, error) {
