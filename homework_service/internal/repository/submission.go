@@ -84,7 +84,7 @@ func (r *SubmissionRepository) ListByAssignment(ctx context.Context, assignmentI
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	
 	var submissions []*domain.Submission
 	for rows.Next() {

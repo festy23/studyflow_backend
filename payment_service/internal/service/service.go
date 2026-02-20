@@ -4,15 +4,12 @@ package service
 
 import (
 	"common_library/ctxdata"
+	"common_library/utils"
 	"context"
 	api2 "fileservice/pkg/api"
 	"fmt"
 	"github.com/google/uuid"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
-	"log"
-	"math"
 	"paymentservice/internal/clients"
 	errdefs "paymentservice/internal/errors"
 	"paymentservice/internal/models"
@@ -57,7 +54,21 @@ func NewPaymentService(
 	}
 }
 
+func requireRole(ctx context.Context, role models.Role) error {
+	userRole, ok := ctxdata.GetUserRole(ctx)
+	if !ok {
+		return errdefs.ErrPermissionDenied
+	}
+	if models.Role(userRole) != role {
+		return errdefs.ErrPermissionDenied
+	}
+	return nil
+}
+
 func (s *PaymentService) SubmitPaymentReceipt(ctx context.Context, input *models.SubmitPaymentReceiptInput) (*models.PaymentReceipt, error) {
+	if err := requireRole(ctx, models.RoleStudent); err != nil {
+		return nil, err
+	}
 	if input.FileId == uuid.Nil || input.LessonId == uuid.Nil {
 		return nil, errdefs.ErrInvalidArgument
 	}
@@ -66,7 +77,7 @@ func (s *PaymentService) SubmitPaymentReceipt(ctx context.Context, input *models
 		Id: input.LessonId.String(),
 	}
 
-	lesson, err := retry[*api3.Lesson](ctx, maxRetries, retryDelay, func() (*api3.Lesson, error) {
+	lesson, err := utils.RetryWithBackoff[*api3.Lesson](ctx, maxRetries, retryDelay, func() (*api3.Lesson, error) {
 		return s.scheduleClient.GetLesson(ctxWithMetadata(ctx), getLessonRequest)
 	})
 	if err != nil {
@@ -77,22 +88,9 @@ func (s *PaymentService) SubmitPaymentReceipt(ctx context.Context, input *models
 		return nil, errdefs.ErrAlreadyExists
 	}
 
-	req := &api3.MarkAsPaidRequest{
-		Id: input.LessonId.String(),
-	}
-	lesson, err = retry[*api3.Lesson](ctx, maxRetries, retryDelay, func() (*api3.Lesson, error) {
-		return s.scheduleClient.MarkAsPaid(ctxWithMetadata(ctx), req)
-	})
+	newReceiptID, err := uuid.NewV7()
 	if err != nil {
-		return nil, err
-	}
-	newReceiptID := uuid.New()
-	exists, err := s.repo.ExistsByID(ctx, newReceiptID)
-	if err != nil {
-		return nil, err
-	}
-	if exists {
-		return nil, errdefs.ErrAlreadyExists
+		return nil, fmt.Errorf("failed to generate receipt ID: %w", err)
 	}
 
 	createReceiptInput := &models.PaymentReceiptCreateInput{
@@ -101,11 +99,21 @@ func (s *PaymentService) SubmitPaymentReceipt(ctx context.Context, input *models
 		FileID:     input.FileId,
 		IsVerified: false,
 	}
-	receipt, err := retry(ctx, maxRetries, retryDelay, func() (*models.PaymentReceipt, error) {
+	receipt, err := utils.RetryWithBackoff(ctx, maxRetries, retryDelay, func() (*models.PaymentReceipt, error) {
 		return s.repo.CreateReceipt(ctxWithMetadata(ctx), createReceiptInput)
 	})
 	if err != nil {
-		return nil, errdefs.ErrNotFound
+		return nil, err
+	}
+
+	req := &api3.MarkAsPaidRequest{
+		Id: input.LessonId.String(),
+	}
+	_, err = utils.RetryWithBackoff[*api3.Lesson](ctx, maxRetries, retryDelay, func() (*api3.Lesson, error) {
+		return s.scheduleClient.MarkAsPaid(ctxWithMetadata(ctx), req)
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	// отправить ивент уведомление
@@ -122,7 +130,7 @@ func (s *PaymentService) GetPaymentInfo(ctx context.Context, input *models.GetPa
 		Id: input.LessonId.String(),
 	}
 
-	lesson, err := retry(ctx, maxRetries, retryDelay, func() (*api3.Lesson, error) {
+	lesson, err := utils.RetryWithBackoff(ctx, maxRetries, retryDelay, func() (*api3.Lesson, error) {
 		return s.scheduleClient.GetLesson(ctxWithMetadata(ctx), getLessonRequest)
 	})
 	if err != nil {
@@ -146,7 +154,7 @@ func (s *PaymentService) GetReceipt(ctx context.Context, input *models.GetReceip
 		return nil, errdefs.ErrInvalidArgument
 	}
 
-	receipt, err := retry[*models.PaymentReceipt](ctx, maxRetries, retryDelay, func() (*models.PaymentReceipt, error) {
+	receipt, err := utils.RetryWithBackoff[*models.PaymentReceipt](ctx, maxRetries, retryDelay, func() (*models.PaymentReceipt, error) {
 		return s.repo.GetReceiptByID(ctxWithMetadata(ctx), input.ReceiptId)
 	})
 	if err != nil {
@@ -156,10 +164,13 @@ func (s *PaymentService) GetReceipt(ctx context.Context, input *models.GetReceip
 }
 
 func (s *PaymentService) VerifyReceipt(ctx context.Context, input *models.VerifyReceiptInput) (*models.PaymentReceipt, error) {
+	if err := requireRole(ctx, models.RoleTutor); err != nil {
+		return nil, err
+	}
 	if input.ReceiptId == uuid.Nil {
 		return nil, errdefs.ErrInvalidArgument
 	}
-	receipt, err := retry(ctx, maxRetries, retryDelay, func() (*models.PaymentReceipt, error) {
+	receipt, err := utils.RetryWithBackoff(ctx, maxRetries, retryDelay, func() (*models.PaymentReceipt, error) {
 		return s.repo.UpdateReceipt(ctx, input.ReceiptId, true)
 	})
 	if err != nil {
@@ -172,7 +183,7 @@ func (s *PaymentService) GetReceiptFile(ctx context.Context, input *models.GetRe
 	if input.ReceiptId == uuid.Nil {
 		return nil, errdefs.ErrInvalidArgument
 	}
-	receipt, err := retry[*models.PaymentReceipt](ctx, maxRetries, retryDelay, func() (*models.PaymentReceipt, error) {
+	receipt, err := utils.RetryWithBackoff[*models.PaymentReceipt](ctx, maxRetries, retryDelay, func() (*models.PaymentReceipt, error) {
 		return s.repo.GetReceiptByID(ctx, input.ReceiptId)
 	})
 	if err != nil {
@@ -187,46 +198,6 @@ func (s *PaymentService) GetReceiptFile(ctx context.Context, input *models.GetRe
 		URL: url.GetUrl(),
 	}
 	return receiptFileURL, nil
-}
-
-func retry[T any](
-	ctx context.Context,
-	attempts int,
-	baseDelay time.Duration,
-	fn func() (T, error),
-) (T, error) {
-	var zero T
-	var err error
-
-	for i := 0; i < attempts; i++ {
-		select {
-		case <-ctx.Done():
-			return zero, ctx.Err()
-		default:
-			result, fnErr := fn()
-			if fnErr == nil {
-				return result, nil
-			}
-			err = fnErr
-
-			if !isRetriable(fnErr) {
-				return zero, fnErr
-			}
-
-			delay := time.Duration(math.Pow(2, float64(i))) * baseDelay
-			log.Printf("Retrying after error: %v (attempt %d)", fnErr, i+1)
-			time.Sleep(delay)
-		}
-	}
-	return zero, fmt.Errorf("after %d attempts: %w", attempts, err)
-}
-
-func isRetriable(err error) bool {
-	if s, ok := status.FromError(err); ok {
-		return s.Code() == codes.NotFound || s.Code() == codes.PermissionDenied ||
-			s.Code() == codes.Unavailable || s.Code() == codes.InvalidArgument || s.Code() == codes.Internal
-	}
-	return false
 }
 
 func ctxWithMetadata(ctx context.Context) context.Context {

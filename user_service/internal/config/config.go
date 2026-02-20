@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"github.com/ilyakaznacheev/cleanenv"
 	"os"
 )
@@ -12,7 +13,7 @@ type Config struct {
 	PostgresMaxConn     int32  `env:"POSTGRES_MAX_CONN" env-default:"5"`
 	PostgresMinConn     int32  `env:"POSTGRES_MIN_CONN" env-default:"1"`
 	PostgresAutoMigrate bool   `env:"POSTGRES_AUTO_MIGRATE" env-default:"true"`
-	TelegramSecret      string `env:"TELEGRAM_SECRET" env-default:"no-secret"`
+	TelegramSecret      string `env:"TELEGRAM_SECRET" env-required:"true"`
 }
 
 func New() (*Config, error) {
@@ -22,9 +23,12 @@ func New() (*Config, error) {
 			if err := cleanenv.ReadEnv(&cfg); err != nil {
 				return nil, err
 			}
-			return &cfg, nil
+		} else {
+			return nil, err
 		}
-		return nil, err
+	}
+	if cfg.TelegramSecret == "" {
+		return nil, fmt.Errorf("TELEGRAM_SECRET is required")
 	}
 	return &cfg, nil
 }

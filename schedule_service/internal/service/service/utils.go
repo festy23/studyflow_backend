@@ -2,6 +2,7 @@ package service
 
 import (
 	"common_library/ctxdata"
+	"common_library/utils"
 	"context"
 	"errors"
 	"fmt"
@@ -42,13 +43,15 @@ func NewUserClient(adress string) (*UserClient, error) {
 
 }
 func (c *UserClient) Close() {
-	c.conn.Close()
+	_ = c.conn.Close()
 }
 
 func (c *UserClient) GetTutorStudent(ctx context.Context, tutorID, studentID string) (*userpb.TutorStudent, error) {
-	return c.client.GetTutorStudent(ctx, &userpb.GetTutorStudentRequest{
-		TutorId:   tutorID,
-		StudentId: studentID,
+	return utils.RetryWithBackoff(ctx, 3, 100*time.Millisecond, func() (*userpb.TutorStudent, error) {
+		return c.client.GetTutorStudent(ctx, &userpb.GetTutorStudentRequest{
+			TutorId:   tutorID,
+			StudentId: studentID,
+		})
 	})
 }
 

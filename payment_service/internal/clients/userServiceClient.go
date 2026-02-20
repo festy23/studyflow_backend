@@ -1,5 +1,5 @@
 //go:generate mockgen -source=userServiceClient.go -destination=../mocks/user_service_mock.go
-//.go -package=mocks
+// .go -package=mocks
 
 package clients
 

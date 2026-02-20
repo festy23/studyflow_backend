@@ -41,7 +41,7 @@ func (h *FileHandler) InitUpload(ctx context.Context, req *pb.InitUploadRequest)
 
 	resp, err := h.fileService.InitUpload(ctx, input)
 	if err != nil {
-		return nil, mapError(err, errdefs.ValidationErr)
+		return nil, mapError(err, errdefs.ErrValidation)
 	}
 
 	return toPbInitUpload(resp), nil
@@ -99,21 +99,21 @@ func mapError(err error, possibleErrors ...error) error {
 		return nil
 
 	case errors.Is(err, errdefs.ErrAlreadyExists) && slices.Contains(possibleErrors, errdefs.ErrAlreadyExists):
-		return status.Errorf(codes.AlreadyExists, err.Error())
+		return status.Error(codes.AlreadyExists, err.Error())
 
-	case errors.Is(err, errdefs.ValidationErr) && slices.Contains(possibleErrors, errdefs.ValidationErr):
-		return status.Errorf(codes.InvalidArgument, err.Error())
+	case errors.Is(err, errdefs.ErrValidation) && slices.Contains(possibleErrors, errdefs.ErrValidation):
+		return status.Error(codes.InvalidArgument, err.Error())
 
-	case errors.Is(err, errdefs.AuthenticationErr) && slices.Contains(possibleErrors, errdefs.AuthenticationErr):
-		return status.Errorf(codes.Unauthenticated, err.Error())
+	case errors.Is(err, errdefs.ErrAuthentication) && slices.Contains(possibleErrors, errdefs.ErrAuthentication):
+		return status.Error(codes.Unauthenticated, err.Error())
 
 	case errors.Is(err, errdefs.ErrNotFound) && slices.Contains(possibleErrors, errdefs.ErrNotFound):
-		return status.Errorf(codes.NotFound, err.Error())
+		return status.Error(codes.NotFound, err.Error())
 
 	case errors.Is(err, errdefs.ErrPermissionDenied) && slices.Contains(possibleErrors, errdefs.ErrPermissionDenied):
-		return status.Errorf(codes.PermissionDenied, err.Error())
+		return status.Error(codes.PermissionDenied, err.Error())
 
 	default:
-		return status.Errorf(codes.Internal, err.Error())
+		return status.Error(codes.Internal, err.Error())
 	}
 }

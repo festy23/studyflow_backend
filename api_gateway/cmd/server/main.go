@@ -15,13 +15,19 @@ import (
 	"go.uber.org/zap"
 	homeworkpb "homework_service/pkg/api"
 	"net/http"
+	"os"
+	"os/signal"
 	paymentpb "paymentservice/pkg/api"
 	schedulepb "schedule_service/pkg/api"
+	"syscall"
+	"time"
 	userpb "userservice/pkg/api"
 )
 
 func main() {
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	zapLogger, err := zap.NewDevelopment()
 	if err != nil {
 		panic(err)
@@ -74,13 +80,22 @@ func main() {
 	authMiddleware := middleware.NewAuthMiddleware(userClient)
 	r := chi.NewRouter()
 	r.Use(middleware.NewLoggingMiddleware(logger))
+	r.Use(func(next http.Handler) http.Handler {
+		return http.MaxBytesHandler(next, 10<<20) // 10 MB
+	})
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	})
+
 	r.Route("/users", func(r chi.Router) {
 		authHandler.RegisterRoutes(r)
 		userHandler.RegisterRoutes(r, authMiddleware)
 	})
 
 	r.Route("/files", func(r chi.Router) {
-		fileHandler.RegisterRoutes(r)
+		fileHandler.RegisterRoutes(r, authMiddleware)
 	})
 
 	r.Route("/schedule", func(r chi.Router) {
@@ -98,8 +113,25 @@ func main() {
 	port := fmt.Sprintf(":%d", cfg.HTTPPort)
 	logger.Info(ctx, "Starting server", zap.String("port", port))
 
-	err = http.ListenAndServe(port, r)
-	if err != nil {
-		logger.Fatal(ctx, "cannot start http server", zap.Error(err))
+	srv := &http.Server{
+		Addr:              port,
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Fatal(ctx, "cannot start http server", zap.Error(err))
+		}
+	}()
+
+	<-ctx.Done()
+	logger.Info(ctx, "Shutting down server...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		logger.Fatal(ctx, "server forced to shutdown", zap.Error(err))
+	}
+	logger.Info(ctx, "Server stopped")
 }

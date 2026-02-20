@@ -23,7 +23,7 @@ import (
 type HomeworkHandler struct {
 	v1.UnimplementedHomeworkServiceServer
 
-	assignmentService service.AssignmentService
+	assignmentService service.AssignmentServiceInterface
 	submissionService service.SubmissionServiceInterface
 	feedbackService   service.FeedbackServiceInterface
 	logger            *logger.Logger
@@ -34,7 +34,7 @@ func RegisterHomeworkServiceServer(grpcServer *grpc.Server, server v1.HomeworkSe
 }
 
 func NewHomeworkHandler(
-	assignmentService service.AssignmentService,
+	assignmentService service.AssignmentServiceInterface,
 	submissionService service.SubmissionServiceInterface,
 	feedbackService service.FeedbackServiceInterface,
 	logger *logger.Logger,
@@ -101,8 +101,12 @@ func (h *HomeworkHandler) UpdateAssignment(ctx context.Context, req *v1.UpdateAs
 		return nil, toGRPCError(err)
 	}
 	updatedAssignment := *assignment
-	updatedAssignment.Title = req.Title
-	updatedAssignment.Description = req.Description
+	if req.Title != nil {
+		updatedAssignment.Title = req.Title
+	}
+	if req.Description != nil {
+		updatedAssignment.Description = req.Description
+	}
 
 	if req.FileId != nil {
 		fileId, err := uuid.Parse(*req.FileId)
@@ -140,9 +144,12 @@ func (h *HomeworkHandler) DeleteAssignment(ctx context.Context, req *v1.DeleteAs
 }
 
 func (h *HomeworkHandler) ListAssignmentsByTutor(ctx context.Context, req *v1.ListAssignmentsByTutorRequest) (*v1.ListAssignmentsResponse, error) {
-	statuses := make([]domain.AssignmentStatus, len(req.StatusFilter))
-	for ind, s := range req.StatusFilter {
-		statuses[ind] = domain.AssignmentStatus(s)
+	statuses := make([]domain.AssignmentStatus, 0, len(req.StatusFilter))
+	for _, s := range req.StatusFilter {
+		ds := domain.ToAssignmentStatus(s.String())
+		if ds != domain.AssignmentStatusUnspecified {
+			statuses = append(statuses, ds)
+		}
 	}
 
 	tutorId, err := uuid.Parse(req.TutorId)
@@ -160,9 +167,12 @@ func (h *HomeworkHandler) ListAssignmentsByTutor(ctx context.Context, req *v1.Li
 }
 
 func (h *HomeworkHandler) ListAssignmentsByStudent(ctx context.Context, req *v1.ListAssignmentsByStudentRequest) (*v1.ListAssignmentsResponse, error) {
-	statuses := make([]domain.AssignmentStatus, len(req.StatusFilter))
-	for ind, s := range req.StatusFilter {
-		statuses[ind] = domain.AssignmentStatus(s)
+	statuses := make([]domain.AssignmentStatus, 0, len(req.StatusFilter))
+	for _, s := range req.StatusFilter {
+		ds := domain.ToAssignmentStatus(s.String())
+		if ds != domain.AssignmentStatusUnspecified {
+			statuses = append(statuses, ds)
+		}
 	}
 	studentId, err := uuid.Parse(req.StudentId)
 	if err != nil {
@@ -179,9 +189,12 @@ func (h *HomeworkHandler) ListAssignmentsByStudent(ctx context.Context, req *v1.
 }
 
 func (h *HomeworkHandler) ListAssignmentsByPair(ctx context.Context, req *v1.ListAssignmentsByPairRequest) (*v1.ListAssignmentsResponse, error) {
-	statuses := make([]domain.AssignmentStatus, len(req.StatusFilter))
-	for ind, s := range req.StatusFilter {
-		statuses[ind] = domain.AssignmentStatus(s)
+	statuses := make([]domain.AssignmentStatus, 0, len(req.StatusFilter))
+	for _, s := range req.StatusFilter {
+		ds := domain.ToAssignmentStatus(s.String())
+		if ds != domain.AssignmentStatusUnspecified {
+			statuses = append(statuses, ds)
+		}
 	}
 	studentId, err := uuid.Parse(req.StudentId)
 	if err != nil {

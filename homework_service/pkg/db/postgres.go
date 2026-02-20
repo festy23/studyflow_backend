@@ -17,7 +17,7 @@ type Config struct {
 	Host     string
 	Port     int
 	User     string
-	Password string
+	Password string //nolint:gosec // config struct, not hardcoded cred
 	DBName   string
 	SSLMode  string
 }

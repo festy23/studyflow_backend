@@ -33,9 +33,9 @@ func TestGetPaymentInfo_Success(t *testing.T) {
 	lid := lessonID.String()
 	res, err := h.GetPaymentInfo(ctx, &pb.GetPaymentInfoRequest{LessonId: &lid})
 	assert.NoError(t, err)
-	assert.Equal(t, lessonID.String(), *res.LessonId)         // Разыменовываем указатель
-	assert.Equal(t, int32(1000), *res.PriceRub)               // Разыменовываем указатель
-	assert.Equal(t, "test payment details", *res.PaymentInfo) // Разыменовываем указатель
+	assert.Equal(t, lessonID.String(), *res.LessonId)
+	assert.Equal(t, int32(1000), *res.PriceRub)
+	assert.Equal(t, "test payment details", *res.PaymentInfo)
 }
 
 func TestGetPaymentInfo_NotFound(t *testing.T) {
@@ -134,6 +134,24 @@ func TestSubmitPaymentReceipt_PermissionDenied(t *testing.T) {
 	_, err := h.SubmitPaymentReceipt(ctx, &pb.SubmitPaymentReceiptRequest{LessonId: &lID, FileId: &fID})
 	assert.Error(t, err)
 	assert.Equal(t, codes.PermissionDenied, status.Code(err))
+}
+
+func TestSubmitPaymentReceipt_AlreadyExists(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	lessonID := uuid.New()
+	fileID := uuid.New()
+	mockSvc := mocks.NewMockPaymentService(ctrl)
+	h := &PaymentServiceServer{service: mockSvc}
+	ctx := context.Background()
+	input := &models.SubmitPaymentReceiptInput{LessonId: lessonID, FileId: fileID}
+	mockSvc.EXPECT().SubmitPaymentReceipt(ctx, input).Return(nil, errdefs.ErrAlreadyExists)
+	lID := lessonID.String()
+	fID := fileID.String()
+	_, err := h.SubmitPaymentReceipt(ctx, &pb.SubmitPaymentReceiptRequest{LessonId: &lID, FileId: &fID})
+	assert.Error(t, err)
+	assert.Equal(t, codes.AlreadyExists, status.Code(err))
 }
 
 func TestSubmitPaymentReceipt_InvalidLessonID(t *testing.T) {
@@ -318,13 +336,14 @@ func TestGetReceiptFile_Success(t *testing.T) {
 
 	receiptID := uuid.New()
 	mockSvc := mocks.NewMockPaymentService(ctrl)
+	h := &PaymentServiceServer{service: mockSvc}
 	ctx := context.Background()
 	input := &models.GetReceiptFileInput{ReceiptId: receiptID}
 	response := &models.ReceiptFileUrl{URL: "http://example.com/receipt.pdf"}
 	mockSvc.EXPECT().GetReceiptFile(ctx, input).Return(response, nil)
-	res, err := mockSvc.GetReceiptFile(ctx, input)
+	res, err := h.GetReceiptFile(ctx, &pb.GetReceiptFileRequest{ReceiptId: receiptID.String()})
 	assert.NoError(t, err)
-	assert.Equal(t, "http://example.com/receipt.pdf", res.URL)
+	assert.Equal(t, "http://example.com/receipt.pdf", *res.Url)
 }
 
 func TestGetReceiptFile_NotFound(t *testing.T) {
