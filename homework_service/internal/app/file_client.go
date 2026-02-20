@@ -2,8 +2,11 @@ package app
 
 import (
 	"common_library/ctxdata"
+	"common_library/utils"
 	"context"
 	filePb "fileservice/pkg/api"
+	"time"
+
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -25,7 +28,9 @@ func (c *FileClient) GetFileURL(ctx context.Context, fileID uuid.UUID) (string, 
 	if role, ok := ctxdata.GetUserRole(ctx); ok {
 		outCtx = metadata.AppendToOutgoingContext(outCtx, "x-user-role", role)
 	}
-	resp, err := c.client.GenerateDownloadURL(ctx, &filePb.GenerateDownloadURLRequest{FileId: fileID.String()})
+	resp, err := utils.RetryWithBackoff(outCtx, 3, 100*time.Millisecond, func() (*filePb.DownloadURL, error) {
+		return c.client.GenerateDownloadURL(outCtx, &filePb.GenerateDownloadURLRequest{FileId: fileID.String()})
+	})
 	if err != nil {
 		return "", err
 	}

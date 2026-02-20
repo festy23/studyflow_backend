@@ -11,6 +11,17 @@ import (
 	"homework_service/internal/repository"
 )
 
+type AssignmentServiceInterface interface {
+	CreateAssignment(ctx context.Context, req *domain.Assignment) (*domain.Assignment, error)
+	GetAssignment(ctx context.Context, id uuid.UUID) (*domain.Assignment, error)
+	UpdateAssignment(ctx context.Context, assignment *domain.Assignment) error
+	DeleteAssignment(ctx context.Context, id uuid.UUID) error
+	ListAssignmentsByTutor(ctx context.Context, tutorID uuid.UUID, statuses []domain.AssignmentStatus) ([]*domain.Assignment, error)
+	ListAssignmentsByStudent(ctx context.Context, studentID uuid.UUID, statuses []domain.AssignmentStatus) ([]*domain.Assignment, error)
+	ListAssignmentsByPair(ctx context.Context, tutorID uuid.UUID, studentID uuid.UUID, statuses []domain.AssignmentStatus) ([]*domain.Assignment, error)
+	GetAssignmentFileURL(ctx context.Context, id uuid.UUID) (string, error)
+}
+
 type AssignmentService struct {
 	assignmentRepo repository.AssignmentRepository
 	userClient     UserClient

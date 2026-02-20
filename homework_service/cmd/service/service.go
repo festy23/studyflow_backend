@@ -88,7 +88,7 @@ func main() {
 	)
 
 	handler := homework_grpc.NewHomeworkHandler(
-		*assignmentService,
+		assignmentService,
 		submissionService,
 		feedbackService,
 		log,

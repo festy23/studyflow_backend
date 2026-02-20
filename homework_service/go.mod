@@ -11,7 +11,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/lib/pq v1.10.9
 	github.com/segmentio/kafka-go v0.4.47
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.72.0
 	google.golang.org/protobuf v1.36.6

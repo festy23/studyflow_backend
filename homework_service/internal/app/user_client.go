@@ -2,7 +2,10 @@ package app
 
 import (
 	"common_library/ctxdata"
+	"common_library/utils"
 	"context"
+	"time"
+
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -31,7 +34,9 @@ func (c *UserClient) IsPair(ctx context.Context, tutorID, studentID uuid.UUID) (
 	if role, ok := ctxdata.GetUserRole(ctx); ok {
 		outCtx = metadata.AppendToOutgoingContext(outCtx, "x-user-role", role)
 	}
-	resp, err := c.client.GetTutorStudent(outCtx, req)
+	resp, err := utils.RetryWithBackoff(outCtx, 3, 100*time.Millisecond, func() (*userPb.TutorStudent, error) {
+		return c.client.GetTutorStudent(outCtx, req)
+	})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return false, nil

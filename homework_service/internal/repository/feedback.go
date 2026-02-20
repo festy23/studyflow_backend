@@ -73,7 +73,7 @@ func (r *FeedbackRepository) Update(ctx context.Context, feedback *domain.Feedba
 		return ErrNotFound
 	}
 
-	return err
+	return nil
 }
 
 func (r *FeedbackRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Feedback, error) {

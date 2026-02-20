@@ -6,7 +6,7 @@ db:
   host: "postgres"
   port: 5432
   user: "homework_user"
-  password: "password"
+  password: "${DB_PASSWORD}"
   dbname: "homework_db"
   sslmode: "disable"
 
@@ -22,5 +22,5 @@ services:
     address: "user-service:50051"
     timeout: 10s
   file_service:
-    address: "file-service:50052"
+    address: "file-service:50051"
     timeout: 10s
