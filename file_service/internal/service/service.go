@@ -3,7 +3,6 @@ package service
 import (
 	"common_library/logging"
 	"context"
-	"database/sql"
 	"errors"
 	"fileservice/internal/errdefs"
 	"fileservice/internal/model"
@@ -13,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 	"path"
 	"strings"
@@ -38,14 +38,24 @@ func NewFileService(ctx context.Context, fileRepo FileRepository, client *s3.Cli
 	return s, err
 }
 
+var allowedExtensions = map[string]bool{
+	".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
+	".pdf": true, ".doc": true, ".docx": true, ".xls": true, ".xlsx": true,
+	".ppt": true, ".pptx": true, ".txt": true, ".csv": true,
+	".mp3": true, ".mp4": true, ".wav": true, ".zip": true, ".rar": true,
+}
+
 func (s *FileService) InitUpload(ctx context.Context, input *model.InitUploadInput) (*model.InitUpload, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return nil, err
 	}
-	extension := path.Ext(input.Filename)
+	extension := strings.ToLower(path.Ext(input.Filename))
 	if extension == "" {
 		return nil, fmt.Errorf("invalid file extension: %w", errdefs.ValidationErr)
+	}
+	if !allowedExtensions[extension] {
+		return nil, fmt.Errorf("file extension %s not allowed: %w", extension, errdefs.ValidationErr)
 	}
 	fileInput := &model.RepositoryCreateFileInput{
 		Id:         id,
@@ -77,9 +87,10 @@ func (s *FileService) InitUpload(ctx context.Context, input *model.InitUploadInp
 func (s *FileService) GenerateDownloadURL(ctx context.Context, fileId uuid.UUID) (string, error) {
 	file, err := s.fileRepo.GetFile(ctx, fileId)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return "", fmt.Errorf("file not found: %w", errdefs.ErrNotFound)
 		}
+		return "", fmt.Errorf("failed to get file: %w", err)
 	}
 
 	key := file.Id.String() + file.Extension
@@ -94,9 +105,10 @@ func (s *FileService) GenerateDownloadURL(ctx context.Context, fileId uuid.UUID)
 func (s *FileService) GetFileMeta(ctx context.Context, fileId uuid.UUID) (*model.File, error) {
 	file, err := s.fileRepo.GetFile(ctx, fileId)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("file not found: %w", errdefs.ErrNotFound)
 		}
+		return nil, fmt.Errorf("failed to get file: %w", err)
 	}
 	return file, nil
 }
