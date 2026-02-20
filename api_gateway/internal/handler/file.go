@@ -12,15 +12,29 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type FileHandler struct {
-	c        filepb.FileServiceClient
-	minioUrl string
+	c              filepb.FileServiceClient
+	minioUrl       string
+	parsedMinioUrl *url.URL
+	httpClient     *http.Client
 }
 
 func NewFileHandler(c filepb.FileServiceClient, minioUrl string) *FileHandler {
-	return &FileHandler{c: c, minioUrl: minioUrl}
+	parsed, err := url.Parse(minioUrl)
+	if err != nil {
+		panic(fmt.Sprintf("invalid minioUrl %q: %v", minioUrl, err))
+	}
+	return &FileHandler{
+		c:              c,
+		minioUrl:       minioUrl,
+		parsedMinioUrl: parsed,
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+	}
 }
 
 func (h *FileHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
@@ -70,8 +84,7 @@ func (h *FileHandler) proxyToMinio(method string, path string) http.HandlerFunc 
 		targetURL := h.minioUrl + targetPath + "?" + r.URL.RawQuery
 
 		parsedURL, err := url.Parse(targetURL)
-		expectedURL, _ := url.Parse(h.minioUrl)
-		if err != nil || parsedURL.Scheme != expectedURL.Scheme || parsedURL.Host != expectedURL.Host {
+		if err != nil || parsedURL.Scheme != h.parsedMinioUrl.Scheme || parsedURL.Host != h.parsedMinioUrl.Host {
 			http.Error(w, "Invalid proxy target", http.StatusBadRequest)
 			return
 		}
@@ -90,7 +103,7 @@ func (h *FileHandler) proxyToMinio(method string, path string) http.HandlerFunc 
 		if logger, ok := logging.GetFromContext(r.Context()); ok {
 			logger.Debug(r.Context(), "making proxy request", zap.String("URL", targetURL), zap.String("method", method), zap.Any("headers", req.Header))
 		}
-		resp, err := http.DefaultClient.Do(req) //nolint:gosec // URL validated above (scheme+host check)
+		resp, err := h.httpClient.Do(req) //nolint:gosec // URL validated above (scheme+host check)
 		if err != nil {
 			if logger, ok := logging.GetFromContext(r.Context()); ok {
 				logger.Error(r.Context(), "Failed to proxy request", zap.Error(err))
