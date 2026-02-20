@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -22,12 +23,11 @@ func NewFileHandler(c filepb.FileServiceClient, minioUrl string) *FileHandler {
 	return &FileHandler{c: c, minioUrl: minioUrl}
 }
 
-func (h *FileHandler) RegisterRoutes(r chi.Router) {
-	r.Post("/init-upload", h.InitUpload)
-	r.Get("/{id}/meta", h.GetFileMeta)
+func (h *FileHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
+	r.With(authMiddleware).Post("/init-upload", h.InitUpload)
+	r.With(authMiddleware).Get("/{id}/meta", h.GetFileMeta)
 	r.Put("/upload/*", h.proxyToMinio("PUT", "/files/upload"))
 	r.Get("/download/*", h.proxyToMinio("GET", "/files/download"))
-
 }
 
 func (h *FileHandler) InitUpload(w http.ResponseWriter, r *http.Request) {
@@ -68,6 +68,13 @@ func (h *FileHandler) proxyToMinio(method string, path string) http.HandlerFunc 
 		}
 		targetPath := strings.TrimPrefix(r.URL.Path, path)
 		targetURL := h.minioUrl + targetPath + "?" + r.URL.RawQuery
+
+		parsedURL, err := url.Parse(targetURL)
+		expectedURL, _ := url.Parse(h.minioUrl)
+		if err != nil || parsedURL.Scheme != expectedURL.Scheme || parsedURL.Host != expectedURL.Host {
+			http.Error(w, "Invalid proxy target", http.StatusBadRequest)
+			return
+		}
 
 		req, err := http.NewRequest(method, targetURL, r.Body)
 		if err != nil {

@@ -3,6 +3,7 @@ package handler
 import (
 	"common_library/logging"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/go-chi/chi/v5"
@@ -77,6 +78,9 @@ func Handle[Req any, Resp any](
 		if role := r.Header.Get("X-User-Role"); role != "" {
 			ctx = metadata.AppendToOutgoingContext(ctx, "x-user-role", role)
 		}
+		if traceID := r.Header.Get("X-Trace-Id"); traceID != "" {
+			ctx = metadata.AppendToOutgoingContext(ctx, "x-trace-id", traceID)
+		}
 
 		grpcReq := new(Req)
 
@@ -86,7 +90,7 @@ func Handle[Req any, Resp any](
 				if logger, ok := logging.GetFromContext(r.Context()); ok {
 					logger.Error(ctx, "Failed to read request body", zap.Error(err))
 				}
-				w.WriteHeader(http.StatusInternalServerError)
+				writeErrorJSON(w, http.StatusInternalServerError, "failed to read request body")
 				return
 			}
 
@@ -94,7 +98,7 @@ func Handle[Req any, Resp any](
 				if logger, ok := logging.GetFromContext(r.Context()); ok {
 					logger.Error(ctx, "Failed to parse request body", zap.Error(err))
 				}
-				w.WriteHeader(mapErr(err))
+				writeErrorJSON(w, mapErr(err), "invalid request body")
 				return
 			}
 		}
@@ -104,13 +108,9 @@ func Handle[Req any, Resp any](
 				if logger, ok := logging.GetFromContext(r.Context()); ok {
 					logger.Error(ctx, "Failed to parse request path and query", zap.Error(err))
 				}
-				w.WriteHeader(http.StatusInternalServerError)
+				writeErrorJSON(w, mapErr(err), "invalid request parameters")
 				return
 			}
-		}
-
-		if logger, ok := logging.GetFromContext(r.Context()); ok {
-			logger.Debug(ctx, "req after parsing path", zap.Any("req", grpcReq))
 		}
 
 		if logger, ok := logging.GetFromContext(r.Context()); ok {
@@ -122,12 +122,13 @@ func Handle[Req any, Resp any](
 			if logger, ok := logging.GetFromContext(r.Context()); ok {
 				logger.Error(ctx, "grpc request failed", zap.Error(err))
 			}
-			w.WriteHeader(mapErr(err))
+			statusCode := mapErr(err)
+			writeErrorJSON(w, statusCode, http.StatusText(statusCode))
 			return
 		}
 
 		if logger, ok := logging.GetFromContext(r.Context()); ok {
-			logger.Debug(ctx, "Recieved response", zap.Any("grpcResp", grpcResp))
+			logger.Debug(ctx, "Received response", zap.Any("grpcResp", grpcResp))
 		}
 
 		data, err := protojson.Marshal(any(grpcResp).(proto.Message))
@@ -135,7 +136,7 @@ func Handle[Req any, Resp any](
 			if logger, ok := logging.GetFromContext(r.Context()); ok {
 				logger.Error(ctx, "Failed to parse response message", zap.Error(err))
 			}
-			w.WriteHeader(mapErr(err))
+			writeErrorJSON(w, http.StatusInternalServerError, "failed to serialize response")
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -184,30 +185,31 @@ func HandleWithCache[Req any, Resp any](
 		if parseBody {
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
+				writeErrorJSON(w, http.StatusInternalServerError, "failed to read request body")
 				return
 			}
 			if err := protojson.Unmarshal(body, any(grpcReq).(proto.Message)); err != nil {
-				w.WriteHeader(mapErr(err))
+				writeErrorJSON(w, mapErr(err), "invalid request body")
 				return
 			}
 		}
 		if reqParser != nil {
 			if err := reqParser(ctx, r, grpcReq); err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
+				writeErrorJSON(w, mapErr(err), "invalid request parameters")
 				return
 			}
 		}
 
 		grpcResp, err := method(ctx, grpcReq)
 		if err != nil {
-			w.WriteHeader(mapErr(err))
+			statusCode := mapErr(err)
+			writeErrorJSON(w, statusCode, http.StatusText(statusCode))
 			return
 		}
 
 		data, err := protojson.Marshal(any(grpcResp).(proto.Message))
 		if err != nil {
-			w.WriteHeader(mapErr(err))
+			writeErrorJSON(w, http.StatusInternalServerError, "failed to serialize response")
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -217,6 +219,13 @@ func HandleWithCache[Req any, Resp any](
 			cache.Set(ctx, key, data, ttl)
 		}
 	}, nil
+}
+
+func writeErrorJSON(w http.ResponseWriter, statusCode int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	resp, _ := json.Marshal(map[string]string{"error": message})
+	w.Write(resp)
 }
 
 func parsePathParam(r *http.Request, key string) (string, error) {

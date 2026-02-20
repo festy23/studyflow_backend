@@ -67,6 +67,8 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
+	handler(w, r)
+
 	key, err := buildUserKey(r)
 	if err == nil {
 		h.cache.Delete(r.Context(), key)
@@ -75,7 +77,6 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		h.cache.Delete(r.Context(), key)
 	}
-	handler(w, r)
 }
 
 func (h *UserHandler) GetTutorProfile(w http.ResponseWriter, r *http.Request) {
@@ -95,12 +96,13 @@ func (h *UserHandler) UpdateTutorProfile(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		panic(err)
 	}
+
+	handler(w, r)
+
 	key, err := buildTutorProfileKey(r)
 	if err == nil {
 		h.cache.Delete(r.Context(), key)
 	}
-
-	handler(w, r)
 }
 
 func (h *UserHandler) ListTutorStudentByTutor(w http.ResponseWriter, r *http.Request) {
@@ -139,12 +141,12 @@ func (h *UserHandler) UpdateTutorStudent(w http.ResponseWriter, r *http.Request)
 		panic(err)
 	}
 
+	handler(w, r)
+
 	key, err := buildTutorStudentKey(r)
 	if err == nil {
 		h.cache.Delete(r.Context(), key)
 	}
-
-	handler(w, r)
 }
 
 func (h *UserHandler) DeleteTutorStudent(w http.ResponseWriter, r *http.Request) {
@@ -153,12 +155,12 @@ func (h *UserHandler) DeleteTutorStudent(w http.ResponseWriter, r *http.Request)
 		panic(err)
 	}
 
+	handler(w, r)
+
 	key, err := buildTutorStudentKey(r)
 	if err == nil {
 		h.cache.Delete(r.Context(), key)
 	}
-
-	handler(w, r)
 }
 
 func (h *UserHandler) CreateTutorStudent(w http.ResponseWriter, r *http.Request) {
