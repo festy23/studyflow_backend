@@ -12,7 +12,7 @@ require (
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/pashagolub/pgxmock/v4 v4.7.0
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.5.1
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.72.0
