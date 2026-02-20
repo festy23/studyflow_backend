@@ -14,7 +14,7 @@ import (
 
 func IsRetriable(err error) bool {
 	if s, ok := status.FromError(err); ok {
-		return s.Code() == codes.Unavailable || s.Code() == codes.Internal
+		return s.Code() == codes.Unavailable
 	}
 	return false
 }
@@ -26,6 +26,9 @@ func RetryWithBackoff[T any](
 	fn func() (T, error),
 ) (T, error) {
 	var zero T
+	if maxRetries <= 0 {
+		return zero, fmt.Errorf("maxRetries must be > 0, got %d", maxRetries)
+	}
 	var lastErr error
 
 	for i := range maxRetries {

@@ -21,6 +21,7 @@ import (
 	pb "paymentservice/pkg/api"
 	api3 "schedule_service/pkg/api"
 	"syscall"
+	"time"
 	"userservice/pkg/api"
 )
 
@@ -90,6 +91,17 @@ func main() {
 		}
 	}()
 	<-ctx.Done()
-	server.Stop()
+	stopped := make(chan struct{})
+	go func() {
+		server.GracefulStop()
+		close(stopped)
+	}()
+	gracefulTimeout := time.NewTimer(15 * time.Second)
+	defer gracefulTimeout.Stop()
+	select {
+	case <-stopped:
+	case <-gracefulTimeout.C:
+		server.Stop()
+	}
 	logger.Info(ctx, "Server Stopped")
 }

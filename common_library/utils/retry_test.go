@@ -59,7 +59,7 @@ func TestRetryWithBackoff_AllRetriesFail(t *testing.T) {
 	calls := 0
 	_, err := RetryWithBackoff(context.Background(), 3, 10*time.Millisecond, func() (string, error) {
 		calls++
-		return "", status.Error(codes.Internal, "internal")
+		return "", status.Error(codes.Unavailable, "unavailable")
 	})
 	if err == nil {
 		t.Fatal("expected error after all retries")
@@ -87,7 +87,7 @@ func TestIsRetriable(t *testing.T) {
 		expected bool
 	}{
 		{codes.Unavailable, true},
-		{codes.Internal, true},
+		{codes.Internal, false},
 		{codes.NotFound, false},
 		{codes.PermissionDenied, false},
 		{codes.InvalidArgument, false},

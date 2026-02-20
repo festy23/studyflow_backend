@@ -54,7 +54,7 @@ func (s *IntegrationTestSuite) TearDownSuite() {
 func (s *IntegrationTestSuite) TestFileClientIntegration() {
 	t := s.T()
 
-	fileID := uuid.MustParse("a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8") // нужен реальный ID
+	fileID := uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-e3f4a5b6c7d8") // нужен реальный ID
 
 	ctx := context.Background()
 	url, err := s.fileClient.GetFileURL(ctx, fileID)

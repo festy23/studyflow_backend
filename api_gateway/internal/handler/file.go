@@ -51,7 +51,7 @@ func (h *FileHandler) GetFileMeta(w http.ResponseWriter, r *http.Request) {
 func getFileMetaParsePath(ctx context.Context, httpReq *http.Request, grpcReq *filepb.GetFileMetaRequest) error {
 	id := chi.URLParam(httpReq, "id")
 	if id == "" {
-		return fmt.Errorf("%w: %s", ErrBadRequest, "studentId is required")
+		return fmt.Errorf("%w: %s", ErrBadRequest, "file id is required")
 	}
 	grpcReq.FileId = id
 
