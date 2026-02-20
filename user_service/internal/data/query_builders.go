@@ -7,7 +7,9 @@ import (
 	"userservice/internal/model"
 )
 
-func buildUserUpdateQuery(input *model.UpdateUserInput) (string, []any) {
+var ErrNoFieldsToUpdate = fmt.Errorf("no fields to update")
+
+func buildUserUpdateQuery(input *model.UpdateUserInput) (string, []any, error) {
 	var set []string
 	var args []any
 	argIdx := 1
@@ -28,6 +30,10 @@ func buildUserUpdateQuery(input *model.UpdateUserInput) (string, []any) {
 		argIdx++
 	}
 
+	if len(set) == 0 {
+		return "", nil, ErrNoFieldsToUpdate
+	}
+
 	query := fmt.Sprintf(
 		`
 UPDATE users 
@@ -42,10 +48,10 @@ RETURNING
 		strings.Join(set, ", "),
 		argIdx,
 	)
-	return query, args
+	return query, args, nil
 }
 
-func buildTutorProfileUpdateQuery(input *model.UpdateTutorProfileInput) (string, []any) {
+func buildTutorProfileUpdateQuery(input *model.UpdateTutorProfileInput) (string, []any, error) {
 	var set []string
 	var args []any
 	argIdx := 1
@@ -66,6 +72,10 @@ func buildTutorProfileUpdateQuery(input *model.UpdateTutorProfileInput) (string,
 		argIdx++
 	}
 
+	if len(set) == 0 {
+		return "", nil, ErrNoFieldsToUpdate
+	}
+
 	query := fmt.Sprintf(`
 UPDATE tutor_profiles
 SET %s
@@ -76,10 +86,10 @@ RETURNING id, user_id, payment_info, lesson_price_rub, lesson_connection_link, c
 		argIdx,
 	)
 
-	return query, args
+	return query, args, nil
 }
 
-func buildUpdateTutorStudentQuery(input *model.UpdateTutorStudentInput) (string, []any) {
+func buildUpdateTutorStudentQuery(input *model.UpdateTutorStudentInput) (string, []any, error) {
 	var set []string
 	var args []any
 	argIdx := 1
@@ -100,6 +110,10 @@ func buildUpdateTutorStudentQuery(input *model.UpdateTutorStudentInput) (string,
 		argIdx++
 	}
 
+	if len(set) == 0 {
+		return "", nil, ErrNoFieldsToUpdate
+	}
+
 	query := fmt.Sprintf(`
 UPDATE tutor_students
 SET %s
@@ -109,7 +123,7 @@ RETURNING id, tutor_id, student_id,
     status, created_at, edited_at
 `, strings.Join(set, ", "), argIdx, argIdx+1)
 
-	return query, args
+	return query, args, nil
 }
 
 func buildListTutorStudentsQuery(tutorID uuid.UUID, studentID uuid.UUID) (string, []any) {

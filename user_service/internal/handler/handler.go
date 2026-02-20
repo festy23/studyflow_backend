@@ -393,6 +393,6 @@ func mapError(err error, possibleErrors ...error) error {
 		return status.Errorf(codes.PermissionDenied, err.Error())
 
 	default:
-		return status.Errorf(codes.Internal, err.Error())
+		return status.Errorf(codes.Internal, "internal server error")
 	}
 }
