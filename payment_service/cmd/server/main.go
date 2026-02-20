@@ -5,13 +5,10 @@ import (
 	"common_library/metadata"
 	"context"
 	api2 "fileservice/pkg/api"
-	"flag"
 	"fmt"
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/reflection"
 	"net"
 	"os"
 	"os/signal"
@@ -24,21 +21,16 @@ import (
 	pb "paymentservice/pkg/api"
 	api3 "schedule_service/pkg/api"
 	"syscall"
+	"time"
 	"userservice/pkg/api"
 )
-
-//const (
-//	envLocal = "local"
-//	envDev   = "dev"
-//	envProd  = "prod"
-//)
 
 func main() {
 	ctx := context.Background()
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	//zapLogger, err := zap.NewDevelopment()
+	// zapLogger, err := zap.NewDevelopment()
 	zapLogger, err := zap.NewProduction()
 
 	if err != nil {
@@ -61,20 +53,6 @@ func main() {
 	logger.Info(ctx, "connected db")
 
 	paymentRepo := data.NewPaymentRepository(database)
-	stringPort := os.Getenv("GRPC_PORT")
-
-	serverAddr := flag.String("server", "localhost:"+stringPort, "gRPC server address")
-	flag.Parse()
-	conn, err := grpc.NewClient(*serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		logger.Fatal(ctx, "failed to create grpc.NewClient"+err.Error())
-	}
-	defer func(conn *grpc.ClientConn) {
-		err := conn.Close()
-		if err != nil {
-			logger.Fatal(ctx, "failed tot close conn")
-		}
-	}(conn)
 
 	userGrpcClient, closeFunc := clients.New(ctx, cfg.UserServiceURL)
 	defer closeFunc()
@@ -104,7 +82,6 @@ func main() {
 			logging.NewUnaryLoggingInterceptor(logger),
 		)),
 	)
-	reflection.Register(server)
 	pb.RegisterPaymentServiceServer(server, paymentHandler)
 
 	logger.Info(ctx, "Starting gRPC server...", zap.Int("port", cfg.GRPCPort))
@@ -113,9 +90,18 @@ func main() {
 			logger.Fatal(ctx, "failed to serve", zap.Error(err))
 		}
 	}()
+	<-ctx.Done()
+	stopped := make(chan struct{})
+	go func() {
+		server.GracefulStop()
+		close(stopped)
+	}()
+	gracefulTimeout := time.NewTimer(15 * time.Second)
+	defer gracefulTimeout.Stop()
 	select {
-	case <-ctx.Done():
+	case <-stopped:
+	case <-gracefulTimeout.C:
 		server.Stop()
-		logger.Info(ctx, "Server Stopped")
 	}
+	logger.Info(ctx, "Server Stopped")
 }

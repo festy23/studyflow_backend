@@ -159,14 +159,6 @@ func toPbReceipt(receipt *models.PaymentReceipt) *pb.Receipt {
 	}
 }
 
-//func toPbPaymentInfo(paymentInfo *models.PaymentInfo) *pb.PaymentInfo {
-//	return &pb.PaymentInfo{
-//		LessonId:    paymentInfo.LessonID.String(),
-//		PriceRub:    paymentInfo.PriceRUB,
-//		PaymentInfo: paymentInfo.PaymentDetails,
-//	}
-//}
-
 func mapError(err error, possibleErrors ...error) error {
 	switch {
 
@@ -184,6 +176,9 @@ func mapError(err error, possibleErrors ...error) error {
 
 	case errors.Is(err, errdefs.ErrInvalidArgument) && slices.Contains(possibleErrors, errdefs.ErrInvalidArgument):
 		return status.New(codes.InvalidArgument, "invalid argument provided").Err()
+
+	case errors.Is(err, errdefs.ErrAlreadyExists) && slices.Contains(possibleErrors, errdefs.ErrAlreadyExists):
+		return status.New(codes.AlreadyExists, "resource already exists").Err()
 
 	default:
 		return status.New(codes.Internal, "internal server error").Err()

@@ -45,10 +45,13 @@ WHERE id = $1
 }
 
 func (r *UserRepository) UpdateUser(ctx context.Context, id uuid.UUID, input *model.UpdateUserInput) (*model.User, error) {
-	query, args := buildUserUpdateQuery(input)
+	query, args, err := buildUserUpdateQuery(input)
+	if err != nil {
+		return nil, err
+	}
 	args = append(args, id)
 	var user model.User
-	err := pgxscan.Get(ctx, r.db, &user, query, args...)
+	err = pgxscan.Get(ctx, r.db, &user, query, args...)
 	if err != nil {
 		return nil, handleError(err)
 	}
@@ -75,11 +78,14 @@ WHERE user_id = $1
 }
 
 func (r *UserRepository) UpdateTutorProfile(ctx context.Context, userId uuid.UUID, input *model.UpdateTutorProfileInput) (*model.TutorProfile, error) {
-	query, args := buildTutorProfileUpdateQuery(input)
+	query, args, err := buildTutorProfileUpdateQuery(input)
+	if err != nil {
+		return nil, err
+	}
 	args = append(args, userId)
 
 	var user model.TutorProfile
-	err := pgxscan.Get(ctx, r.db, &user, query, args...)
+	err = pgxscan.Get(ctx, r.db, &user, query, args...)
 	if err != nil {
 		return nil, handleError(err)
 	}

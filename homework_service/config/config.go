@@ -26,7 +26,7 @@ type DBConfig struct {
 	Host     string `yaml:"host"`
 	Port     int    `yaml:"port"`
 	User     string `yaml:"user"`
-	Password string `yaml:"password"`
+	Password string `yaml:"password"` //nolint:gosec // config struct, not hardcoded cred
 	DBName   string `yaml:"dbname"`
 	SSLMode  string `yaml:"sslmode"`
 }
@@ -50,7 +50,7 @@ type ServiceConfig struct {
 
 func Load() (*Config, error) {
 	configPath := getConfigPath()
-	data, err := os.ReadFile(configPath)
+	data, err := os.ReadFile(configPath) //nolint:gosec // config path from env/flag
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}

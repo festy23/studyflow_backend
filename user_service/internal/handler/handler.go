@@ -56,7 +56,7 @@ func (h *UserServiceServer) RegisterViaTelegram(ctx context.Context, req *pb.Reg
 	}
 	user, err := h.service.RegisterViaTelegram(ctx, input)
 	if err != nil {
-		return nil, mapError(err, errdefs.ErrAlreadyExists, errdefs.ValidationErr)
+		return nil, mapError(err, errdefs.ErrAlreadyExists, errdefs.ErrValidation)
 	}
 
 	return toPbUser(user), nil
@@ -69,7 +69,7 @@ func (h *UserServiceServer) AuthorizeByAuthHeader(ctx context.Context, req *pb.A
 
 	user, err := h.service.Authorize(ctx, input)
 	if err != nil {
-		return nil, mapError(err, errdefs.ValidationErr, errdefs.AuthenticationErr)
+		return nil, mapError(err, errdefs.ErrValidation, errdefs.ErrAuthentication)
 	}
 
 	return toPbUser(user), nil
@@ -88,7 +88,7 @@ func (h *UserServiceServer) GetMe(ctx context.Context, _ *pb.Empty) (*pb.User, e
 func (h *UserServiceServer) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.UserPublic, error) {
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	user, err := h.service.GetUserPublic(ctx, id)
@@ -109,7 +109,7 @@ func (h *UserServiceServer) GetUser(ctx context.Context, req *pb.GetUserRequest)
 func (h *UserServiceServer) UpdateUser(ctx context.Context, req *pb.UpdateUserRequest) (*pb.User, error) {
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	input := &model.UpdateUserInput{
@@ -121,7 +121,7 @@ func (h *UserServiceServer) UpdateUser(ctx context.Context, req *pb.UpdateUserRe
 	user, err := h.service.UpdateUser(ctx, id, input)
 
 	if err != nil {
-		return nil, mapError(err, errdefs.ErrNotFound, errdefs.ValidationErr, errdefs.ErrPermissionDenied)
+		return nil, mapError(err, errdefs.ErrNotFound, errdefs.ErrValidation, errdefs.ErrPermissionDenied)
 	}
 
 	return toPbUser(user), nil
@@ -130,7 +130,7 @@ func (h *UserServiceServer) UpdateUser(ctx context.Context, req *pb.UpdateUserRe
 func (h *UserServiceServer) GetTutorProfileByUserId(ctx context.Context, req *pb.GetTutorProfileByUserIdRequest) (*pb.TutorProfile, error) {
 	id, err := uuid.Parse(req.UserId)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	profile, err := h.service.GetTutorProfile(ctx, id)
@@ -145,7 +145,7 @@ func (h *UserServiceServer) GetTutorProfileByUserId(ctx context.Context, req *pb
 func (h *UserServiceServer) UpdateTutorProfile(ctx context.Context, req *pb.UpdateTutorProfileRequest) (*pb.TutorProfile, error) {
 	id, err := uuid.Parse(req.UserId)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	input := &model.UpdateTutorProfileInput{
@@ -156,7 +156,7 @@ func (h *UserServiceServer) UpdateTutorProfile(ctx context.Context, req *pb.Upda
 
 	profile, err := h.service.UpdateTutorProfile(ctx, id, input)
 	if err != nil {
-		return nil, mapError(err, errdefs.ErrNotFound, errdefs.ValidationErr, errdefs.ErrPermissionDenied)
+		return nil, mapError(err, errdefs.ErrNotFound, errdefs.ErrValidation, errdefs.ErrPermissionDenied)
 	}
 
 	return toPbTutorProfile(profile), nil
@@ -165,12 +165,12 @@ func (h *UserServiceServer) UpdateTutorProfile(ctx context.Context, req *pb.Upda
 func (h *UserServiceServer) CreateTutorStudent(ctx context.Context, req *pb.CreateTutorStudentRequest) (*pb.TutorStudent, error) {
 	tutorId, err := uuid.Parse(req.TutorId)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	studentId, err := uuid.Parse(req.StudentId)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	input := &model.CreateTutorStudentInput{
@@ -181,7 +181,7 @@ func (h *UserServiceServer) CreateTutorStudent(ctx context.Context, req *pb.Crea
 
 	tutorStudent, err := h.service.CreateTutorStudent(ctx, input)
 	if err != nil {
-		return nil, mapError(err, errdefs.ErrAlreadyExists, errdefs.ValidationErr, errdefs.ErrPermissionDenied)
+		return nil, mapError(err, errdefs.ErrAlreadyExists, errdefs.ErrValidation, errdefs.ErrPermissionDenied)
 	}
 
 	return toPbTutorStudent(tutorStudent), nil
@@ -190,16 +190,16 @@ func (h *UserServiceServer) CreateTutorStudent(ctx context.Context, req *pb.Crea
 func (h *UserServiceServer) GetTutorStudent(ctx context.Context, req *pb.GetTutorStudentRequest) (*pb.TutorStudent, error) {
 	tutorId, err := uuid.Parse(req.TutorId)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	studentId, err := uuid.Parse(req.StudentId)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	tutorStudent, err := h.service.GetTutorStudent(ctx, tutorId, studentId)
 	if err != nil {
-		return nil, mapError(err, errdefs.ErrNotFound, errdefs.ErrPermissionDenied, errdefs.AuthenticationErr)
+		return nil, mapError(err, errdefs.ErrNotFound, errdefs.ErrPermissionDenied, errdefs.ErrAuthentication)
 	}
 	return toPbTutorStudent(tutorStudent), nil
 }
@@ -207,12 +207,12 @@ func (h *UserServiceServer) GetTutorStudent(ctx context.Context, req *pb.GetTuto
 func (h *UserServiceServer) UpdateTutorStudent(ctx context.Context, req *pb.UpdateTutorStudentRequest) (*pb.TutorStudent, error) {
 	tutorId, err := uuid.Parse(req.TutorId)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	studentId, err := uuid.Parse(req.StudentId)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	input := &model.UpdateTutorStudentInput{
@@ -239,12 +239,12 @@ func (h *UserServiceServer) UpdateTutorStudent(ctx context.Context, req *pb.Upda
 func (h *UserServiceServer) DeleteTutorStudent(ctx context.Context, req *pb.DeleteTutorStudentRequest) (*pb.Empty, error) {
 	tutorId, err := uuid.Parse(req.TutorId)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	studentId, err := uuid.Parse(req.StudentId)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	err = h.service.DeleteTutorStudent(ctx, tutorId, studentId)
@@ -258,7 +258,7 @@ func (h *UserServiceServer) DeleteTutorStudent(ctx context.Context, req *pb.Dele
 func (h *UserServiceServer) ListTutorStudents(ctx context.Context, req *pb.ListTutorStudentsRequest) (*pb.ListTutorStudentsResponse, error) {
 	tutorId, err := uuid.Parse(req.TutorId)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	tutorStudents, err := h.service.ListTutorStudents(ctx, tutorId)
@@ -277,7 +277,7 @@ func (h *UserServiceServer) ListTutorStudents(ctx context.Context, req *pb.ListT
 func (h *UserServiceServer) ListTutorsForStudent(ctx context.Context, req *pb.ListTutorsForStudentRequest) (*pb.ListTutorsForStudentResponse, error) {
 	studentId, err := uuid.Parse(req.StudentId)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	tutorStudents, err := h.service.ListTutorStudentsForStudent(ctx, studentId)
@@ -296,11 +296,11 @@ func (h *UserServiceServer) ListTutorsForStudent(ctx context.Context, req *pb.Li
 func (h *UserServiceServer) ResolveTutorStudentContext(ctx context.Context, req *pb.ResolveTutorStudentContextRequest) (*pb.ResolvedTutorStudentContext, error) {
 	tutorId, err := uuid.Parse(req.TutorId)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	studentId, err := uuid.Parse(req.StudentId)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	result, err := h.service.ResolveTutorStudentContext(ctx, tutorId, studentId)
@@ -321,7 +321,7 @@ func (h *UserServiceServer) ResolveTutorStudentContext(ctx context.Context, req 
 func (h *UserServiceServer) AcceptInvitationFromTutor(ctx context.Context, req *pb.AcceptInvitationFromTutorRequest) (*pb.Empty, error) {
 	tutorId, err := uuid.Parse(req.TutorId)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	if err := h.service.AcceptInvitationFromTutor(ctx, tutorId); err != nil {
@@ -378,21 +378,21 @@ func mapError(err error, possibleErrors ...error) error {
 		return nil
 
 	case errors.Is(err, errdefs.ErrAlreadyExists) && slices.Contains(possibleErrors, errdefs.ErrAlreadyExists):
-		return status.Errorf(codes.AlreadyExists, err.Error())
+		return status.Errorf(codes.AlreadyExists, "%v", err)
 
-	case errors.Is(err, errdefs.ValidationErr) && slices.Contains(possibleErrors, errdefs.ValidationErr):
-		return status.Errorf(codes.InvalidArgument, err.Error())
+	case errors.Is(err, errdefs.ErrValidation) && slices.Contains(possibleErrors, errdefs.ErrValidation):
+		return status.Errorf(codes.InvalidArgument, "%v", err)
 
-	case errors.Is(err, errdefs.AuthenticationErr) && slices.Contains(possibleErrors, errdefs.AuthenticationErr):
-		return status.Errorf(codes.Unauthenticated, err.Error())
+	case errors.Is(err, errdefs.ErrAuthentication) && slices.Contains(possibleErrors, errdefs.ErrAuthentication):
+		return status.Errorf(codes.Unauthenticated, "%v", err)
 
 	case errors.Is(err, errdefs.ErrNotFound) && slices.Contains(possibleErrors, errdefs.ErrNotFound):
-		return status.Errorf(codes.NotFound, err.Error())
+		return status.Errorf(codes.NotFound, "%v", err)
 
 	case errors.Is(err, errdefs.ErrPermissionDenied) && slices.Contains(possibleErrors, errdefs.ErrPermissionDenied):
-		return status.Errorf(codes.PermissionDenied, err.Error())
+		return status.Errorf(codes.PermissionDenied, "%v", err)
 
 	default:
-		return status.Errorf(codes.Internal, err.Error())
+		return status.Errorf(codes.Internal, "internal server error")
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"userservice/internal/errdefs"
 	"userservice/internal/model"
 )
 
@@ -44,11 +45,14 @@ RETURNING id, tutor_id, student_id,
 }
 
 func (r *TutorStudentRepository) UpdateTutorStudent(ctx context.Context, tutorId uuid.UUID, studentId uuid.UUID, input *model.UpdateTutorStudentInput) (*model.TutorStudent, error) {
-	query, args := buildUpdateTutorStudentQuery(input)
+	query, args, err := buildUpdateTutorStudentQuery(input)
+	if err != nil {
+		return nil, err
+	}
 	args = append(args, tutorId, studentId)
 
 	var ts model.TutorStudent
-	err := pgxscan.Get(ctx, r.db, &ts, query, args...)
+	err = pgxscan.Get(ctx, r.db, &ts, query, args...)
 	if err != nil {
 		return nil, handleError(err)
 	}
@@ -80,9 +84,12 @@ func (r *TutorStudentRepository) DeleteTutorStudent(ctx context.Context, tutorId
 DELETE FROM tutor_students
 WHERE tutor_id = $1 AND student_id = $2
 `
-	_, err := r.db.Exec(ctx, query, tutorId, studentId)
+	result, err := r.db.Exec(ctx, query, tutorId, studentId)
 	if err != nil {
 		return handleError(err)
+	}
+	if result.RowsAffected() == 0 {
+		return errdefs.ErrNotFound
 	}
 	return nil
 }

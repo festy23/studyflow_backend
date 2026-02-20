@@ -104,6 +104,9 @@ services:
       dockerfile: ./user_service/Dockerfile
     expose:
       - "50051"
+    depends_on:
+      user-db:
+        condition: service_healthy
     environment:
       GRPC_PORT: 50051
       POSTGRES_URL: postgres://postgres:postgres@user-db:5432/postgres?sslmode=disable
@@ -118,6 +121,11 @@ services:
       dockerfile: ./file_service/Dockerfile
     expose:
       - "50051"
+    depends_on:
+      file-db:
+        condition: service_healthy
+      minio:
+        condition: service_started
     environment:
       GRPC_PORT: 50051
       POSTGRES_URL: postgres://postgres:postgres@file-db:5432/postgres?sslmode=disable
@@ -136,6 +144,9 @@ services:
       dockerfile: ./homework_service/Dockerfile
     expose:
       - "50051"
+    depends_on:
+      homework-db:
+        condition: service_healthy
     environment:
       GRPC_ADDRESS: :50051
       DB_HOST: homework-db
@@ -155,6 +166,9 @@ services:
       dockerfile: ./payment_service/Dockerfile
     expose:
       - "50051"
+    depends_on:
+      payment-db:
+        condition: service_healthy
     environment:
       GRPC_PORT: 50051
       POSTGRES_URL: postgres://postgres:postgres@payment-db:5432/postgres?sslmode=disable
@@ -171,6 +185,9 @@ services:
       dockerfile: ./schedule_service/Dockerfile
     expose:
       - "50051"
+    depends_on:
+      schedule-db:
+        condition: service_healthy
     environment:
       GRPC_PORT: 50051
       POSTGRES_URL: postgres://postgres:postgres@schedule-db:5432/postgres?sslmode=disable
@@ -185,6 +202,13 @@ services:
       dockerfile: ./api_gateway/Dockerfile
     expose:
       - "8080"
+    depends_on:
+      - user-service
+      - file-service
+      - homework-service
+      - payment-service
+      - schedule-service
+      - cache
     environment:
       HTTP_PORT: 8080
       USER_CLIENT_URL: "user-service:50051"
@@ -202,7 +226,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./ngnix/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
 
 
 volumes:

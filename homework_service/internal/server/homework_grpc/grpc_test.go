@@ -14,7 +14,6 @@ import (
 
 	"homework_service/internal/domain"
 	"homework_service/internal/repository"
-	"homework_service/internal/service"
 	v1 "homework_service/pkg/api"
 	"homework_service/pkg/logger"
 
@@ -153,7 +152,7 @@ func TestHomeworkHandler(t *testing.T) {
 		feedbackService := &MockFeedbackService{}
 
 		h := handler.NewHomeworkHandler(
-			service.AssignmentService{},
+			assignmentService,
 			submissionService,
 			feedbackService,
 			log,
@@ -197,18 +196,19 @@ func TestHomeworkHandler(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Equal(t, expectedAssignment.ID.String(), resp.Id)
-		assert.Equal(t, title, resp.Title)
-		assert.Equal(t, description, resp.Description)
+		assert.Equal(t, title, *resp.Title)
+		assert.Equal(t, description, *resp.Description)
 		assert.Equal(t, fileID.String(), *resp.FileId)
 		assert.Equal(t, dueDate.Unix(), resp.DueDate.AsTime().Unix())
 	})
 
 	t.Run("CreateAssignment - invalid tutor ID", func(t *testing.T) {
+		assignmentService := &MockAssignmentService{}
 		submissionService := &MockSubmissionService{}
 		feedbackService := &MockFeedbackService{}
 
 		h := handler.NewHomeworkHandler(
-			service.AssignmentService{},
+			assignmentService,
 			submissionService,
 			feedbackService,
 			log,
@@ -242,7 +242,7 @@ func TestHomeworkHandler(t *testing.T) {
 		title := "Test"
 
 		h := handler.NewHomeworkHandler(
-			service.AssignmentService{},
+			assignmentService,
 			submissionService,
 			feedbackService,
 			log,
@@ -262,11 +262,12 @@ func TestHomeworkHandler(t *testing.T) {
 	})
 
 	t.Run("CreateSubmission - success", func(t *testing.T) {
+		assignmentService := &MockAssignmentService{}
 		submissionService := &MockSubmissionService{}
 		feedbackService := &MockFeedbackService{}
 
 		h := handler.NewHomeworkHandler(
-			service.AssignmentService{},
+			assignmentService,
 			submissionService,
 			feedbackService,
 			log,
@@ -300,16 +301,17 @@ func TestHomeworkHandler(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Equal(t, expectedSubmission.ID.String(), resp.Id)
-		assert.Equal(t, comment, resp.Comment)
+		assert.Equal(t, comment, *resp.Comment)
 		assert.Equal(t, fileID.String(), *resp.FileId)
 	})
 
 	t.Run("CreateFeedback - success", func(t *testing.T) {
+		assignmentService := &MockAssignmentService{}
 		submissionService := &MockSubmissionService{}
 		feedbackService := &MockFeedbackService{}
 
 		h := handler.NewHomeworkHandler(
-			service.AssignmentService{},
+			assignmentService,
 			submissionService,
 			feedbackService,
 			log,
@@ -339,7 +341,7 @@ func TestHomeworkHandler(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Equal(t, expectedFeedback.ID.String(), resp.Id)
-		assert.Equal(t, comment, resp.Comment)
+		assert.Equal(t, comment, *resp.Comment)
 		assert.Equal(t, fileID.String(), *resp.FileId)
 	})
 
@@ -349,7 +351,7 @@ func TestHomeworkHandler(t *testing.T) {
 		feedbackService := &MockFeedbackService{}
 
 		h := handler.NewHomeworkHandler(
-			service.AssignmentService{},
+			assignmentService,
 			submissionService,
 			feedbackService,
 			log,

@@ -9,25 +9,39 @@ import (
 	"go.uber.org/zap"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type FileHandler struct {
-	c        filepb.FileServiceClient
-	minioUrl string
+	c              filepb.FileServiceClient
+	minioUrl       string
+	parsedMinioUrl *url.URL
+	httpClient     *http.Client
 }
 
 func NewFileHandler(c filepb.FileServiceClient, minioUrl string) *FileHandler {
-	return &FileHandler{c: c, minioUrl: minioUrl}
+	parsed, err := url.Parse(minioUrl)
+	if err != nil {
+		panic(fmt.Sprintf("invalid minioUrl %q: %v", minioUrl, err))
+	}
+	return &FileHandler{
+		c:              c,
+		minioUrl:       minioUrl,
+		parsedMinioUrl: parsed,
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+	}
 }
 
-func (h *FileHandler) RegisterRoutes(r chi.Router) {
-	r.Post("/init-upload", h.InitUpload)
-	r.Get("/{id}/meta", h.GetFileMeta)
+func (h *FileHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
+	r.With(authMiddleware).Post("/init-upload", h.InitUpload)
+	r.With(authMiddleware).Get("/{id}/meta", h.GetFileMeta)
 	r.Put("/upload/*", h.proxyToMinio("PUT", "/files/upload"))
 	r.Get("/download/*", h.proxyToMinio("GET", "/files/download"))
-
 }
 
 func (h *FileHandler) InitUpload(w http.ResponseWriter, r *http.Request) {
@@ -51,7 +65,7 @@ func (h *FileHandler) GetFileMeta(w http.ResponseWriter, r *http.Request) {
 func getFileMetaParsePath(ctx context.Context, httpReq *http.Request, grpcReq *filepb.GetFileMetaRequest) error {
 	id := chi.URLParam(httpReq, "id")
 	if id == "" {
-		return fmt.Errorf("%w: %s", BadRequestError, "studentId is required")
+		return fmt.Errorf("%w: %s", ErrBadRequest, "file id is required")
 	}
 	grpcReq.FileId = id
 
@@ -69,7 +83,13 @@ func (h *FileHandler) proxyToMinio(method string, path string) http.HandlerFunc 
 		targetPath := strings.TrimPrefix(r.URL.Path, path)
 		targetURL := h.minioUrl + targetPath + "?" + r.URL.RawQuery
 
-		req, err := http.NewRequest(method, targetURL, r.Body)
+		parsedURL, err := url.Parse(targetURL)
+		if err != nil || parsedURL.Scheme != h.parsedMinioUrl.Scheme || parsedURL.Host != h.parsedMinioUrl.Host {
+			http.Error(w, "Invalid proxy target", http.StatusBadRequest)
+			return
+		}
+
+		req, err := http.NewRequest(method, targetURL, r.Body) //nolint:gosec // URL validated above (scheme+host check)
 		if err != nil {
 			http.Error(w, "Failed to create proxy request", http.StatusInternalServerError)
 			return
@@ -83,7 +103,7 @@ func (h *FileHandler) proxyToMinio(method string, path string) http.HandlerFunc 
 		if logger, ok := logging.GetFromContext(r.Context()); ok {
 			logger.Debug(r.Context(), "making proxy request", zap.String("URL", targetURL), zap.String("method", method), zap.Any("headers", req.Header))
 		}
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := h.httpClient.Do(req) //nolint:gosec // URL validated above (scheme+host check)
 		if err != nil {
 			if logger, ok := logging.GetFromContext(r.Context()); ok {
 				logger.Error(r.Context(), "Failed to proxy request", zap.Error(err))
@@ -91,12 +111,12 @@ func (h *FileHandler) proxyToMinio(method string, path string) http.HandlerFunc 
 			http.Error(w, "Failed to reach MinIO", http.StatusBadGateway)
 			return
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		for k, v := range resp.Header {
 			w.Header()[k] = v
 		}
 		w.WriteHeader(resp.StatusCode)
-		io.Copy(w, resp.Body)
+		_, _ = io.Copy(w, resp.Body)
 	}
 }

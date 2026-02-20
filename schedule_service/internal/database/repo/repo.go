@@ -19,7 +19,7 @@ type Lesson struct {
 	ID             string
 	SlotID         string
 	StudentID      string
-	Status         string // "booked", "cancelled", "completeбd"
+	Status         string // "booked", "cancelled", "completed"
 	IsPaid         bool
 	ConnectionLink *string
 	PriceRub       *int32

@@ -1,71 +1,351 @@
-image: golang:1.24-alpine
-
-services:
-  - docker:dind
-
 stages:
+  - lint
   - test
+  - sast
   - build
+  - scan
+  - pages
 
 variables:
   DOCKER_HOST: tcp://docker:2376
   DOCKER_TLS_CERTDIR: "/certs"
-  COMPOSE_VERSION: "v2.23.0"
-  CGO_ENABLED: "1"
-  GOOS: "linux"
-  TELEGRAM_SECRET: "anxious-secret-value"
+  CGO_ENABLED: "0"
 
-before_script:
-  - apk add --no-cache docker-cli docker-cli-compose build-base
-  - docker --version
-  - docker compose version
+# ── Templates ────────────────────────────────────────────────────────
 
-test_payment_service:
-  stage: test
-  script:
-    - cd payment_service/internal/service
-    - |
-      echo "[INFO]: 🚀Running tests with coverage check..."
-      coverage=$(go test -cover ./... | grep -E 'coverage:.*%' | awk '{gsub(/%/,"",$5); print $5}')
-      echo "[INFO]: 📒Actual test coverage: ${coverage}%"
+.mr_and_default_rules:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-      if [ $(echo "$coverage < 30" | bc -l) -eq 1 ]; then
-        echo "[ERROR]: Coverage ${coverage}% is below 30% threshold"
-        exit 1
-      else
-        echo "[PASS]: ✅ Coverage check passed"
-      fi
+.default_branch_rules:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-test_schedule_service:
+.lint_template:
+  stage: lint
+  image: golangci/golangci-lint:v2.0-alpine
+  extends: .mr_and_default_rules
+  script:
+    - cd $SERVICE_DIR
+    - golangci-lint run ./...
+
+.test_template:
   stage: test
+  image: golang:1.24-alpine
+  extends: .mr_and_default_rules
+  variables:
+    CGO_ENABLED: "1"
+  before_script:
+    - apk add --no-cache build-base
   script:
-    - cd schedule_service/internal/service/service
+    - cd $SERVICE_DIR/$TEST_PATH
+    - go test -coverprofile=coverage.out -cover ./...
     - |
-      echo "[INFO]: 🚀Running tests with coverage check..."
-      coverage=$(go test -cover ./... | grep -E 'coverage:.*%' | awk '{gsub(/%/,"",$5); print $5}')
-      echo "[INFO]: 📒Actual test coverage: ${coverage}%"
-
-      if [ $(echo "$coverage < 30" | bc -l) -eq 1 ]; then
-        echo "[ERROR]: Coverage ${coverage}% is below 30% threshold"
+      coverage=$(go tool cover -func=coverage.out | grep '^total:' | awk '{gsub(/%/,"",$3); print $3}')
+      echo "Total coverage: ${coverage}%"
+      if awk "BEGIN{exit(!($coverage < 30))}"; then
+        echo "FAIL: Coverage ${coverage}% is below 30% threshold"
         exit 1
-      else
-        echo "[PASS]: ✅ Coverage check passed"
       fi
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-
-build_services:
-  stage: build
-  needs: ["test_payment_service", "test_schedule_service"]
-  parallel: 3
-  script:
-    - unset DOCKER_HOST
-    - docker compose build --parallel
+      echo "PASS: Coverage check passed"
+  coverage: '/coverage:\s+(\d+\.\d+)%/'
   artifacts:
     paths:
-      - ./*/Dockerfile
-    expire_in: 1 week
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      - $SERVICE_DIR/$TEST_PATH/coverage.out
+    expire_in: 7 days
+
+.sast_template:
+  stage: sast
+  image: securego/gosec:latest
+  extends: .mr_and_default_rules
+  allow_failure: true
+  script:
+    - cd $SERVICE_DIR
+    - gosec -fmt=json -out=gosec-report.json -exclude-dir=pkg/api ./... || true
+  artifacts:
+    paths:
+      - $SERVICE_DIR/gosec-report.json
+    expire_in: 7 days
+    when: always
+
+.build_template:
+  stage: build
+  image: docker:27
+  services:
+    - docker:27-dind
+  extends: .default_branch_rules
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - |
+      IMAGE=$CI_REGISTRY_IMAGE/$SERVICE_NAME
+      TAG=$CI_COMMIT_SHORT_SHA
+      docker build \
+        --cache-from $IMAGE:latest \
+        -t $IMAGE:$TAG \
+        $SERVICE_DIR
+      docker push $IMAGE:$TAG
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+        docker tag $IMAGE:$TAG $IMAGE:latest
+        docker push $IMAGE:latest
+      fi
+
+.scan_template:
+  stage: scan
+  image: aquasec/trivy:latest
+  extends: .default_branch_rules
+  allow_failure: true
+  before_script:
+    - export TRIVY_DB_REPOSITORY="${CI_REGISTRY}/aquasecurity/trivy-db"
+  script:
+    - |
+      IMAGE=$CI_REGISTRY_IMAGE/$SERVICE_NAME:$CI_COMMIT_SHORT_SHA
+      trivy image --severity CRITICAL,HIGH --format table $IMAGE
+      trivy image --severity CRITICAL,HIGH --format json -o trivy-report.json $IMAGE
+  artifacts:
+    paths:
+      - trivy-report.json
+    expire_in: 7 days
+    when: always
+
+# ── Lint jobs ────────────────────────────────────────────────────────
+
+lint_api_gateway:
+  extends: .lint_template
+  variables:
+    SERVICE_DIR: api_gateway
+
+lint_user_service:
+  extends: .lint_template
+  variables:
+    SERVICE_DIR: user_service
+
+lint_schedule_service:
+  extends: .lint_template
+  variables:
+    SERVICE_DIR: schedule_service
+
+lint_homework_service:
+  extends: .lint_template
+  variables:
+    SERVICE_DIR: homework_service
+
+lint_payment_service:
+  extends: .lint_template
+  variables:
+    SERVICE_DIR: payment_service
+
+lint_file_service:
+  extends: .lint_template
+  variables:
+    SERVICE_DIR: file_service
+
+lint_common_library:
+  extends: .lint_template
+  variables:
+    SERVICE_DIR: common_library
+
+# ── Test jobs ────────────────────────────────────────────────────────
+
+test_common_library:
+  extends: .test_template
+  variables:
+    SERVICE_DIR: common_library
+    TEST_PATH: utils
+
+test_file_service:
+  extends: .test_template
+  variables:
+    SERVICE_DIR: file_service
+    TEST_PATH: internal/service
+
+test_homework_service:
+  extends: .test_template
+  variables:
+    SERVICE_DIR: homework_service
+    TEST_PATH: internal/server/homework_grpc
+
+test_payment_service:
+  extends: .test_template
+  variables:
+    SERVICE_DIR: payment_service
+    TEST_PATH: internal/service
+
+test_schedule_service:
+  extends: .test_template
+  variables:
+    SERVICE_DIR: schedule_service
+    TEST_PATH: internal/service/service
+
+# ── SAST jobs ────────────────────────────────────────────────────────
+
+sast_api_gateway:
+  extends: .sast_template
+  variables:
+    SERVICE_DIR: api_gateway
+
+sast_user_service:
+  extends: .sast_template
+  variables:
+    SERVICE_DIR: user_service
+
+sast_schedule_service:
+  extends: .sast_template
+  variables:
+    SERVICE_DIR: schedule_service
+
+sast_homework_service:
+  extends: .sast_template
+  variables:
+    SERVICE_DIR: homework_service
+
+sast_payment_service:
+  extends: .sast_template
+  variables:
+    SERVICE_DIR: payment_service
+
+sast_file_service:
+  extends: .sast_template
+  variables:
+    SERVICE_DIR: file_service
+
+sast_common_library:
+  extends: .sast_template
+  variables:
+    SERVICE_DIR: common_library
+
+# ── Build jobs ───────────────────────────────────────────────────────
+
+build_api_gateway:
+  extends: .build_template
+  variables:
+    SERVICE_NAME: api_gateway
+    SERVICE_DIR: api_gateway
+
+build_user_service:
+  extends: .build_template
+  variables:
+    SERVICE_NAME: user_service
+    SERVICE_DIR: user_service
+
+build_schedule_service:
+  extends: .build_template
+  variables:
+    SERVICE_NAME: schedule_service
+    SERVICE_DIR: schedule_service
+
+build_homework_service:
+  extends: .build_template
+  variables:
+    SERVICE_NAME: homework_service
+    SERVICE_DIR: homework_service
+
+build_payment_service:
+  extends: .build_template
+  variables:
+    SERVICE_NAME: payment_service
+    SERVICE_DIR: payment_service
+
+build_file_service:
+  extends: .build_template
+  variables:
+    SERVICE_NAME: file_service
+    SERVICE_DIR: file_service
+
+# ── Scan jobs ────────────────────────────────────────────────────────
+
+scan_api_gateway:
+  extends: .scan_template
+  needs: ["build_api_gateway"]
+  variables:
+    SERVICE_NAME: api_gateway
+
+scan_user_service:
+  extends: .scan_template
+  needs: ["build_user_service"]
+  variables:
+    SERVICE_NAME: user_service
+
+scan_schedule_service:
+  extends: .scan_template
+  needs: ["build_schedule_service"]
+  variables:
+    SERVICE_NAME: schedule_service
+
+scan_homework_service:
+  extends: .scan_template
+  needs: ["build_homework_service"]
+  variables:
+    SERVICE_NAME: homework_service
+
+scan_payment_service:
+  extends: .scan_template
+  needs: ["build_payment_service"]
+  variables:
+    SERVICE_NAME: payment_service
+
+scan_file_service:
+  extends: .scan_template
+  needs: ["build_file_service"]
+  variables:
+    SERVICE_NAME: file_service
+
+trivy_dependency_check:
+  stage: scan
+  image: aquasec/trivy:latest
+  extends: .default_branch_rules
+  allow_failure: true
+  script:
+    - trivy fs --severity CRITICAL,HIGH --scanners vuln --format table .
+    - trivy fs --severity CRITICAL,HIGH --scanners vuln --format json -o trivy-deps.json .
+  artifacts:
+    paths:
+      - trivy-deps.json
+    expire_in: 7 days
+    when: always
+
+# ── Pages ────────────────────────────────────────────────────────────
+
+pages:
+  stage: pages
+  image: golang:1.24-alpine
+  extends: .default_branch_rules
+  needs:
+    - test_common_library
+    - test_file_service
+    - test_homework_service
+    - test_payment_service
+    - test_schedule_service
+  before_script:
+    - apk add --no-cache build-base
+  script:
+    - mkdir -p public
+    - |
+      generate_report() {
+        local service="$1" covpath="$2"
+        if [ -f "$covpath" ]; then
+          go tool cover -html="$covpath" -o "public/${service}_coverage.html" 2>/dev/null || true
+        fi
+      }
+      generate_report common_library   common_library/utils/coverage.out
+      generate_report file_service      file_service/internal/service/coverage.out
+      generate_report homework_service  homework_service/internal/server/homework_grpc/coverage.out
+      generate_report payment_service   payment_service/internal/service/coverage.out
+      generate_report schedule_service  schedule_service/internal/service/service/coverage.out
+    - |
+      cat > public/index.html <<'HTMLEOF'
+      <!DOCTYPE html>
+      <html><head><title>StudyFlow Coverage</title></head>
+      <body><h1>Coverage Reports</h1><ul>
+      <li><a href="common_library_coverage.html">common_library</a></li>
+      <li><a href="file_service_coverage.html">file_service</a></li>
+      <li><a href="homework_service_coverage.html">homework_service</a></li>
+      <li><a href="payment_service_coverage.html">payment_service</a></li>
+      <li><a href="schedule_service_coverage.html">schedule_service</a></li>
+      </ul></body></html>
+      HTMLEOF
+  artifacts:
+    paths:
+      - public

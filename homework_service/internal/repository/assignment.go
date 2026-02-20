@@ -93,14 +93,14 @@ FROM assignment_statuses WHERE 1=1
 			args = append(args, filter.Statuses[i])
 			argsCount++
 		}
-		query += fmt.Sprintf(" AND status IN (%s)", strings.Join(placeholders, ", "))
+		query += fmt.Sprintf(" AND status IN (%s)", strings.Join(placeholders, ", ")) //nolint:gosec // placeholders are parameterized
 	}
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var assignments []*domain.Assignment
 	for rows.Next() {
@@ -138,7 +138,7 @@ func (r *AssignmentRepository) FindAssignmentsDueSoon(ctx context.Context, durat
 	if err != nil {
 		return nil, fmt.Errorf("failed to query assignments: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var assignments []*domain.Assignment
 	for rows.Next() {

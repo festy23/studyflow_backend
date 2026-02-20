@@ -10,6 +10,8 @@ import (
 	homeworkpb "homework_service/pkg/api"
 )
 
+type contextKey string
+
 type HomeworkHandler struct {
 	c homeworkpb.HomeworkServiceClient
 }
@@ -121,13 +123,13 @@ func (h *HomeworkHandler) ListAssignments(w http.ResponseWriter, r *http.Request
 	switch x := req.(type) {
 	case *homeworkpb.ListAssignmentsByTutorRequest:
 		handler, _ := Handle[homeworkpb.ListAssignmentsByTutorRequest, homeworkpb.ListAssignmentsResponse](h.c.ListAssignmentsByTutor, nil, false)
-		handler(w, r.WithContext(context.WithValue(ctx, "req", x)))
+		handler(w, r.WithContext(context.WithValue(ctx, contextKey("req"), x)))
 	case *homeworkpb.ListAssignmentsByStudentRequest:
 		handler, _ := Handle[homeworkpb.ListAssignmentsByStudentRequest, homeworkpb.ListAssignmentsResponse](h.c.ListAssignmentsByStudent, nil, false)
-		handler(w, r.WithContext(context.WithValue(ctx, "req", x)))
+		handler(w, r.WithContext(context.WithValue(ctx, contextKey("req"), x)))
 	case *homeworkpb.ListAssignmentsByPairRequest:
 		handler, _ := Handle[homeworkpb.ListAssignmentsByPairRequest, homeworkpb.ListAssignmentsResponse](h.c.ListAssignmentsByPair, nil, false)
-		handler(w, r.WithContext(context.WithValue(ctx, "req", x)))
+		handler(w, r.WithContext(context.WithValue(ctx, contextKey("req"), x)))
 	default:
 		http.Error(w, "invalid query", http.StatusBadRequest)
 	}

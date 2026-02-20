@@ -4,7 +4,6 @@ import (
 	"common_library/ctxdata"
 	"common_library/logging"
 	"context"
-	"fmt"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"slices"
@@ -60,7 +59,7 @@ func NewUserService(
 
 func (s *UserService) RegisterViaTelegram(ctx context.Context, input *model.RegisterViaTelegramInput) (*model.User, error) {
 	if !input.Role.IsValid() {
-		return nil, errdefs.ValidationErr
+		return nil, errdefs.ErrValidation
 	}
 
 	repo, err := s.userRepository.NewUserCreationRepositoryTx(ctx)
@@ -73,7 +72,7 @@ func (s *UserService) RegisterViaTelegram(ctx context.Context, input *model.Regi
 		if err != nil {
 			logger, ok := logging.GetFromContext(ctx)
 			if ok {
-				logger.Error(ctx, fmt.Sprintf("Failed to Rollback"), zap.Error(err))
+				logger.Error(ctx, "Failed to Rollback", zap.Error(err))
 			}
 		}
 	}(repo, ctx)
@@ -145,7 +144,7 @@ func (s *UserService) Authorize(ctx context.Context, input *model.AuthorizeInput
 		return s.authorizeWithTelegram(ctx, strings.Trim(strings.TrimPrefix(header, "telegram"), " "))
 	}
 
-	return nil, errdefs.AuthenticationErr
+	return nil, errdefs.ErrAuthentication
 }
 
 func (s *UserService) authorizeWithTelegram(ctx context.Context, header string) (*model.User, error) {
@@ -175,7 +174,7 @@ func (s *UserService) GetMe(ctx context.Context) (*model.User, error) {
 
 	id, err := uuid.Parse(userId)
 	if err != nil {
-		return nil, errdefs.AuthenticationErr
+		return nil, errdefs.ErrAuthentication
 	}
 
 	user, err := s.userRepository.GetUser(ctx, id)
@@ -387,12 +386,12 @@ func (s *UserService) AcceptInvitationFromTutor(ctx context.Context, tutorId uui
 func getUserId(ctx context.Context) (uuid.UUID, error) {
 	id, ok := ctxdata.GetUserID(ctx)
 	if !ok {
-		return uuid.Nil, errdefs.AuthenticationErr
+		return uuid.Nil, errdefs.ErrAuthentication
 	}
 
 	idUUID, err := uuid.Parse(id)
 	if err != nil {
-		return uuid.Nil, errdefs.AuthenticationErr
+		return uuid.Nil, errdefs.ErrAuthentication
 	}
 
 	return idUUID, nil
@@ -401,11 +400,11 @@ func getUserId(ctx context.Context) (uuid.UUID, error) {
 func getRole(ctx context.Context) (model.Role, error) {
 	roleString, ok := ctxdata.GetUserRole(ctx)
 	if !ok {
-		return "", errdefs.AuthenticationErr
+		return "", errdefs.ErrAuthentication
 	}
 	role := model.Role(roleString)
 	if !role.IsValid() {
-		return "", errdefs.AuthenticationErr
+		return "", errdefs.ErrAuthentication
 	}
 
 	return role, nil

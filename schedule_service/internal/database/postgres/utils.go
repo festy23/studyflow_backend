@@ -33,13 +33,12 @@ func (r *PostgresRepository) watchDBConnection(healthServer *health.Server) {
 
 	for range ticker.C {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-
 		if err := r.pool.Ping(ctx); err != nil {
 			healthServer.SetServingStatus("postgres", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 		} else {
 			healthServer.SetServingStatus("postgres", grpc_health_v1.HealthCheckResponse_SERVING)
 		}
+		cancel()
 	}
 }
 
@@ -64,8 +63,8 @@ func createPool(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, error) 
 		return nil, fmt.Errorf("failed to parse connection string: %w", err)
 	}
 
-	pgxCfg.MaxConns = int32(cfg.PostgresMaxConn)
-	pgxCfg.MinConns = int32(cfg.PostgresMinConn)
+	pgxCfg.MaxConns = int32(cfg.PostgresMaxConn) //nolint:gosec // config values are small
+	pgxCfg.MinConns = int32(cfg.PostgresMinConn) //nolint:gosec // config values are small
 
 	pool, err := pgxpool.NewWithConfig(ctx, pgxCfg)
 	if err != nil {

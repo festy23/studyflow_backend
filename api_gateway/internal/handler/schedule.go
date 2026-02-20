@@ -250,7 +250,7 @@ func (h *ScheduleHandler) ListLessons(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			panic(err)
 		}
-		handler(w, r.WithContext(context.WithValue(ctx, "req", req)))
+		handler(w, r.WithContext(context.WithValue(ctx, contextKey("req"), req)))
 	case *schedulepb.ListLessonsByStudentRequest:
 		handler, err := Handle[schedulepb.ListLessonsByStudentRequest, schedulepb.ListLessonsResponse](
 			h.c.ListLessonsByStudent,
@@ -262,7 +262,7 @@ func (h *ScheduleHandler) ListLessons(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			panic(err)
 		}
-		handler(w, r.WithContext(context.WithValue(ctx, "req", req)))
+		handler(w, r.WithContext(context.WithValue(ctx, contextKey("req"), req)))
 	case *schedulepb.ListLessonsByPairRequest:
 		handler, err := Handle[schedulepb.ListLessonsByPairRequest, schedulepb.ListLessonsResponse](
 			h.c.ListLessonsByPair,
@@ -275,7 +275,7 @@ func (h *ScheduleHandler) ListLessons(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			panic(err)
 		}
-		handler(w, r.WithContext(context.WithValue(ctx, "req", req)))
+		handler(w, r.WithContext(context.WithValue(ctx, contextKey("req"), req)))
 	default:
 		http.Error(w, "invalid query parameters", http.StatusBadRequest)
 	}
