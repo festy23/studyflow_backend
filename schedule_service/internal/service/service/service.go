@@ -59,9 +59,8 @@ func (s *ScheduleServer) GetSlot(ctx context.Context, req *pb.GetSlotRequest) (*
 		EndsAt:    timestamppb.New(slot.EndsAt),
 		IsBooked:  slot.IsBooked,
 		CreatedAt: timestamppb.New(slot.CreatedAt),
-		EditedAt:  timestamppb.New(*slot.EditedAt),
 	}
-	if Pbslot.EditedAt != nil {
+	if slot.EditedAt != nil {
 		Pbslot.EditedAt = timestamppb.New(*slot.EditedAt)
 	} else {
 		Pbslot.EditedAt = Pbslot.CreatedAt
@@ -476,8 +475,8 @@ func (s *ScheduleServer) ListLessonsByTutor(ctx context.Context, req *pb.ListLes
 	}
 
 	statusFilters := make([]string, 0, len(req.StatusFilter))
-	for _, status := range req.StatusFilter {
-		switch status {
+	for _, sf := range req.StatusFilter {
+		switch sf {
 		case pb.LessonStatusFilter_BOOKED:
 			statusFilters = append(statusFilters, "booked")
 		case pb.LessonStatusFilter_CANCELLED:
@@ -506,8 +505,8 @@ func (s *ScheduleServer) ListLessonsByStudent(ctx context.Context, req *pb.ListL
 	}
 
 	statusFilters := make([]string, 0, len(req.StatusFilter))
-	for _, status := range req.StatusFilter {
-		switch status {
+	for _, sf := range req.StatusFilter {
+		switch sf {
 		case pb.LessonStatusFilter_BOOKED:
 			statusFilters = append(statusFilters, "booked")
 		case pb.LessonStatusFilter_CANCELLED:
@@ -547,8 +546,8 @@ func (s *ScheduleServer) ListLessonsByPair(ctx context.Context, req *pb.ListLess
 	}
 
 	statusFilters := make([]string, 0, len(req.StatusFilter))
-	for _, status := range req.StatusFilter {
-		switch status {
+	for _, sf := range req.StatusFilter {
+		switch sf {
 		case pb.LessonStatusFilter_BOOKED:
 			statusFilters = append(statusFilters, "booked")
 		case pb.LessonStatusFilter_CANCELLED:
@@ -573,6 +572,19 @@ func (s *ScheduleServer) ListLessonsByPair(ctx context.Context, req *pb.ListLess
 }
 
 func (s *ScheduleServer) ListCompletedUnpaidLessons(ctx context.Context, req *pb.ListCompletedUnpaidLessonsRequest) (*pb.ListLessonsResponse, error) {
+	userID, ok := ctxdata.GetUserID(ctx)
+	if !ok {
+		return nil, StatusUnauthenticated
+	}
+
+	isTutor, err := IsTutor(ctx, userID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to verify tutor status")
+	}
+	if !isTutor {
+		return nil, StatusPermissionDenied
+	}
+
 	var after *time.Time
 	if req.After != nil {
 		t := req.After.AsTime()
@@ -588,6 +600,11 @@ func (s *ScheduleServer) ListCompletedUnpaidLessons(ctx context.Context, req *pb
 }
 
 func (s *ScheduleServer) MarkAsPaid(ctx context.Context, req *pb.MarkAsPaidRequest) (*pb.Lesson, error) {
+	_, ok := ctxdata.GetUserID(ctx)
+	if !ok {
+		return nil, StatusUnauthenticated
+	}
+
 	if err := uuid.Validate(req.Id); err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid ID")
 	}
@@ -601,7 +618,7 @@ func (s *ScheduleServer) MarkAsPaid(ctx context.Context, req *pb.MarkAsPaidReque
 	}
 
 	if err := s.db.MarkAsPaid(ctx, lesson.ID); err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, "failed to mark as paid")
 	}
 	lesson.IsPaid = true
 

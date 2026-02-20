@@ -25,9 +25,8 @@ func main() {
 	defer stop()
 
 	zapLogger, err := zap.NewDevelopment()
-
 	if err != nil {
-		zap.Error(err)
+		panic(fmt.Sprintf("cannot create logger: %v", err))
 	}
 
 	logger := logging.New(zapLogger)
@@ -35,9 +34,6 @@ func main() {
 	ctx = logging.ContextWithLogger(ctx, logger)
 
 	cfg := config.GetConfig()
-	if err != nil {
-		logger.Fatal(ctx, "cannot create config", zap.Error(err))
-	}
 
 	database, err := postgres.New(ctx, cfg)
 	if err != nil {
@@ -49,9 +45,6 @@ func main() {
 	}
 
 	schedule_service := service.NewScheduleServer(database, userClient)
-	if err != nil {
-		logger.Fatal(ctx, "cannot create schedule_service", zap.Error(err))
-	}
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GRPCPort))
 	if err != nil {

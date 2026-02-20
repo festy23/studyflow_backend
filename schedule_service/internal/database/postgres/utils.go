@@ -33,13 +33,12 @@ func (r *PostgresRepository) watchDBConnection(healthServer *health.Server) {
 
 	for range ticker.C {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-
 		if err := r.pool.Ping(ctx); err != nil {
 			healthServer.SetServingStatus("postgres", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 		} else {
 			healthServer.SetServingStatus("postgres", grpc_health_v1.HealthCheckResponse_SERVING)
 		}
+		cancel()
 	}
 }
 
