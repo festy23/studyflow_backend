@@ -24,6 +24,9 @@ docker-compose build <service-name>
 
 # Build all services
 docker-compose build --parallel
+
+# Lint (from each module directory)
+golangci-lint run ./...
 ```
 
 ## Testing
@@ -31,14 +34,22 @@ docker-compose build --parallel
 Tests must achieve **≥30% coverage** per package (enforced in CI).
 
 ```bash
-# Run payment_service tests (CI requirement)
+# Run tests per module (CI requirement)
 cd payment_service/internal/service && go test -cover ./...
-
-# Run schedule_service tests (CI requirement)
 cd schedule_service/internal/service/service && go test -cover ./...
+cd homework_service/internal/service && go test -cover ./...
+cd file_service/internal/service && go test -cover ./...
+cd common_library && go test -cover ./...
 ```
 
 Mocking: Use `go.uber.org/mock/gomock` with interface-based mocks.
+
+## Linting
+
+- **golangci-lint v2**, config in `.golangci.yml` at repo root
+- Enabled linters: errcheck, govet, ineffassign, staticcheck, unused, gosec, gocritic, bodyclose, nilerr
+- `pkg/api` directories are excluded (generated code)
+- `//nolint` directives require an explanation comment
 
 ## Protocol Buffers
 
@@ -61,6 +72,20 @@ make proto
 
 **File handling**: Two-step process via file_service: InitUpload returns file_id + signed URL → client uploads → use file_id in other services.
 
+**Error naming**: Sentinel errors use `ErrFoo` prefix (e.g. `ErrNotFound`).
+
+**Context keys**: Use typed keys — `type contextKey string`, never bare strings.
+
+**defer Close**: Always `defer func() { _ = x.Close() }()` to handle the error return.
+
+**Graceful shutdown**: Use `GracefulStop()` with a timeout fallback to `Stop()`.
+
+**gRPC clients**: Use `grpc.NewClient()`, not the deprecated `grpc.Dial()`.
+
+**Retry policy**: Only `codes.Unavailable` is retriable. Use `RetryWithBackoff` + `CircuitBreaker` from `common_library/utils`.
+
+**Format strings**: Use `status.Errorf(code, "%v", err)`, not `status.Errorf(code, err.Error())`.
+
 ## Service Ports
 
 - API Gateway: 8080 (HTTP), exposed via nginx on port 80
@@ -82,9 +107,14 @@ common_library/      # Shared logging, gRPC utilities, interceptors
 
 Each service follows: `cmd/server/main.go` entry point, `internal/` for handlers/services/repositories, `migrations/` for PostgreSQL schemas.
 
+## CI Pipeline
+
+Stages: **lint → test → sast → build → scan → pages**
+
 ## Key Files
 
 - `docker-compose.yml` - Full local environment
 - `api_gateway/OpenAPI.yml` - REST API specification
 - `developer_readme.md` - Development guidelines (Russian)
 - `.gitlab-ci.yml` - CI pipeline (test coverage checks + builds)
+- `.golangci.yml` - golangci-lint configuration
