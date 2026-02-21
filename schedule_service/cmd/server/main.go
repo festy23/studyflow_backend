@@ -15,6 +15,7 @@ import (
 	pb "schedule_service/pkg/api"
 	"strings"
 	"syscall"
+	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"go.uber.org/zap"
@@ -74,7 +75,19 @@ func main() {
 	}()
 
 	<-ctx.Done()
-	server.GracefulStop()
+
+	shutdownDone := make(chan struct{})
+	go func() {
+		server.GracefulStop()
+		close(shutdownDone)
+	}()
+	select {
+	case <-shutdownDone:
+	case <-time.After(10 * time.Second):
+		logger.Info(ctx, "GracefulStop timed out, forcing Stop")
+		server.Stop()
+	}
+
 	if err := eventSender.Close(); err != nil {
 		logger.Error(ctx, "failed to close event sender", zap.Error(err))
 	}

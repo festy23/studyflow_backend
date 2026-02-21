@@ -22,7 +22,8 @@ type ReminderEvent struct {
 	StudentID      string    `json:"student_id"`
 	StartsAt       time.Time `json:"starts_at"`
 	EndsAt         time.Time `json:"ends_at"`
-	ReminderType   string    `json:"reminder_type"` // "24h" or "1h"
+	EventType      string    `json:"event_type"`                // "booked", "cancelled"
+	ReminderType   string    `json:"reminder_type,omitempty"`   // "24h" or "1h" (set by reminder worker)
 	ConnectionLink string    `json:"connection_link,omitempty"`
 }
 

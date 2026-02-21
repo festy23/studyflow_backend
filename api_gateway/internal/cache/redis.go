@@ -16,6 +16,9 @@ type RedisCache struct {
 }
 
 func NewRedisCache(rdb *redis.Client, logger *logging.Logger) *RedisCache {
+	if logger == nil {
+		panic("NewRedisCache: logger must not be nil")
+	}
 	return &RedisCache{rdb: rdb, logger: logger}
 }
 

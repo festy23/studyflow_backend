@@ -374,17 +374,22 @@ func (s *ScheduleServer) CreateLesson(ctx context.Context, req *pb.CreateLessonR
 
 	if s.eventSender != nil {
 		reminderEvent := kafka.ReminderEvent{
-			LessonID:     lessonID,
-			SlotID:       req.SlotId,
-			TutorID:      tutorID,
-			StudentID:    studentID,
-			StartsAt:     slot.StartsAt,
-			EndsAt:       slot.EndsAt,
-			ReminderType: "booked",
+			LessonID:  lessonID,
+			SlotID:    req.SlotId,
+			TutorID:   tutorID,
+			StudentID: studentID,
+			StartsAt:  slot.StartsAt,
+			EndsAt:    slot.EndsAt,
+			EventType: "booked",
 		}
-		if err := s.eventSender.SendReminderEvent(ctx, reminderEvent); err != nil && s.logger != nil {
-			s.logger.Error(ctx, "failed to send lesson reminder event",
-				zap.String("lesson_id", lessonID), zap.Error(err))
+		// Use a context detached from the gRPC deadline so the Kafka write
+		// is not cancelled if the client disconnects after the DB commit.
+		sendCtx := context.WithoutCancel(ctx)
+		if err := s.eventSender.SendReminderEvent(sendCtx, reminderEvent); err != nil {
+			if s.logger != nil {
+				s.logger.Error(ctx, "failed to send lesson reminder event",
+					zap.String("lesson_id", lessonID), zap.Error(err))
+			}
 		}
 	}
 

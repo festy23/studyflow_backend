@@ -10,7 +10,9 @@ COPY notification_service/ ./
 RUN CGO_ENABLED=0 GOOS=linux go build -o /server ./cmd/server/main.go
 
 FROM alpine:latest
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app
 COPY --from=builder /server ./
+USER appuser
 
 CMD ["./server"]

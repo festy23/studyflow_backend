@@ -27,16 +27,28 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	topicList := strings.Split(topics, ",")
+	rawTopics := strings.Split(topics, ",")
+	topicList := make([]string, 0, len(rawTopics))
+	for _, t := range rawTopics {
+		if trimmed := strings.TrimSpace(t); trimmed != "" {
+			topicList = append(topicList, trimmed)
+		}
+	}
+
+	brokerList := strings.Split(brokers, ",")
+	for i, b := range brokerList {
+		brokerList[i] = strings.TrimSpace(b)
+	}
+
 	logger.Info("Starting notification consumer",
 		zap.Strings("topics", topicList),
-		zap.String("brokers", brokers),
+		zap.Strings("brokers", brokerList),
 		zap.String("group_id", groupID),
 	)
 
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:  strings.Split(brokers, ","),
-		GroupID:  groupID,
+		Brokers:     brokerList,
+		GroupID:     groupID,
 		GroupTopics: topicList,
 	})
 	defer func() { _ = reader.Close() }()
@@ -68,6 +80,8 @@ func main() {
 			)
 		}
 
+		// Commit unconditionally: malformed messages are logged and skipped.
+		// When real dispatch logic is added, consider skipping commit on processing errors.
 		if err := reader.CommitMessages(ctx, msg); err != nil {
 			logger.Error("Failed to commit message", zap.Error(err))
 		}
