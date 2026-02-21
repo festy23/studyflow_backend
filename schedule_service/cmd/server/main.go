@@ -47,7 +47,13 @@ func main() {
 		logger.Fatal(ctx, "failed to create UserClient")
 	}
 
-	brokers := strings.Split(cfg.KafkaBrokers, ",")
+	rawBrokers := strings.Split(cfg.KafkaBrokers, ",")
+	brokers := make([]string, 0, len(rawBrokers))
+	for _, b := range rawBrokers {
+		if trimmed := strings.TrimSpace(b); trimmed != "" {
+			brokers = append(brokers, trimmed)
+		}
+	}
 	eventSender := kafka.NewEventSender(brokers, cfg.KafkaReminderTopic)
 
 	schedule_service := service.NewScheduleServer(database, userClient, eventSender, logger)

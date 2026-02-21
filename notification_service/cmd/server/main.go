@@ -27,18 +27,8 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	rawTopics := strings.Split(topics, ",")
-	topicList := make([]string, 0, len(rawTopics))
-	for _, t := range rawTopics {
-		if trimmed := strings.TrimSpace(t); trimmed != "" {
-			topicList = append(topicList, trimmed)
-		}
-	}
-
-	brokerList := strings.Split(brokers, ",")
-	for i, b := range brokerList {
-		brokerList[i] = strings.TrimSpace(b)
-	}
+	topicList := splitAndTrim(topics)
+	brokerList := splitAndTrim(brokers)
 
 	logger.Info("Starting notification consumer",
 		zap.Strings("topics", topicList),
@@ -64,21 +54,7 @@ func main() {
 			continue
 		}
 
-		var payload map[string]interface{}
-		if jsonErr := json.Unmarshal(msg.Value, &payload); jsonErr != nil {
-			logger.Warn("Failed to unmarshal message",
-				zap.String("topic", msg.Topic),
-				zap.ByteString("value", msg.Value),
-				zap.Error(jsonErr),
-			)
-		} else {
-			logger.Info("Received event",
-				zap.String("topic", msg.Topic),
-				zap.Int("partition", msg.Partition),
-				zap.Int64("offset", msg.Offset),
-				zap.Any("payload", payload),
-			)
-		}
+		processMessage(logger, msg)
 
 		// Commit unconditionally: malformed messages are logged and skipped.
 		// When real dispatch logic is added, consider skipping commit on processing errors.
@@ -88,9 +64,47 @@ func main() {
 	}
 }
 
+func processMessage(logger *zap.Logger, msg kafka.Message) {
+	var payload map[string]any
+	if jsonErr := json.Unmarshal(msg.Value, &payload); jsonErr != nil {
+		truncated := truncateBytes(msg.Value, 256)
+		logger.Warn("Failed to unmarshal message",
+			zap.String("topic", msg.Topic),
+			zap.Int("value_len", len(msg.Value)),
+			zap.ByteString("value_head", truncated),
+			zap.Error(jsonErr),
+		)
+	} else {
+		logger.Info("Received event",
+			zap.String("topic", msg.Topic),
+			zap.Int("partition", msg.Partition),
+			zap.Int64("offset", msg.Offset),
+			zap.Any("payload", payload),
+		)
+	}
+}
+
 func getEnv(key, fallback string) string {
 	if val := os.Getenv(key); val != "" {
 		return val
 	}
 	return fallback
+}
+
+func splitAndTrim(csv string) []string {
+	raw := strings.Split(csv, ",")
+	result := make([]string, 0, len(raw))
+	for _, s := range raw {
+		if trimmed := strings.TrimSpace(s); trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
+}
+
+func truncateBytes(data []byte, max int) []byte {
+	if len(data) <= max {
+		return data
+	}
+	return data[:max]
 }
