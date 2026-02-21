@@ -6,25 +6,37 @@ import (
 	"time"
 
 	"common_library/ctxdata"
+	"common_library/logging"
 	"schedule_service/internal/database/repo"
+	"schedule_service/internal/kafka"
 	pb "schedule_service/pkg/api"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type ScheduleServer struct {
-	pb.UnimplementedScheduleServiceServer
-	db         repo.Repository
-	UserClient IUserClient
+// EventSenderInterface allows mocking in tests.
+type EventSenderInterface interface {
+	SendReminderEvent(ctx context.Context, event kafka.ReminderEvent) error
 }
 
-func NewScheduleServer(db repo.Repository, client IUserClient) *ScheduleServer {
+type ScheduleServer struct {
+	pb.UnimplementedScheduleServiceServer
+	db          repo.Repository
+	UserClient  IUserClient
+	eventSender EventSenderInterface
+	logger      *logging.Logger
+}
+
+func NewScheduleServer(db repo.Repository, client IUserClient, eventSender EventSenderInterface, logger *logging.Logger) *ScheduleServer {
 	return &ScheduleServer{
-		db:         db,
-		UserClient: client,
+		db:          db,
+		UserClient:  client,
+		eventSender: eventSender,
+		logger:      logger,
 	}
 }
 
@@ -358,6 +370,27 @@ func (s *ScheduleServer) CreateLesson(ctx context.Context, req *pb.CreateLessonR
 
 	if err := s.db.CreateLessonAndBookSlot(ctx, lesson, req.SlotId); err != nil {
 		return nil, status.Error(codes.Internal, "failed to create lesson")
+	}
+
+	if s.eventSender != nil {
+		reminderEvent := kafka.ReminderEvent{
+			LessonID:  lessonID,
+			SlotID:    req.SlotId,
+			TutorID:   tutorID,
+			StudentID: studentID,
+			StartsAt:  slot.StartsAt,
+			EndsAt:    slot.EndsAt,
+			EventType: "booked",
+		}
+		// Use a context detached from the gRPC deadline so the Kafka write
+		// is not cancelled if the client disconnects after the DB commit.
+		sendCtx := context.WithoutCancel(ctx)
+		if err := s.eventSender.SendReminderEvent(sendCtx, reminderEvent); err != nil {
+			if s.logger != nil {
+				s.logger.Error(ctx, "failed to send lesson reminder event",
+					zap.String("lesson_id", lessonID), zap.Error(err))
+			}
+		}
 	}
 
 	return &pb.Lesson{
