@@ -26,7 +26,7 @@ func setup(t *testing.T) (*service.ScheduleServer, *mocks.MockRepository, *mocks
 
 	mockRepo := mocks.NewMockRepository(ctrl)
 	mockUserClient := mocks.NewMockIUserClient(ctrl)
-	srv := service.NewScheduleServer(mockRepo, mockUserClient)
+	srv := service.NewScheduleServer(mockRepo, mockUserClient, nil, nil)
 
 	return srv, mockRepo, mockUserClient, ctrl
 }

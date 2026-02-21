@@ -10,8 +10,10 @@ import (
 	"os/signal"
 	"schedule_service/internal/config"
 	"schedule_service/internal/database/postgres"
+	"schedule_service/internal/kafka"
 	service "schedule_service/internal/service/service"
 	pb "schedule_service/pkg/api"
+	"strings"
 	"syscall"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -44,7 +46,10 @@ func main() {
 		logger.Fatal(ctx, "failed to create UserClient")
 	}
 
-	schedule_service := service.NewScheduleServer(database, userClient)
+	brokers := strings.Split(cfg.KafkaBrokers, ",")
+	eventSender := kafka.NewEventSender(brokers, cfg.KafkaReminderTopic)
+
+	schedule_service := service.NewScheduleServer(database, userClient, eventSender, logger)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GRPCPort))
 	if err != nil {
@@ -70,6 +75,9 @@ func main() {
 
 	<-ctx.Done()
 	server.GracefulStop()
+	if err := eventSender.Close(); err != nil {
+		logger.Error(ctx, "failed to close event sender", zap.Error(err))
+	}
 	database.Close()
 	userClient.Close()
 	logger.Info(ctx, "Server Stopped")

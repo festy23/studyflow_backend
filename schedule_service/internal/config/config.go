@@ -16,6 +16,8 @@ type Config struct {
 	PostgresMinConn     int    `env:"POSTGRES_MIN_CONN" env-default:"1"`
 	PostgresAutoMigrate bool   `env:"POSTGRES_AUTO_MIGRATE" env-default:"false"`
 	UserClientDNS       string `env:"USER_CLIENT_DNS" env-required:"true"`
+	KafkaBrokers        string `env:"KAFKA_BROKERS" env-default:"kafka:9092"`
+	KafkaReminderTopic  string `env:"KAFKA_REMINDER_TOPIC" env-default:"lesson-reminders"`
 }
 
 var (

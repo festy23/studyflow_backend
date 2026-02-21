@@ -117,6 +117,10 @@ func (h *FileHandler) proxyToMinio(method string, path string) http.HandlerFunc 
 			w.Header()[k] = v
 		}
 		w.WriteHeader(resp.StatusCode)
-		_, _ = io.Copy(w, resp.Body)
+		if _, err := io.Copy(w, resp.Body); err != nil {
+			if logger, ok := logging.GetFromContext(r.Context()); ok {
+				logger.Error(r.Context(), "failed to proxy response body", zap.Error(err))
+			}
+		}
 	}
 }

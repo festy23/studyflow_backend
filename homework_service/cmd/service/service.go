@@ -3,12 +3,13 @@ package main
 import (
 	"common_library/logging"
 	"common_library/metadata"
-	"google.golang.org/grpc/credentials/insecure"
+	"context"
 	configs "homework_service/config"
 	"net"
-	"os"
 	"os/signal"
 	"syscall"
+
+	"google.golang.org/grpc/credentials/insecure"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"
@@ -127,6 +128,12 @@ func main() {
 	defer func() { _ = pg.Close() }()
 	defer func() { _ = kafkaProducer.Close() }()
 
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	reminderWorker := NewReminderWorker(*assignmentRepo, kafkaProducer, log)
+	go reminderWorker.Start(ctx)
+
 	go func() {
 		log.Infof("Starting gRPC server on %s", cfg.GRPC.Address)
 		if err := grpcServer.Serve(listener); err != nil {
@@ -134,9 +141,7 @@ func main() {
 		}
 	}()
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+	<-ctx.Done()
 
 	log.Info("Shutting down server...")
 	grpcServer.GracefulStop()

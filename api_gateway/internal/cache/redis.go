@@ -1,19 +1,22 @@
 package cache
 
 import (
+	"common_library/logging"
 	"context"
 	"errors"
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 type RedisCache struct {
-	rdb *redis.Client
+	rdb    *redis.Client
+	logger *logging.Logger
 }
 
-func NewRedisCache(rdb *redis.Client) *RedisCache {
-	return &RedisCache{rdb: rdb}
+func NewRedisCache(rdb *redis.Client, logger *logging.Logger) *RedisCache {
+	return &RedisCache{rdb: rdb, logger: logger}
 }
 
 func (r *RedisCache) Get(ctx context.Context, key string) ([]byte, bool) {
@@ -25,9 +28,13 @@ func (r *RedisCache) Get(ctx context.Context, key string) ([]byte, bool) {
 }
 
 func (r *RedisCache) Set(ctx context.Context, key string, data []byte, ttl time.Duration) {
-	r.rdb.Set(ctx, key, data, ttl)
+	if err := r.rdb.Set(ctx, key, data, ttl).Err(); err != nil {
+		r.logger.Error(ctx, "failed to set cache", zap.String("key", key), zap.Error(err))
+	}
 }
 
 func (r *RedisCache) Delete(ctx context.Context, key string) {
-	r.rdb.Del(ctx, key)
+	if err := r.rdb.Del(ctx, key).Err(); err != nil {
+		r.logger.Error(ctx, "failed to delete cache", zap.String("key", key), zap.Error(err))
+	}
 }
