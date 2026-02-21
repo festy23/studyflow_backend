@@ -24,3 +24,11 @@ go.work.sum
 
 # env file
 .env
+
+# Compiled service binaries
+api_gateway/main
+user_service/main
+schedule_service/server
+homework_service/service
+payment_service/main
+file_service/main
