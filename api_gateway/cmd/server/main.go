@@ -59,7 +59,7 @@ func main() {
 		Addr: cfg.RedisURL,
 	})
 
-	redisCache := cache.NewRedisCache(redisConn)
+	redisCache := cache.NewRedisCache(redisConn, logger)
 
 	userClient := userpb.NewUserServiceClient(userGrpcClient)
 	userHandler := handler.NewUserHandler(userClient, redisCache)

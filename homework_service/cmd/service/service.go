@@ -3,12 +3,15 @@ package main
 import (
 	"common_library/logging"
 	"common_library/metadata"
-	"google.golang.org/grpc/credentials/insecure"
+	"context"
 	configs "homework_service/config"
 	"net"
-	"os"
 	"os/signal"
+	"sync"
 	"syscall"
+	"time"
+
+	"google.golang.org/grpc/credentials/insecure"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"
@@ -127,6 +130,18 @@ func main() {
 	defer func() { _ = pg.Close() }()
 	defer func() { _ = kafkaProducer.Close() }()
 
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	var wg sync.WaitGroup
+
+	reminderWorker := NewReminderWorker(*assignmentRepo, kafkaProducer, log)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		reminderWorker.Start(ctx)
+	}()
+
 	go func() {
 		log.Infof("Starting gRPC server on %s", cfg.GRPC.Address)
 		if err := grpcServer.Serve(listener); err != nil {
@@ -134,11 +149,22 @@ func main() {
 		}
 	}()
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+	<-ctx.Done()
 
 	log.Info("Shutting down server...")
-	grpcServer.GracefulStop()
+
+	shutdownDone := make(chan struct{})
+	go func() {
+		grpcServer.GracefulStop()
+		close(shutdownDone)
+	}()
+	select {
+	case <-shutdownDone:
+	case <-time.After(10 * time.Second):
+		log.Info("GracefulStop timed out, forcing Stop")
+		grpcServer.Stop()
+	}
+
+	wg.Wait()
 	log.Info("Server stopped")
 }

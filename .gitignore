@@ -32,3 +32,4 @@ schedule_service/server
 homework_service/service
 payment_service/main
 file_service/main
+notification_service/server

@@ -10,9 +10,12 @@ import (
 	"os/signal"
 	"schedule_service/internal/config"
 	"schedule_service/internal/database/postgres"
+	"schedule_service/internal/kafka"
 	service "schedule_service/internal/service/service"
 	pb "schedule_service/pkg/api"
+	"strings"
 	"syscall"
+	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"go.uber.org/zap"
@@ -44,7 +47,16 @@ func main() {
 		logger.Fatal(ctx, "failed to create UserClient")
 	}
 
-	schedule_service := service.NewScheduleServer(database, userClient)
+	rawBrokers := strings.Split(cfg.KafkaBrokers, ",")
+	brokers := make([]string, 0, len(rawBrokers))
+	for _, b := range rawBrokers {
+		if trimmed := strings.TrimSpace(b); trimmed != "" {
+			brokers = append(brokers, trimmed)
+		}
+	}
+	eventSender := kafka.NewEventSender(brokers, cfg.KafkaReminderTopic)
+
+	schedule_service := service.NewScheduleServer(database, userClient, eventSender, logger)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GRPCPort))
 	if err != nil {
@@ -69,7 +81,22 @@ func main() {
 	}()
 
 	<-ctx.Done()
-	server.GracefulStop()
+
+	shutdownDone := make(chan struct{})
+	go func() {
+		server.GracefulStop()
+		close(shutdownDone)
+	}()
+	select {
+	case <-shutdownDone:
+	case <-time.After(10 * time.Second):
+		logger.Info(ctx, "GracefulStop timed out, forcing Stop")
+		server.Stop()
+	}
+
+	if err := eventSender.Close(); err != nil {
+		logger.Error(ctx, "failed to close event sender", zap.Error(err))
+	}
 	database.Close()
 	userClient.Close()
 	logger.Info(ctx, "Server Stopped")
