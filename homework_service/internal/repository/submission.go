@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -101,6 +102,10 @@ func (r *SubmissionRepository) ListByAssignment(ctx context.Context, assignmentI
 			return nil, err
 		}
 		submissions = append(submissions, &submission)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
 	}
 
 	return submissions, nil

@@ -22,14 +22,24 @@ type AssignmentServiceInterface interface {
 	GetAssignmentFileURL(ctx context.Context, id uuid.UUID) (string, error)
 }
 
+// AssignmentRepo is the subset of repository.AssignmentRepository used by
+// AssignmentService. It exists primarily to enable mocking in unit tests.
+type AssignmentRepo interface {
+	Create(ctx context.Context, assignment *domain.Assignment) error
+	Update(ctx context.Context, assignment *domain.Assignment) error
+	Delete(ctx context.Context, id uuid.UUID) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.Assignment, error)
+	ListByFilter(ctx context.Context, filter domain.AssignmentFilter) ([]*domain.Assignment, error)
+}
+
 type AssignmentService struct {
-	assignmentRepo repository.AssignmentRepository
+	assignmentRepo AssignmentRepo
 	userClient     UserClient
 	fileClient     FileClient
 }
 
 func NewAssignmentService(
-	assignmentRepo repository.AssignmentRepository,
+	assignmentRepo AssignmentRepo,
 	userClient UserClient,
 	fileClient FileClient,
 ) *AssignmentService {
@@ -44,7 +54,12 @@ func (s *AssignmentService) CreateAssignment(ctx context.Context, req *domain.As
 
 	userRole, ok := ctxdata.GetUserRole(ctx)
 	if !ok || userRole != "tutor" {
-		return nil, errors.New("permission denied")
+		return nil, ErrPermissionDenied
+	}
+
+	userID, ok := ctxdata.GetUserID(ctx)
+	if !ok || req.TutorID.String() != userID {
+		return nil, ErrPermissionDenied
 	}
 
 	isPair, err := s.userClient.IsPair(ctx, req.TutorID, req.StudentID)
@@ -98,9 +113,26 @@ func (s *AssignmentService) GetAssignment(ctx context.Context, id uuid.UUID) (*d
 
 func (s *AssignmentService) UpdateAssignment(ctx context.Context, assignment *domain.Assignment) error {
 	userID, ok := ctxdata.GetUserID(ctx)
-	if !ok || assignment.TutorID.String() != userID {
+	if !ok {
 		return ErrPermissionDenied
 	}
+
+	existing, err := s.assignmentRepo.GetByID(ctx, assignment.ID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return ErrAssignmentNotFound
+		}
+		return err
+	}
+
+	if existing.TutorID.String() != userID {
+		return ErrPermissionDenied
+	}
+
+	// Preserve immutable ownership fields from the DB record so that a
+	// caller-supplied TutorID/StudentID cannot be used to re-target the row.
+	assignment.TutorID = existing.TutorID
+	assignment.StudentID = existing.StudentID
 
 	return s.assignmentRepo.Update(ctx, assignment)
 }
