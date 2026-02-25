@@ -1,6 +1,7 @@
 package service
 
 import (
+	"common_library/ctxdata"
 	"context"
 	"errors"
 	"fileservice/internal/errdefs"
@@ -14,6 +15,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+func ctxWithUser(userID uuid.UUID) context.Context {
+	return ctxdata.WithUserID(context.Background(), userID.String())
+}
 
 // MockFileRepository is a testify mock for FileRepository.
 type MockFileRepository struct {
@@ -84,18 +89,121 @@ func TestGetFileMeta_Success(t *testing.T) {
 	svc := newTestService(mockRepo)
 
 	fileId := uuid.New()
+	owner := uuid.New()
 	filename := "document.pdf"
 	expectedFile := &model.File{
 		Id:         fileId,
 		Extension:  ".pdf",
-		UploadedBy: uuid.New(),
+		UploadedBy: owner,
 		Filename:   &filename,
 		CreatedAt:  time.Now(),
 	}
 
 	mockRepo.On("GetFile", mock.Anything, fileId).Return(expectedFile, nil)
 
-	result, err := svc.GetFileMeta(context.Background(), fileId)
+	result, err := svc.GetFileMeta(ctxWithUser(owner), fileId)
+
+	assert.NoError(t, err)
+	assert.Equal(t, expectedFile, result)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestGetFileMeta_PermissionDenied(t *testing.T) {
+	mockRepo := new(MockFileRepository)
+	svc := newTestService(mockRepo)
+
+	fileId := uuid.New()
+	owner := uuid.New()
+	other := uuid.New()
+	filename := "document.pdf"
+	expectedFile := &model.File{
+		Id:         fileId,
+		Extension:  ".pdf",
+		UploadedBy: owner,
+		Filename:   &filename,
+		CreatedAt:  time.Now(),
+	}
+
+	mockRepo.On("GetFile", mock.Anything, fileId).Return(expectedFile, nil)
+
+	result, err := svc.GetFileMeta(ctxWithUser(other), fileId)
+
+	assert.Nil(t, result)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, errdefs.ErrPermissionDenied))
+	mockRepo.AssertExpectations(t)
+}
+
+func TestGenerateDownloadURL_PermissionDenied(t *testing.T) {
+	mockRepo := new(MockFileRepository)
+	svc := newTestService(mockRepo)
+
+	fileId := uuid.New()
+	owner := uuid.New()
+	other := uuid.New()
+	filename := "doc.pdf"
+	expectedFile := &model.File{
+		Id:         fileId,
+		Extension:  ".pdf",
+		UploadedBy: owner,
+		Filename:   &filename,
+		CreatedAt:  time.Now(),
+	}
+
+	mockRepo.On("GetFile", mock.Anything, fileId).Return(expectedFile, nil)
+
+	result, err := svc.GenerateDownloadURL(ctxWithUser(other), fileId)
+
+	assert.Empty(t, result)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, errdefs.ErrPermissionDenied))
+	mockRepo.AssertExpectations(t)
+}
+
+func TestGenerateDownloadURL_NoCallerIdentity(t *testing.T) {
+	mockRepo := new(MockFileRepository)
+	svc := newTestService(mockRepo)
+
+	fileId := uuid.New()
+	owner := uuid.New()
+	filename := "doc.pdf"
+	expectedFile := &model.File{
+		Id:         fileId,
+		Extension:  ".pdf",
+		UploadedBy: owner,
+		Filename:   &filename,
+		CreatedAt:  time.Now(),
+	}
+
+	mockRepo.On("GetFile", mock.Anything, fileId).Return(expectedFile, nil)
+
+	result, err := svc.GenerateDownloadURL(context.Background(), fileId)
+
+	assert.Empty(t, result)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, errdefs.ErrPermissionDenied))
+	mockRepo.AssertExpectations(t)
+}
+
+func TestGetFileMeta_PrivilegedRole(t *testing.T) {
+	mockRepo := new(MockFileRepository)
+	svc := newTestService(mockRepo)
+
+	fileId := uuid.New()
+	owner := uuid.New()
+	filename := "doc.pdf"
+	expectedFile := &model.File{
+		Id:         fileId,
+		Extension:  ".pdf",
+		UploadedBy: owner,
+		Filename:   &filename,
+		CreatedAt:  time.Now(),
+	}
+
+	mockRepo.On("GetFile", mock.Anything, fileId).Return(expectedFile, nil)
+
+	ctx := ctxdata.WithUserRole(context.Background(), "service")
+	result, err := svc.GetFileMeta(ctx, fileId)
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedFile, result)
