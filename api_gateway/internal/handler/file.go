@@ -40,8 +40,8 @@ func NewFileHandler(c filepb.FileServiceClient, minioUrl string) *FileHandler {
 func (h *FileHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
 	r.With(authMiddleware).Post("/init-upload", h.InitUpload)
 	r.With(authMiddleware).Get("/{id}/meta", h.GetFileMeta)
-	r.Put("/upload/*", h.proxyToMinio("PUT", "/files/upload"))
-	r.Get("/download/*", h.proxyToMinio("GET", "/files/download"))
+	r.With(authMiddleware).Put("/upload/*", h.proxyToMinio("PUT", "/files/upload"))
+	r.With(authMiddleware).Get("/download/*", h.proxyToMinio("GET", "/files/download"))
 }
 
 func (h *FileHandler) InitUpload(w http.ResponseWriter, r *http.Request) {
@@ -94,7 +94,15 @@ func (h *FileHandler) proxyToMinio(method string, path string) http.HandlerFunc 
 			http.Error(w, "Failed to create proxy request", http.StatusInternalServerError)
 			return
 		}
-		req.Header = r.Header.Clone()
+		// Whitelist headers forwarded to MinIO to avoid leaking auth/internal
+		// headers (Authorization, X-User-Id, X-User-Role, X-Trace-Id, cookies).
+		req.Header = http.Header{}
+		if ct := r.Header.Get("Content-Type"); ct != "" {
+			req.Header.Set("Content-Type", ct)
+		}
+		if cl := r.Header.Get("Content-Length"); cl != "" {
+			req.Header.Set("Content-Length", cl)
+		}
 		if clStr := r.Header.Get("Content-Length"); clStr != "" {
 			if cl, err := strconv.ParseInt(clStr, 10, 64); err == nil {
 				req.ContentLength = cl

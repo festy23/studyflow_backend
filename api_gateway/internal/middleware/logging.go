@@ -22,6 +22,13 @@ func (w *statusWriter) WriteHeader(code int) {
 func NewLoggingMiddleware(logger *logging.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Strip internal headers that external clients must not be able to forge.
+			// These are populated by trusted middleware (auth, trace) before being
+			// forwarded to internal gRPC services.
+			r.Header.Del("X-User-Id")
+			r.Header.Del("X-User-Role")
+			r.Header.Del("X-Trace-Id")
+
 			start := time.Now()
 
 			traceID, err := uuid.NewV7()

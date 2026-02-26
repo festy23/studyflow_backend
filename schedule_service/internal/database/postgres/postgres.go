@@ -400,7 +400,7 @@ func (r *PostgresRepository) ListLessonsByPair(ctx context.Context, tutorID, stu
 	return r.queryLessons(ctx, query, args...)
 }
 
-func (r *PostgresRepository) ListCompletedUnpaidLessons(ctx context.Context, after *time.Time) ([]repo.Lesson, error) {
+func (r *PostgresRepository) ListCompletedUnpaidLessons(ctx context.Context, tutorID string, after *time.Time) ([]repo.Lesson, error) {
 	var query string
 	var args []interface{}
 
@@ -409,19 +409,19 @@ func (r *PostgresRepository) ListCompletedUnpaidLessons(ctx context.Context, aft
 			SELECT l.id, l.slot_id, l.student_id, l.status, l.is_paid, l.connection_link, l.price_rub, l.payment_info, l.created_at, l.edited_at
 			FROM lessons l
 			JOIN slots s ON l.slot_id = s.id
-			WHERE l.status = 'completed' AND l.is_paid = false AND s.ends_at > $1
+			WHERE s.tutor_id = $1 AND l.status = 'completed' AND l.is_paid = false AND s.ends_at > $2
 			ORDER BY s.ends_at ASC
 		`
-		args = []interface{}{after}
+		args = []interface{}{tutorID, after}
 	} else {
 		query = `
 			SELECT l.id, l.slot_id, l.student_id, l.status, l.is_paid, l.connection_link, l.price_rub, l.payment_info, l.created_at, l.edited_at
 			FROM lessons l
 			JOIN slots s ON l.slot_id = s.id
-			WHERE l.status = 'completed' AND l.is_paid = false
+			WHERE s.tutor_id = $1 AND l.status = 'completed' AND l.is_paid = false
 			ORDER BY s.ends_at ASC
 		`
-		args = []interface{}{}
+		args = []interface{}{tutorID}
 	}
 
 	return r.queryLessons(ctx, query, args...)

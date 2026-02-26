@@ -34,6 +34,9 @@ func NewPaymentServiceServer(paymentService PaymentService) *PaymentServiceServe
 	return &PaymentServiceServer{service: paymentService}
 }
 func (h *PaymentServiceServer) GetPaymentInfo(ctx context.Context, req *pb.GetPaymentInfoRequest) (*pb.PaymentInfo, error) {
+	if req.LessonId == nil {
+		return nil, status.Errorf(codes.InvalidArgument, "lesson_id is required")
+	}
 	lessonID, err := uuid.Parse(*req.LessonId)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid LessonId: %v", err)
@@ -56,6 +59,12 @@ func (h *PaymentServiceServer) GetPaymentInfo(ctx context.Context, req *pb.GetPa
 }
 
 func (h *PaymentServiceServer) SubmitPaymentReceipt(ctx context.Context, req *pb.SubmitPaymentReceiptRequest) (*pb.Receipt, error) {
+	if req.LessonId == nil {
+		return nil, status.Errorf(codes.InvalidArgument, "lesson_id is required")
+	}
+	if req.FileId == nil {
+		return nil, status.Errorf(codes.InvalidArgument, "file_id is required")
+	}
 	lessonID, err := uuid.Parse(*req.LessonId)
 	if err != nil {
 		return nil, status.New(codes.InvalidArgument, "invalid lesson ID: "+err.Error()).Err()

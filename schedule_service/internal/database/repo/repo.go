@@ -44,7 +44,7 @@ type Repository interface {
 	ListLessonsByTutor(ctx context.Context, tutorID string, statusFilter []string) ([]Lesson, error)
 	ListLessonsByStudent(ctx context.Context, studentID string, statusFilter []string) ([]Lesson, error)
 	ListLessonsByPair(ctx context.Context, tutorID, studentID string, statusFilter []string) ([]Lesson, error)
-	ListCompletedUnpaidLessons(ctx context.Context, after *time.Time) ([]Lesson, error)
+	ListCompletedUnpaidLessons(ctx context.Context, tutorID string, after *time.Time) ([]Lesson, error)
 
 	UpdateCompletedLessons(ctx context.Context) (int, error)
 

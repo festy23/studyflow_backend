@@ -377,11 +377,16 @@ func (h *HomeworkHandler) GetFeedbackFile(ctx context.Context, req *v1.GetFeedba
 
 func toGRPCError(err error) error {
 	switch {
-	case errors.Is(err, repository.ErrNotFound):
+	case errors.Is(err, repository.ErrNotFound),
+		errors.Is(err, service.ErrAssignmentNotFound),
+		errors.Is(err, service.ErrSubmissionNotFound),
+		errors.Is(err, service.ErrFeedbackNotFound),
+		errors.Is(err, service.ErrFileNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, service.ErrPermissionDenied):
 		return status.Error(codes.PermissionDenied, err.Error())
-	case errors.Is(err, service.ErrInvalidArgument):
+	case errors.Is(err, service.ErrInvalidArgument),
+		errors.Is(err, service.ErrInvalidFeedbackData):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		return status.Error(codes.Internal, "internal server error")

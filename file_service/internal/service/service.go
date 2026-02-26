@@ -1,12 +1,18 @@
 package service
 
 import (
+	"common_library/ctxdata"
 	"common_library/logging"
 	"context"
 	"errors"
 	"fileservice/internal/errdefs"
 	"fileservice/internal/model"
 	"fmt"
+	"net/url"
+	"path"
+	"strings"
+	"time"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/aws/transport/http"
@@ -14,10 +20,30 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
-	"path"
-	"strings"
-	"time"
 )
+
+// privilegedRoles can access any file regardless of UploadedBy.
+// Cross-user access for ordinary tutor/student flows must go through
+// services (homework_service, payment_service) which re-issue the
+// file_id under their own authorization checks.
+var privilegedRoles = map[string]bool{
+	"service": true,
+	"admin":   true,
+}
+
+func authorizeFileAccess(ctx context.Context, file *model.File) error {
+	if role, ok := ctxdata.GetUserRole(ctx); ok && privilegedRoles[role] {
+		return nil
+	}
+	callerID, ok := ctxdata.GetUserID(ctx)
+	if !ok || callerID == "" {
+		return fmt.Errorf("missing caller identity: %w", errdefs.ErrPermissionDenied)
+	}
+	if callerID != file.UploadedBy.String() {
+		return fmt.Errorf("caller is not the owner: %w", errdefs.ErrPermissionDenied)
+	}
+	return nil
+}
 
 type FileRepository interface {
 	CreateFile(ctx context.Context, input *model.RepositoryCreateFileInput) (*model.File, error)
@@ -75,13 +101,60 @@ func (s *FileService) InitUpload(ctx context.Context, input *model.InitUploadInp
 		return nil, err
 	}
 
+	rewritten, err := s.rewritePresignedURL(ctx, uploadRequest.URL, "/files/upload")
+	if err != nil {
+		return nil, err
+	}
+
 	res := &model.InitUpload{
 		FileId:    file.Id,
-		UploadURL: strings.Replace(uploadRequest.URL, s.minioURL, s.gatewayPublicUrl+"/files/upload", 1),
+		UploadURL: rewritten,
 		Method:    uploadRequest.Method,
 	}
 
 	return res, nil
+}
+
+// rewritePresignedURL replaces the internal storage host with the
+// public gateway host. Returns an internal error (without leaking the
+// raw URL) if the presigned URL host does not match the configured
+// MinIO host.
+func (s *FileService) rewritePresignedURL(ctx context.Context, presigned, prefixPath string) (string, error) {
+	presignedURL, err := url.Parse(presigned)
+	if err != nil {
+		if logger, ok := logging.GetFromContext(ctx); ok {
+			logger.Error(ctx, "failed to parse presigned URL", zap.Error(err))
+		}
+		return "", fmt.Errorf("could not rewrite upload URL: %w", errdefs.ErrInternal)
+	}
+	minioURL, err := url.Parse(s.minioURL)
+	if err != nil {
+		if logger, ok := logging.GetFromContext(ctx); ok {
+			logger.Error(ctx, "failed to parse minio URL", zap.Error(err))
+		}
+		return "", fmt.Errorf("could not rewrite upload URL: %w", errdefs.ErrInternal)
+	}
+	gatewayURL, err := url.Parse(s.gatewayPublicUrl)
+	if err != nil {
+		if logger, ok := logging.GetFromContext(ctx); ok {
+			logger.Error(ctx, "failed to parse gateway URL", zap.Error(err))
+		}
+		return "", fmt.Errorf("could not rewrite upload URL: %w", errdefs.ErrInternal)
+	}
+
+	if presignedURL.Host != minioURL.Host || presignedURL.Scheme != minioURL.Scheme {
+		if logger, ok := logging.GetFromContext(ctx); ok {
+			logger.Error(ctx, "presigned URL host does not match configured storage host",
+				zap.String("presigned_host", presignedURL.Host),
+				zap.String("expected_host", minioURL.Host))
+		}
+		return "", fmt.Errorf("could not rewrite upload URL: %w", errdefs.ErrInternal)
+	}
+
+	presignedURL.Scheme = gatewayURL.Scheme
+	presignedURL.Host = gatewayURL.Host
+	presignedURL.Path = strings.TrimRight(gatewayURL.Path, "/") + prefixPath + presignedURL.Path
+	return presignedURL.String(), nil
 }
 
 func (s *FileService) GenerateDownloadURL(ctx context.Context, fileId uuid.UUID) (string, error) {
@@ -93,13 +166,17 @@ func (s *FileService) GenerateDownloadURL(ctx context.Context, fileId uuid.UUID)
 		return "", fmt.Errorf("failed to get file: %w", err)
 	}
 
+	if err := authorizeFileAccess(ctx, file); err != nil {
+		return "", err
+	}
+
 	key := file.Id.String() + file.Extension
 	downloadRequest, err := s.generateDownloadURL(ctx, key)
 	if err != nil {
 		return "", err
 	}
 
-	return strings.Replace(downloadRequest.URL, s.minioURL, s.gatewayPublicUrl+"/files/download", 1), nil
+	return s.rewritePresignedURL(ctx, downloadRequest.URL, "/files/download")
 }
 
 func (s *FileService) GetFileMeta(ctx context.Context, fileId uuid.UUID) (*model.File, error) {
@@ -110,6 +187,11 @@ func (s *FileService) GetFileMeta(ctx context.Context, fileId uuid.UUID) (*model
 		}
 		return nil, fmt.Errorf("failed to get file: %w", err)
 	}
+
+	if err := authorizeFileAccess(ctx, file); err != nil {
+		return nil, err
+	}
+
 	return file, nil
 }
 

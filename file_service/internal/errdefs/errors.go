@@ -8,4 +8,5 @@ var (
 	ErrAuthentication   = errors.New("authentication error")
 	ErrNotFound         = errors.New("not found")
 	ErrPermissionDenied = errors.New("permission denied")
+	ErrInternal         = errors.New("internal error")
 )

@@ -121,6 +121,10 @@ FROM assignment_statuses WHERE 1=1
 		assignments = append(assignments, &a)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
 	return assignments, nil
 }
 

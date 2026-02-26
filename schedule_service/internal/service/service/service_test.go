@@ -758,6 +758,21 @@ func TestListLessonsByStudent(t *testing.T) {
 		require.Equal(t, codes.PermissionDenied, st.Code())
 	})
 
+	t.Run("Invalid UUID - No DB Call", func(t *testing.T) {
+		srv, mockRepo, _, _ := setup(t)
+		ctx := ctxdata.WithUserID(context.Background(), "de305d54-75b4-431b-adb2-eb6b9e546014")
+
+		// Asserting no calls — if the service hits the repo, the test will fail.
+		mockRepo.EXPECT().ListLessonsByStudent(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+		_, err := srv.ListLessonsByStudent(ctx, &pb.ListLessonsByStudentRequest{
+			StudentId: "not-a-uuid",
+		})
+		require.Error(t, err)
+		st, _ := status.FromError(err)
+		require.Equal(t, codes.InvalidArgument, st.Code())
+	})
+
 	t.Run("No Filter", func(t *testing.T) {
 		srv, mockRepo, _, _ := setup(t)
 		studentID := "de305d54-75b4-431b-adb2-eb6b9e546015"
@@ -993,7 +1008,7 @@ func TestListCompletedUnpaidLessons(t *testing.T) {
 			},
 		}
 
-		mockRepo.EXPECT().ListCompletedUnpaidLessons(gomock.Any(), (*time.Time)(nil)).Return(lessons, nil)
+		mockRepo.EXPECT().ListCompletedUnpaidLessons(gomock.Any(), tutorID, (*time.Time)(nil)).Return(lessons, nil)
 
 		resp, err := srv.ListCompletedUnpaidLessons(ctx, &pb.ListCompletedUnpaidLessonsRequest{})
 		require.NoError(t, err)
@@ -1010,7 +1025,7 @@ func TestListCompletedUnpaidLessons(t *testing.T) {
 
 		afterTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
-		mockRepo.EXPECT().ListCompletedUnpaidLessons(gomock.Any(), gomock.Any()).Return([]repo.Lesson{}, nil)
+		mockRepo.EXPECT().ListCompletedUnpaidLessons(gomock.Any(), tutorID, gomock.Any()).Return([]repo.Lesson{}, nil)
 
 		resp, err := srv.ListCompletedUnpaidLessons(ctx, &pb.ListCompletedUnpaidLessonsRequest{
 			After: timestamppb.New(afterTime),
@@ -1040,33 +1055,96 @@ func TestListCompletedUnpaidLessons(t *testing.T) {
 		st, _ := status.FromError(err)
 		require.Equal(t, codes.PermissionDenied, st.Code())
 	})
+
+	t.Run("Scoped To Caller Tutor", func(t *testing.T) {
+		srv, mockRepo, _, _ := setup(t)
+		tutorID := "de305d54-75b4-431b-adb2-eb6b9e546014"
+		ctx := ctxdata.WithUserID(context.Background(), tutorID)
+		ctx = ctxdata.WithUserRole(ctx, "tutor")
+
+		// Repo must receive caller's tutorID; any other tutor's data must not leak.
+		mockRepo.EXPECT().
+			ListCompletedUnpaidLessons(gomock.Any(), tutorID, (*time.Time)(nil)).
+			Return([]repo.Lesson{}, nil)
+
+		_, err := srv.ListCompletedUnpaidLessons(ctx, &pb.ListCompletedUnpaidLessonsRequest{})
+		require.NoError(t, err)
+	})
 }
 
 func TestMarkAsPaid(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
+	t.Run("Success - Tutor", func(t *testing.T) {
 		srv, mockRepo, _, _ := setup(t)
-		userID := "de305d54-75b4-431b-adb2-eb6b9e546014"
+		tutorID := "de305d54-75b4-431b-adb2-eb6b9e546014"
+		studentID := "de305d54-75b4-431b-adb2-eb6b9e546015"
 		lessonID := "de305d54-75b4-431b-adb2-eb6b9e546016"
-		ctx := ctxdata.WithUserID(context.Background(), userID)
+		slotID := "de305d54-75b4-431b-adb2-eb6b9e546017"
+		ctx := ctxdata.WithUserID(context.Background(), tutorID)
 
 		now := time.Now()
 		lesson := &repo.Lesson{
 			ID:        lessonID,
-			SlotID:    "de305d54-75b4-431b-adb2-eb6b9e546017",
-			StudentID: "de305d54-75b4-431b-adb2-eb6b9e546015",
+			SlotID:    slotID,
+			StudentID: studentID,
 			Status:    "completed",
 			IsPaid:    false,
 			CreatedAt: now.Add(-2 * time.Hour),
 			EditedAt:  now,
 		}
+		slot := &repo.Slot{ID: slotID, TutorID: tutorID}
 
 		mockRepo.EXPECT().GetLesson(gomock.Any(), lessonID).Return(lesson, nil)
+		mockRepo.EXPECT().GetSlot(gomock.Any(), slotID).Return(slot, nil)
 		mockRepo.EXPECT().MarkAsPaid(gomock.Any(), lessonID).Return(nil)
 
 		resp, err := srv.MarkAsPaid(ctx, &pb.MarkAsPaidRequest{Id: lessonID})
 		require.NoError(t, err)
 		require.Equal(t, lessonID, resp.Id)
 		require.True(t, resp.IsPaid)
+	})
+
+	t.Run("Success - Student", func(t *testing.T) {
+		srv, mockRepo, _, _ := setup(t)
+		tutorID := "de305d54-75b4-431b-adb2-eb6b9e546014"
+		studentID := "de305d54-75b4-431b-adb2-eb6b9e546015"
+		lessonID := "de305d54-75b4-431b-adb2-eb6b9e546016"
+		slotID := "de305d54-75b4-431b-adb2-eb6b9e546017"
+		ctx := ctxdata.WithUserID(context.Background(), studentID)
+
+		lesson := &repo.Lesson{ID: lessonID, SlotID: slotID, StudentID: studentID, Status: "completed"}
+		slot := &repo.Slot{ID: slotID, TutorID: tutorID}
+
+		mockRepo.EXPECT().GetLesson(gomock.Any(), lessonID).Return(lesson, nil)
+		mockRepo.EXPECT().GetSlot(gomock.Any(), slotID).Return(slot, nil)
+		mockRepo.EXPECT().MarkAsPaid(gomock.Any(), lessonID).Return(nil)
+
+		resp, err := srv.MarkAsPaid(ctx, &pb.MarkAsPaidRequest{Id: lessonID})
+		require.NoError(t, err)
+		require.True(t, resp.IsPaid)
+	})
+
+	t.Run("Permission Denied - Stranger", func(t *testing.T) {
+		srv, mockRepo, _, _ := setup(t)
+		stranger := "de305d54-75b4-431b-adb2-eb6b9e546020"
+		lessonID := "de305d54-75b4-431b-adb2-eb6b9e546016"
+		slotID := "de305d54-75b4-431b-adb2-eb6b9e546017"
+		ctx := ctxdata.WithUserID(context.Background(), stranger)
+
+		lesson := &repo.Lesson{
+			ID:        lessonID,
+			SlotID:    slotID,
+			StudentID: "de305d54-75b4-431b-adb2-eb6b9e546015",
+			Status:    "completed",
+		}
+		slot := &repo.Slot{ID: slotID, TutorID: "de305d54-75b4-431b-adb2-eb6b9e546014"}
+
+		mockRepo.EXPECT().GetLesson(gomock.Any(), lessonID).Return(lesson, nil)
+		mockRepo.EXPECT().GetSlot(gomock.Any(), slotID).Return(slot, nil)
+
+		_, err := srv.MarkAsPaid(ctx, &pb.MarkAsPaidRequest{Id: lessonID})
+		require.Error(t, err)
+		st, _ := status.FromError(err)
+		require.Equal(t, codes.PermissionDenied, st.Code())
 	})
 
 	t.Run("Unauthenticated", func(t *testing.T) {
