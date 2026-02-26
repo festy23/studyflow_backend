@@ -387,3 +387,36 @@ func TestGetReceiptFile_InvalidReceiptID(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, codes.InvalidArgument, status.Code(err))
 }
+
+// BUG-011: nil pointer deref guards
+func TestGetPaymentInfo_NilLessonID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockSvc := mocks.NewMockPaymentService(ctrl)
+	h := &PaymentServiceServer{service: mockSvc}
+	_, err := h.GetPaymentInfo(context.Background(), &pb.GetPaymentInfoRequest{LessonId: nil})
+	assert.Error(t, err)
+	assert.Equal(t, codes.InvalidArgument, status.Code(err))
+}
+
+func TestSubmitPaymentReceipt_NilLessonID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockSvc := mocks.NewMockPaymentService(ctrl)
+	h := &PaymentServiceServer{service: mockSvc}
+	fid := uuid.New().String()
+	_, err := h.SubmitPaymentReceipt(context.Background(), &pb.SubmitPaymentReceiptRequest{LessonId: nil, FileId: &fid})
+	assert.Error(t, err)
+	assert.Equal(t, codes.InvalidArgument, status.Code(err))
+}
+
+func TestSubmitPaymentReceipt_NilFileID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockSvc := mocks.NewMockPaymentService(ctrl)
+	h := &PaymentServiceServer{service: mockSvc}
+	lid := uuid.New().String()
+	_, err := h.SubmitPaymentReceipt(context.Background(), &pb.SubmitPaymentReceiptRequest{LessonId: &lid, FileId: nil})
+	assert.Error(t, err)
+	assert.Equal(t, codes.InvalidArgument, status.Code(err))
+}
