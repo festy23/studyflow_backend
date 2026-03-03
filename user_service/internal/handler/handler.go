@@ -51,12 +51,19 @@ func (h *UserServiceServer) RegisterViaTelegram(ctx context.Context, req *pb.Reg
 		LastName:   req.LastName,
 		Timezone:   req.Timezone,
 	}
-	if logger, ok := logging.GetFromContext(ctx); ok {
-		logger.Info(ctx, "registering user", zap.Any("input", input))
+	logger, hasLogger := logging.GetFromContext(ctx)
+	if hasLogger {
+		logger.Info(ctx, "registering user",
+			zap.String("role", string(input.Role)),
+			zap.Stringp("timezone", input.Timezone),
+		)
 	}
 	user, err := h.service.RegisterViaTelegram(ctx, input)
 	if err != nil {
 		return nil, mapError(err, errdefs.ErrAlreadyExists, errdefs.ErrValidation)
+	}
+	if hasLogger {
+		logger.Info(ctx, "registered user", zap.String("user_id", user.Id.String()))
 	}
 
 	return toPbUser(user), nil
@@ -230,7 +237,7 @@ func (h *UserServiceServer) UpdateTutorStudent(ctx context.Context, req *pb.Upda
 
 	tutorStudent, err := h.service.UpdateTutorStudent(ctx, tutorId, studentId, input)
 	if err != nil {
-		return nil, mapError(err, errdefs.ErrNotFound, errdefs.ErrPermissionDenied, errdefs.ErrPermissionDenied)
+		return nil, mapError(err, errdefs.ErrNotFound, errdefs.ErrPermissionDenied, errdefs.ErrValidation)
 	}
 
 	return toPbTutorStudent(tutorStudent), nil
