@@ -19,26 +19,43 @@ import (
 	"os/signal"
 	paymentpb "paymentservice/pkg/api"
 	schedulepb "schedule_service/pkg/api"
+	"strings"
 	"syscall"
 	"time"
 	userpb "userservice/pkg/api"
 )
 
+func newZapLogger(appEnv string) (*zap.Logger, error) {
+	switch strings.ToLower(strings.TrimSpace(appEnv)) {
+	case "dev", "development":
+		return zap.NewDevelopment()
+	default:
+		return zap.NewProduction()
+	}
+}
+
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	zapLogger, err := zap.NewDevelopment()
+	// Build a temporary bootstrap logger before config is loaded so we can
+	// report config errors. It defaults to production unless APP_ENV opts in.
+	bootstrapLogger, err := newZapLogger(os.Getenv("APP_ENV"))
 	if err != nil {
 		panic(err)
 	}
-
-	logger := logging.New(zapLogger)
+	logger := logging.New(bootstrapLogger)
 
 	cfg, err := config.New()
 	if err != nil {
 		logger.Fatal(ctx, "cannot create config", zap.Error(err))
 	}
+
+	zapLogger, err := newZapLogger(cfg.AppEnv)
+	if err != nil {
+		logger.Fatal(ctx, "cannot create zap logger", zap.Error(err))
+	}
+	logger = logging.New(zapLogger)
 
 	userGrpcClient, closeFunc := client.New(ctx, cfg.UserServiceURL)
 	defer closeFunc()
