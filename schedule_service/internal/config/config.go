@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
 )
@@ -18,6 +19,10 @@ type Config struct {
 	UserClientDNS       string `env:"USER_CLIENT_DNS" env-required:"true"`
 	KafkaBrokers        string `env:"KAFKA_BROKERS" env-default:"kafka:9092"`
 	KafkaReminderTopic  string `env:"KAFKA_REMINDER_TOPIC" env-default:"lesson-reminders"`
+
+	// LessonCompletionInterval controls how often the background worker
+	// transitions past 'booked' lessons to 'completed'.
+	LessonCompletionInterval time.Duration `env:"LESSON_COMPLETION_INTERVAL" env-default:"5m"`
 }
 
 var (
