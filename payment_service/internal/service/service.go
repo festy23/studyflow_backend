@@ -9,7 +9,9 @@ import (
 	api2 "fileservice/pkg/api"
 	"fmt"
 	"github.com/google/uuid"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"paymentservice/internal/clients"
 	errdefs "paymentservice/internal/errors"
 	"paymentservice/internal/models"
@@ -86,6 +88,22 @@ func (s *PaymentService) SubmitPaymentReceipt(ctx context.Context, input *models
 
 	if lesson.IsPaid {
 		return nil, errdefs.ErrAlreadyExists
+	}
+
+	// Validate file_id exists in file_service before persisting the receipt.
+	_, err = utils.RetryWithBackoff(ctx, maxRetries, retryDelay, func() (*api2.File, error) {
+		return s.fileClient.GetFileMeta(ctxWithMetadata(ctx), &api2.GetFileMetaRequest{FileId: input.FileId.String()})
+	})
+	if err != nil {
+		if st, ok := status.FromError(err); ok {
+			switch st.Code() {
+			case codes.NotFound:
+				return nil, fmt.Errorf("%w: unknown file_id", errdefs.ErrInvalidArgument)
+			case codes.PermissionDenied:
+				return nil, errdefs.ErrPermissionDenied
+			}
+		}
+		return nil, err
 	}
 
 	newReceiptID, err := uuid.NewV7()
