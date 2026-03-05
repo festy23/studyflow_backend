@@ -3,10 +3,10 @@ package service
 import (
 	"common_library/ctxdata"
 	"context"
+
 	"github.com/google/uuid"
 
 	"homework_service/internal/domain"
-	"homework_service/internal/repository"
 )
 
 type SubmissionServiceInterface interface {
@@ -17,19 +17,22 @@ type SubmissionServiceInterface interface {
 }
 
 type submissionService struct {
-	submissionRepo *repository.SubmissionRepository
-	assignmentRepo *repository.AssignmentRepository
+	submissionRepo SubmissionRepo
+	assignmentRepo AssignmentRepo
+	feedbackRepo   FeedbackRepo
 	fileClient     FileClient
 }
 
 func NewSubmissionService(
-	submissionRepo *repository.SubmissionRepository,
-	assignmentRepo *repository.AssignmentRepository,
+	submissionRepo SubmissionRepo,
+	assignmentRepo AssignmentRepo,
+	feedbackRepo FeedbackRepo,
 	fileClient FileClient,
 ) SubmissionServiceInterface {
 	return &submissionService{
 		submissionRepo: submissionRepo,
 		assignmentRepo: assignmentRepo,
+		feedbackRepo:   feedbackRepo,
 		fileClient:     fileClient,
 	}
 }
@@ -43,6 +46,22 @@ func (s *submissionService) CreateSubmission(ctx context.Context, submission *do
 	userId, ok := ctxdata.GetUserID(ctx)
 	if !ok || userId != assignment.StudentID.String() {
 		return nil, ErrPermissionDenied
+	}
+
+	// BUG-038/036: prevent further submissions once feedback has been recorded
+	// for any prior submission of this student × assignment.
+	reviewed, err := s.feedbackRepo.HasFeedbackForAssignmentStudent(ctx, assignment.ID, assignment.StudentID)
+	if err != nil {
+		return nil, err
+	}
+	if reviewed {
+		return nil, ErrAssignmentReviewed
+	}
+
+	if submission.FileID != nil && *submission.FileID != uuid.Nil {
+		if err := s.fileClient.EnsureFileExists(ctx, *submission.FileID); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := s.submissionRepo.Create(ctx, submission); err != nil {
