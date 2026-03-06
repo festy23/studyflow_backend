@@ -70,7 +70,7 @@ func getFileMetaParsePath(ctx context.Context, httpReq *http.Request, grpcReq *f
 	grpcReq.FileId = id
 
 	if logger, ok := logging.GetFromContext(ctx); ok {
-		logger.Debug(ctx, "file id added to request", zap.Any("req", grpcReq))
+		logger.Debug(ctx, "file id added to request", zap.String("file_id", grpcReq.FileId))
 	}
 	return nil
 }

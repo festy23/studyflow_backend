@@ -15,10 +15,22 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"schedule_service/internal/database/repo"
+	"schedule_service/internal/kafka"
 	"schedule_service/internal/service/service"
 	pb "schedule_service/pkg/api"
 	"schedule_service/pkg/mocks"
 )
+
+// fakeEventSender is a minimal recorder used by CancelLesson tests.
+type fakeEventSender struct {
+	events []kafka.ReminderEvent
+	err    error
+}
+
+func (f *fakeEventSender) SendReminderEvent(_ context.Context, e kafka.ReminderEvent) error {
+	f.events = append(f.events, e)
+	return f.err
+}
 
 func setup(t *testing.T) (*service.ScheduleServer, *mocks.MockRepository, *mocks.MockIUserClient, *gomock.Controller) {
 	ctrl := gomock.NewController(t)
@@ -686,6 +698,47 @@ func TestCancelLesson(t *testing.T) {
 		_, err := srv.CancelLesson(ctx, &pb.CancelLessonRequest{Id: lesson.ID})
 		assert.NoError(t, err)
 
+	})
+
+	t.Run("Emits cancelled Kafka event", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		t.Cleanup(ctrl.Finish)
+		mockRepo := mocks.NewMockRepository(ctrl)
+		mockUserClient := mocks.NewMockIUserClient(ctrl)
+		sender := &fakeEventSender{}
+		srv := service.NewScheduleServer(mockRepo, mockUserClient, sender, nil)
+
+		tutorID := "de305d54-75b4-431b-adb2-eb6b9e546014"
+		studentID := "de305d54-75b4-431b-adb2-eb6b9e546015"
+		lessonID := "de305d54-75b4-431b-adb2-eb6b9e546016"
+		slotID := "de305d54-75b4-431b-adb2-eb6b9e546017"
+		ctx := ctxdata.WithUserID(context.Background(), tutorID)
+
+		now := time.Now()
+		lesson := &repo.Lesson{
+			ID: lessonID, SlotID: slotID, StudentID: studentID,
+			Status: "booked", IsPaid: false,
+			CreatedAt: now.Add(-time.Hour), EditedAt: now,
+		}
+		slot := &repo.Slot{
+			ID: slotID, TutorID: tutorID,
+			StartsAt: now.Add(time.Hour), EndsAt: now.Add(2 * time.Hour),
+			IsBooked: true, CreatedAt: now.Add(-time.Hour),
+		}
+		mockRepo.EXPECT().GetLesson(gomock.Any(), lessonID).Return(lesson, nil)
+		mockRepo.EXPECT().GetSlot(gomock.Any(), slotID).Return(slot, nil)
+		mockRepo.EXPECT().CancelLessonAndFreeSlot(gomock.Any(), gomock.Any(), slotID).Return(nil)
+
+		_, err := srv.CancelLesson(ctx, &pb.CancelLessonRequest{Id: lessonID})
+		require.NoError(t, err)
+
+		require.Len(t, sender.events, 1, "expected exactly one event sent")
+		ev := sender.events[0]
+		require.Equal(t, "cancelled", ev.EventType)
+		require.Equal(t, lessonID, ev.LessonID)
+		require.Equal(t, slotID, ev.SlotID)
+		require.Equal(t, tutorID, ev.TutorID)
+		require.Equal(t, studentID, ev.StudentID)
 	})
 }
 

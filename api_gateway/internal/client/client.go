@@ -3,6 +3,8 @@ package client
 import (
 	"common_library/logging"
 	"context"
+	"time"
+
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -12,6 +14,7 @@ func New(ctx context.Context, url string) (*grpc.ClientConn, func()) {
 	client, err := grpc.NewClient(
 		url,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(RetryUnaryInterceptor(3, 100*time.Millisecond)),
 	)
 	if err != nil {
 		if logger, ok := logging.GetFromContext(ctx); ok {

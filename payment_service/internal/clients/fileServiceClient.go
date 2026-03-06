@@ -10,4 +10,5 @@ import (
 
 type FileServiceClient interface {
 	GenerateDownloadURL(ctx context.Context, req *api2.GenerateDownloadURLRequest, opts ...grpc.CallOption) (*api2.DownloadURL, error)
+	GetFileMeta(ctx context.Context, req *api2.GetFileMetaRequest, opts ...grpc.CallOption) (*api2.File, error)
 }
