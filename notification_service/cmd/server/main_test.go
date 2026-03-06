@@ -1,8 +1,13 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"os"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
@@ -25,8 +30,8 @@ func TestGetEnv(t *testing.T) {
 	})
 
 	t.Run("returns fallback when env is empty string", func(t *testing.T) {
-		os.Setenv("NOTIFICATION_TEST_EMPTY_VAR", "")
-		defer os.Unsetenv("NOTIFICATION_TEST_EMPTY_VAR")
+		_ = os.Setenv("NOTIFICATION_TEST_EMPTY_VAR", "")
+		defer func() { _ = os.Unsetenv("NOTIFICATION_TEST_EMPTY_VAR") }()
 		got := getEnv("NOTIFICATION_TEST_EMPTY_VAR", "fallback")
 		if got != "fallback" {
 			t.Errorf("expected %q, got %q", "fallback", got)
@@ -103,31 +108,167 @@ func TestTruncateBytes(t *testing.T) {
 func TestProcessMessage(t *testing.T) {
 	logger := zap.NewNop()
 
-	t.Run("valid JSON payload", func(t *testing.T) {
+	t.Run("valid JSON payload returns nil", func(t *testing.T) {
 		msg := kafka.Message{
 			Topic:     "lesson-reminders",
 			Partition: 0,
 			Offset:    42,
-			Value:     []byte(`{"lesson_id":"abc","event_type":"booked"}`),
+			Value:     []byte(`{"lesson_id":"abc","event_type":"booked","telegram_id":12345}`),
 		}
-		// Should not panic
-		processMessage(logger, msg)
+		if err := processMessage(logger, msg); err != nil {
+			t.Errorf("expected nil, got %v", err)
+		}
 	})
 
-	t.Run("invalid JSON payload", func(t *testing.T) {
+	t.Run("invalid JSON payload returns nil (non-retriable)", func(t *testing.T) {
 		msg := kafka.Message{
 			Topic: "lesson-reminders",
 			Value: []byte("not-json"),
 		}
-		// Should not panic
-		processMessage(logger, msg)
+		if err := processMessage(logger, msg); err != nil {
+			t.Errorf("expected nil, got %v", err)
+		}
 	})
 
-	t.Run("empty payload", func(t *testing.T) {
-		msg := kafka.Message{
-			Topic: "test-topic",
-			Value: []byte{},
+	t.Run("empty payload returns nil", func(t *testing.T) {
+		msg := kafka.Message{Topic: "test-topic", Value: []byte{}}
+		if err := processMessage(logger, msg); err != nil {
+			t.Errorf("expected nil, got %v", err)
 		}
-		processMessage(logger, msg)
 	})
+}
+
+// fakeReader implements messageCommitter for testing the consumer loop.
+type fakeReader struct {
+	mu           sync.Mutex
+	messages     []kafka.Message
+	fetchIdx     int
+	commits      []kafka.Message
+	commitErr    error
+	// blockOnEmpty: when no more messages, block until ctx is cancelled,
+	// mimicking real kafka.Reader behavior.
+	blockOnEmpty bool
+	// observedCommitCtxErr captures ctx.Err() seen by CommitMessages.
+	observedCommitCtxErr atomic.Value // error
+}
+
+func (f *fakeReader) FetchMessage(ctx context.Context) (kafka.Message, error) {
+	f.mu.Lock()
+	if f.fetchIdx < len(f.messages) {
+		msg := f.messages[f.fetchIdx]
+		f.fetchIdx++
+		f.mu.Unlock()
+		return msg, nil
+	}
+	f.mu.Unlock()
+	if !f.blockOnEmpty {
+		return kafka.Message{}, errors.New("no more messages")
+	}
+	<-ctx.Done()
+	return kafka.Message{}, ctx.Err()
+}
+
+func (f *fakeReader) CommitMessages(ctx context.Context, msgs ...kafka.Message) error {
+	f.observedCommitCtxErr.Store(errOrNil(ctx.Err()))
+	if f.commitErr != nil {
+		return f.commitErr
+	}
+	f.mu.Lock()
+	f.commits = append(f.commits, msgs...)
+	f.mu.Unlock()
+	return nil
+}
+
+// errOrNil wraps so atomic.Value never stores untyped nil.
+type errBox struct{ err error }
+
+func errOrNil(err error) errBox { return errBox{err: err} }
+
+// TestRunConsumer_GracefulDrain verifies that when SIGTERM (ctx cancel)
+// occurs after a message has been fetched, the final commit still
+// succeeds because it uses an independent deadline.
+func TestRunConsumer_GracefulDrain(t *testing.T) {
+	logger := zap.NewNop()
+	fr := &fakeReader{
+		messages: []kafka.Message{
+			{Topic: "lesson-reminders", Partition: 0, Offset: 1, Value: []byte(`{"event_type":"booked"}`)},
+		},
+		blockOnEmpty: true,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		runConsumer(ctx, logger, fr)
+		close(done)
+	}()
+
+	// Wait for the message to be processed and committed.
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		fr.mu.Lock()
+		n := len(fr.commits)
+		fr.mu.Unlock()
+		if n == 1 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	fr.mu.Lock()
+	if len(fr.commits) != 1 {
+		fr.mu.Unlock()
+		t.Fatalf("expected 1 commit before shutdown, got %d", len(fr.commits))
+	}
+	if fr.commits[0].Offset != 1 {
+		fr.mu.Unlock()
+		t.Fatalf("expected offset 1 committed, got %d", fr.commits[0].Offset)
+	}
+	fr.mu.Unlock()
+
+	// Verify commit context was NOT cancelled (independent deadline).
+	if v := fr.observedCommitCtxErr.Load(); v != nil {
+		if box, ok := v.(errBox); ok && box.err != nil {
+			t.Errorf("expected commit ctx not cancelled, got %v", box.err)
+		}
+	}
+
+	// Now cancel — consumer should exit cleanly without panicking and
+	// without trying to commit a never-fetched message.
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("consumer did not shut down within 2s of cancellation")
+	}
+}
+
+// TestRunConsumer_CancelDuringFetch verifies that cancelling ctx while
+// the consumer is blocked in FetchMessage causes a clean exit with no
+// commit attempt for a non-existent message.
+func TestRunConsumer_CancelDuringFetch(t *testing.T) {
+	logger := zap.NewNop()
+	fr := &fakeReader{blockOnEmpty: true}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		runConsumer(ctx, logger, fr)
+		close(done)
+	}()
+
+	time.Sleep(50 * time.Millisecond) // let it enter FetchMessage
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("consumer did not exit on cancel")
+	}
+
+	fr.mu.Lock()
+	defer fr.mu.Unlock()
+	if len(fr.commits) != 0 {
+		t.Errorf("expected no commits on cancel-during-fetch, got %d", len(fr.commits))
+	}
 }

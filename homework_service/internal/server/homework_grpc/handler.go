@@ -386,8 +386,11 @@ func toGRPCError(err error) error {
 	case errors.Is(err, service.ErrPermissionDenied):
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, service.ErrInvalidArgument),
-		errors.Is(err, service.ErrInvalidFeedbackData):
+		errors.Is(err, service.ErrInvalidFeedbackData),
+		errors.Is(err, service.ErrInvalidFileID):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, service.ErrAssignmentReviewed):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
 		return status.Error(codes.Internal, "internal server error")
 	}

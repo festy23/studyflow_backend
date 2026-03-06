@@ -114,7 +114,7 @@ func Handle[Req any, Resp any](
 		}
 
 		if logger, ok := logging.GetFromContext(r.Context()); ok {
-			logger.Debug(ctx, "Sending request", zap.Any("grpcReq", grpcReq))
+			logger.Debug(ctx, "Sending request", zap.String("operation", string(proto.MessageName(any(grpcReq).(proto.Message)))))
 		}
 
 		grpcResp, err := method(ctx, grpcReq)
@@ -128,7 +128,7 @@ func Handle[Req any, Resp any](
 		}
 
 		if logger, ok := logging.GetFromContext(r.Context()); ok {
-			logger.Debug(ctx, "Received response", zap.Any("grpcResp", grpcResp))
+			logger.Debug(ctx, "Received response", zap.String("operation", string(proto.MessageName(any(grpcResp).(proto.Message)))))
 		}
 
 		data, err := protojson.Marshal(any(grpcResp).(proto.Message))

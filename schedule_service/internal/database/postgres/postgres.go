@@ -27,7 +27,7 @@ func (r *PostgresRepository) GetSlot(ctx context.Context, id string) (*repo.Slot
 	`
 
 	var slot repo.Slot
-	var editedAt pgtype.Timestamp
+	var editedAt pgtype.Timestamptz
 
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&slot.ID,
@@ -148,7 +148,7 @@ func (r *PostgresRepository) ListSlotsByTutor(ctx context.Context, tutorID strin
 	var slots []repo.Slot
 	for rows.Next() {
 		var slot repo.Slot
-		var editedAt pgtype.Timestamp
+		var editedAt pgtype.Timestamptz
 
 		err := rows.Scan(
 			&slot.ID,

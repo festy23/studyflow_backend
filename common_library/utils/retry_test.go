@@ -2,12 +2,118 @@ package utils
 
 import (
 	"context"
+	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+func TestRetryWithBackoff_ZeroBaseDelayDoesNotPanic(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("unexpected panic: %v", r)
+		}
+	}()
+	calls := 0
+	_, err := RetryWithBackoff(context.Background(), 3, 0, func() (string, error) {
+		calls++
+		return "", status.Error(codes.Unavailable, "unavailable")
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if calls != 3 {
+		t.Fatalf("expected 3 calls, got %d", calls)
+	}
+}
+
+func TestErrCircuitOpen_IsSentinel(t *testing.T) {
+	wrapped := errors.New("wrap")
+	_ = wrapped
+	if !errors.Is(ErrCircuitOpen, ErrCircuitOpen) {
+		t.Fatal("errors.Is failed for ErrCircuitOpen")
+	}
+}
+
+func TestCircuitBreaker_TripsOnInternal(t *testing.T) {
+	cb := NewCircuitBreaker(2, 1*time.Second)
+	for i := 0; i < 2; i++ {
+		_ = cb.Execute(func() error {
+			return status.Error(codes.Internal, "boom")
+		})
+	}
+	if cb.state != StateOpen {
+		t.Fatalf("expected StateOpen after Internal failures, got %v", cb.state)
+	}
+}
+
+func TestCircuitBreaker_TripsOnDeadlineExceeded(t *testing.T) {
+	cb := NewCircuitBreaker(2, 1*time.Second)
+	for i := 0; i < 2; i++ {
+		_ = cb.Execute(func() error {
+			return status.Error(codes.DeadlineExceeded, "timeout")
+		})
+	}
+	if cb.state != StateOpen {
+		t.Fatalf("expected StateOpen after DeadlineExceeded, got %v", cb.state)
+	}
+}
+
+func TestCircuitBreaker_HalfOpenSingleProbe(t *testing.T) {
+	t.Parallel()
+	cb := NewCircuitBreaker(2, 20*time.Millisecond)
+
+	// Trip breaker open.
+	for i := 0; i < 2; i++ {
+		_ = cb.Execute(func() error {
+			return status.Error(codes.Unavailable, "u")
+		})
+	}
+	if cb.state != StateOpen {
+		t.Fatalf("expected open")
+	}
+
+	time.Sleep(40 * time.Millisecond) // past resetTimeout
+
+	var probeCount int64
+	var openCount int64
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+
+	const goroutines = 50
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			err := cb.Execute(func() error {
+				atomic.AddInt64(&probeCount, 1)
+				// Hold the probe long enough that other goroutines race.
+				time.Sleep(20 * time.Millisecond)
+				return nil
+			})
+			if errors.Is(err, ErrCircuitOpen) {
+				atomic.AddInt64(&openCount, 1)
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	if probeCount != 1 {
+		t.Fatalf("expected exactly 1 probe to run, got %d", probeCount)
+	}
+	if openCount != goroutines-1 {
+		t.Fatalf("expected %d ErrCircuitOpen rejections, got %d", goroutines-1, openCount)
+	}
+	if cb.state != StateClosed {
+		t.Fatalf("expected closed after successful probe, got %v", cb.state)
+	}
+}
 
 func TestRetryWithBackoff_Success(t *testing.T) {
 	result, err := RetryWithBackoff(context.Background(), 3, 10*time.Millisecond, func() (string, error) {
