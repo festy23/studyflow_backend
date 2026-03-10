@@ -238,10 +238,15 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+      user-service:
+        condition: service_started
     environment:
       KAFKA_BROKERS: "kafka:9092"
       KAFKA_TOPICS: "lesson-reminders,assignment-reminders"
       KAFKA_GROUP_ID: "notification-service"
+      USER_SERVICE_ADDR: "user-service:50051"
+      # If TELEGRAM_BOT_TOKEN is empty the service runs in log-only mode.
+      TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-}"
 
   api-gateway:
     build:
