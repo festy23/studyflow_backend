@@ -38,6 +38,11 @@ func setup(t *testing.T) (*service.ScheduleServer, *mocks.MockRepository, *mocks
 
 	mockRepo := mocks.NewMockRepository(ctrl)
 	mockUserClient := mocks.NewMockIUserClient(ctrl)
+	// Best-effort enrichment via ResolveTutorStudentContext should not break existing
+	// tests: stub it to return (nil, nil) by default, so applyResolvedDefaults is a no-op.
+	mockUserClient.EXPECT().
+		ResolveTutorStudentContext(gomock.Any(), gomock.Any(), gomock.Any()).
+		AnyTimes().Return(nil, nil)
 	srv := service.NewScheduleServer(mockRepo, mockUserClient, nil, nil)
 
 	return srv, mockRepo, mockUserClient, ctrl
@@ -492,6 +497,55 @@ func TestGetLesson(t *testing.T) {
 		require.Equal(t, codes.NotFound, st.Code())
 	})
 
+	t.Run("Precedence fills missing fields from resolved context", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		t.Cleanup(ctrl.Finish)
+		mockRepo := mocks.NewMockRepository(ctrl)
+		mockUserClient := mocks.NewMockIUserClient(ctrl)
+		srv := service.NewScheduleServer(mockRepo, mockUserClient, nil, nil)
+
+		tutorID := "de305d54-75b4-431b-adb2-eb6b9e546014"
+		studentID := "de305d54-75b4-431b-adb2-eb6b9e546015"
+		lessonID := "de305d54-75b4-431b-adb2-eb6b9e546016"
+		slotID := "de305d54-75b4-431b-adb2-eb6b9e546017"
+		ctx := ctxdata.WithUserID(context.Background(), tutorID)
+		now := time.Now()
+
+		lessonPrice := int32(2000) // lesson-specific override
+		// PaymentInfo nil → should be filled from resolved context
+		// ConnectionLink nil → should be filled from resolved context
+		lesson := &repo.Lesson{
+			ID: lessonID, SlotID: slotID, StudentID: studentID,
+			Status: "booked", IsPaid: false,
+			PriceRub:  &lessonPrice,
+			CreatedAt: now, EditedAt: now,
+		}
+		slot := &repo.Slot{ID: slotID, TutorID: tutorID, IsBooked: true, CreatedAt: now}
+
+		resolvedLink := "https://meet/abc"
+		resolvedPrice := int32(1000) // would be used if lesson didn't override
+		resolvedPI := "Sberbank ****1234"
+		resolved := &userpb.ResolvedTutorStudentContext{
+			LessonConnectionLink: &resolvedLink,
+			LessonPriceRub:       &resolvedPrice,
+			PaymentInfo:          &resolvedPI,
+		}
+
+		mockRepo.EXPECT().GetLesson(gomock.Any(), lessonID).Return(lesson, nil)
+		mockRepo.EXPECT().GetSlot(gomock.Any(), slotID).Return(slot, nil)
+		mockUserClient.EXPECT().
+			ResolveTutorStudentContext(gomock.Any(), tutorID, studentID).
+			Return(resolved, nil)
+
+		resp, err := srv.GetLesson(ctx, &pb.GetLessonRequest{Id: lessonID})
+		require.NoError(t, err)
+		require.NotNil(t, resp.PriceRub)
+		require.Equal(t, int32(2000), *resp.PriceRub, "lesson-level price must win")
+		require.NotNil(t, resp.ConnectionLink)
+		require.Equal(t, resolvedLink, *resp.ConnectionLink, "nil lesson link filled from resolved context")
+		require.NotNil(t, resp.PaymentInfo)
+		require.Equal(t, resolvedPI, *resp.PaymentInfo, "nil payment_info filled from resolved context")
+	})
 }
 
 func TestCreateLesson(t *testing.T) {
@@ -705,6 +759,9 @@ func TestCancelLesson(t *testing.T) {
 		t.Cleanup(ctrl.Finish)
 		mockRepo := mocks.NewMockRepository(ctrl)
 		mockUserClient := mocks.NewMockIUserClient(ctrl)
+		mockUserClient.EXPECT().
+			ResolveTutorStudentContext(gomock.Any(), gomock.Any(), gomock.Any()).
+			AnyTimes().Return(nil, nil)
 		sender := &fakeEventSender{}
 		srv := service.NewScheduleServer(mockRepo, mockUserClient, sender, nil)
 
