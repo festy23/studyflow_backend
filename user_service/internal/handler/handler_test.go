@@ -61,6 +61,9 @@ func (s *stubUserService) ResolveTutorStudentContext(ctx context.Context, tutorI
 func (s *stubUserService) AcceptInvitationFromTutor(ctx context.Context, tutorId uuid.UUID) error {
 	return nil
 }
+func (s *stubUserService) GetTelegramChatId(ctx context.Context, userId uuid.UUID) (int64, error) {
+	return 0, nil
+}
 
 func TestUpdateTutorStudent_NotFoundIsMappedToNotFound(t *testing.T) {
 	svc := &stubUserService{updateTutorStudentErr: fmt.Errorf("wrap: %w", errdefs.ErrNotFound)}
