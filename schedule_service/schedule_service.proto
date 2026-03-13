@@ -108,17 +108,23 @@ message MarkAsPaidRequest{
 message ListLessonsByTutorRequest {
   string tutor_id = 1;
   repeated  LessonStatusFilter status_filter = 2;
+  optional string from = 3;  // RFC3339
+  optional string to = 4;    // RFC3339
 }
 
 message ListLessonsByStudentRequest {
   string student_id = 1;
   repeated LessonStatusFilter status_filter = 2;
+  optional string from = 3;  // RFC3339
+  optional string to = 4;    // RFC3339
 }
 
 message ListLessonsByPairRequest {
   string tutor_id = 1;
   string student_id = 2;
   repeated LessonStatusFilter status_filter = 3;
+  optional string from = 4;  // RFC3339
+  optional string to = 5;    // RFC3339
 }
 
 message ListCompletedUnpaidLessonsRequest {

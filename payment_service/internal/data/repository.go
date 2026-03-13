@@ -32,14 +32,14 @@ func NewPaymentRepository(db Querier) *PaymentRepo {
 	return &PaymentRepo{db: db}
 }
 
-const selectReceipt = `SELECT id, lesson_id, file_id, tutor_id, student_id, is_verified, created_at, edited_at FROM receipts`
+const selectReceipt = `SELECT id, lesson_id, file_id, tutor_id, student_id, is_verified, price_rub, created_at, edited_at FROM receipts`
 
 // CreateReceipt inserts a new receipt and returns it.
 func (r *PaymentRepo) CreateReceipt(ctx context.Context, input *models.PaymentReceiptCreateInput) (*models.PaymentReceipt, error) {
 	query := `
-		INSERT INTO receipts (id, lesson_id, file_id, tutor_id, student_id, is_verified, created_at, edited_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, lesson_id, file_id, tutor_id, student_id, is_verified, created_at, edited_at
+		INSERT INTO receipts (id, lesson_id, file_id, tutor_id, student_id, is_verified, price_rub, created_at, edited_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING id, lesson_id, file_id, tutor_id, student_id, is_verified, price_rub, created_at, edited_at
 	`
 	now := time.Now()
 	pr := &models.PaymentReceipt{}
@@ -50,6 +50,7 @@ func (r *PaymentRepo) CreateReceipt(ctx context.Context, input *models.PaymentRe
 		input.TutorID,
 		input.StudentID,
 		input.IsVerified,
+		input.PriceRub,
 		now,
 		now,
 	)

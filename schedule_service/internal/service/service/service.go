@@ -596,7 +596,12 @@ func (s *ScheduleServer) ListLessonsByTutor(ctx context.Context, req *pb.ListLes
 		}
 	}
 
-	lessons, err := s.db.ListLessonsByTutor(ctx, req.TutorId, statusFilters)
+	from, to, err := parseFromTo(req.From, req.To)
+	if err != nil {
+		return nil, err
+	}
+
+	lessons, err := s.db.ListLessonsByTutor(ctx, req.TutorId, statusFilters, from, to)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list lessons")
 	}
@@ -632,7 +637,12 @@ func (s *ScheduleServer) ListLessonsByStudent(ctx context.Context, req *pb.ListL
 		}
 	}
 
-	lessons, err := s.db.ListLessonsByStudent(ctx, req.StudentId, statusFilters)
+	from, to, err := parseFromTo(req.From, req.To)
+	if err != nil {
+		return nil, err
+	}
+
+	lessons, err := s.db.ListLessonsByStudent(ctx, req.StudentId, statusFilters, from, to)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list lessons")
 	}
@@ -677,7 +687,12 @@ func (s *ScheduleServer) ListLessonsByPair(ctx context.Context, req *pb.ListLess
 		}
 	}
 
-	lessons, err := s.db.ListLessonsByPair(ctx, req.TutorId, req.StudentId, statusFilters)
+	from, to, err := parseFromTo(req.From, req.To)
+	if err != nil {
+		return nil, err
+	}
+
+	lessons, err := s.db.ListLessonsByPair(ctx, req.TutorId, req.StudentId, statusFilters, from, to)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list lessons")
 	}

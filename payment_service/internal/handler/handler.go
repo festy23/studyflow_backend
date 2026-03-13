@@ -182,6 +182,7 @@ func toPbReceipt(receipt *models.PaymentReceipt) *pb.Receipt {
 		IsVerified: receipt.IsVerified,
 		CreatedAt:  timestamppb.New(receipt.CreatedAt),
 		EditedAt:   timestamppb.New(receipt.EditedAt),
+		PriceRub:   &receipt.PriceRub,
 	}
 }
 

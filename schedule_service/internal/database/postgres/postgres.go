@@ -331,7 +331,7 @@ func (r *PostgresRepository) CancelLessonAndFreeSlot(ctx context.Context, lesson
 	return nil
 }
 
-func (r *PostgresRepository) ListLessonsByTutor(ctx context.Context, tutorID string, statusFilter []string) ([]repo.Lesson, error) {
+func (r *PostgresRepository) ListLessonsByTutor(ctx context.Context, tutorID string, statusFilter []string, from, to *time.Time) ([]repo.Lesson, error) {
 	query := `
 		SELECT l.id, l.slot_id, l.student_id, l.status, l.is_paid, l.connection_link, l.price_rub, l.payment_info, l.created_at, l.edited_at
 		FROM lessons l
@@ -340,21 +340,14 @@ func (r *PostgresRepository) ListLessonsByTutor(ctx context.Context, tutorID str
 	`
 
 	args := []interface{}{tutorID}
-	if len(statusFilter) > 0 {
-		placeholders := make([]string, len(statusFilter))
-		for i := range statusFilter {
-			placeholders[i] = fmt.Sprintf("$%d", i+2)
-			args = append(args, statusFilter[i])
-		}
-		query += " AND l.status IN (" + strings.Join(placeholders, ", ") + ")"
-	}
-
+	query, args = appendStatusFilter(query, args, statusFilter)
+	query, args = appendDateFilter(query, args, from, to)
 	query += " ORDER BY s.starts_at ASC"
 
 	return r.queryLessons(ctx, query, args...)
 }
 
-func (r *PostgresRepository) ListLessonsByStudent(ctx context.Context, studentID string, statusFilter []string) ([]repo.Lesson, error) {
+func (r *PostgresRepository) ListLessonsByStudent(ctx context.Context, studentID string, statusFilter []string, from, to *time.Time) ([]repo.Lesson, error) {
 	query := `
 		SELECT l.id, l.slot_id, l.student_id, l.status, l.is_paid, l.connection_link, l.price_rub, l.payment_info, l.created_at, l.edited_at
 		FROM lessons l
@@ -363,21 +356,14 @@ func (r *PostgresRepository) ListLessonsByStudent(ctx context.Context, studentID
 	`
 
 	args := []interface{}{studentID}
-	if len(statusFilter) > 0 {
-		placeholders := make([]string, len(statusFilter))
-		for i := range statusFilter {
-			placeholders[i] = fmt.Sprintf("$%d", i+2)
-			args = append(args, statusFilter[i])
-		}
-		query += " AND l.status IN (" + strings.Join(placeholders, ", ") + ")"
-	}
-
+	query, args = appendStatusFilter(query, args, statusFilter)
+	query, args = appendDateFilter(query, args, from, to)
 	query += " ORDER BY s.starts_at ASC"
 
 	return r.queryLessons(ctx, query, args...)
 }
 
-func (r *PostgresRepository) ListLessonsByPair(ctx context.Context, tutorID, studentID string, statusFilter []string) ([]repo.Lesson, error) {
+func (r *PostgresRepository) ListLessonsByPair(ctx context.Context, tutorID, studentID string, statusFilter []string, from, to *time.Time) ([]repo.Lesson, error) {
 	query := `
 		SELECT l.id, l.slot_id, l.student_id, l.status, l.is_paid, l.connection_link, l.price_rub, l.payment_info, l.created_at, l.edited_at
 		FROM lessons l
@@ -386,18 +372,37 @@ func (r *PostgresRepository) ListLessonsByPair(ctx context.Context, tutorID, stu
 	`
 
 	args := []interface{}{tutorID, studentID}
-	if len(statusFilter) > 0 {
-		placeholders := make([]string, len(statusFilter))
-		for i := range statusFilter {
-			placeholders[i] = fmt.Sprintf("$%d", i+3)
-			args = append(args, statusFilter[i])
-		}
-		query += " AND l.status IN (" + strings.Join(placeholders, ", ") + ")"
-	}
-
+	query, args = appendStatusFilter(query, args, statusFilter)
+	query, args = appendDateFilter(query, args, from, to)
 	query += " ORDER BY s.starts_at ASC"
 
 	return r.queryLessons(ctx, query, args...)
+}
+
+// appendStatusFilter adds an IN clause for status filtering to the query.
+func appendStatusFilter(query string, args []interface{}, statusFilter []string) (string, []interface{}) {
+	if len(statusFilter) == 0 {
+		return query, args
+	}
+	placeholders := make([]string, len(statusFilter))
+	for i := range statusFilter {
+		placeholders[i] = fmt.Sprintf("$%d", len(args)+1)
+		args = append(args, statusFilter[i])
+	}
+	return query + " AND l.status IN (" + strings.Join(placeholders, ", ") + ")", args
+}
+
+// appendDateFilter adds from/to range conditions on s.starts_at to the query.
+func appendDateFilter(query string, args []interface{}, from, to *time.Time) (string, []interface{}) {
+	if from != nil {
+		query += fmt.Sprintf(" AND s.starts_at >= $%d", len(args)+1)
+		args = append(args, *from)
+	}
+	if to != nil {
+		query += fmt.Sprintf(" AND s.starts_at <= $%d", len(args)+1)
+		args = append(args, *to)
+	}
+	return query, args
 }
 
 func (r *PostgresRepository) ListCompletedUnpaidLessons(ctx context.Context, tutorID string, after *time.Time) ([]repo.Lesson, error) {

@@ -144,48 +144,48 @@ func (mr *MockRepositoryMockRecorder) ListCompletedUnpaidLessons(ctx, tutorID, a
 }
 
 // ListLessonsByPair mocks base method.
-func (m *MockRepository) ListLessonsByPair(ctx context.Context, tutorID, studentID string, statusFilter []string) ([]repo.Lesson, error) {
+func (m *MockRepository) ListLessonsByPair(ctx context.Context, tutorID, studentID string, statusFilter []string, from, to *time.Time) ([]repo.Lesson, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListLessonsByPair", ctx, tutorID, studentID, statusFilter)
+	ret := m.ctrl.Call(m, "ListLessonsByPair", ctx, tutorID, studentID, statusFilter, from, to)
 	ret0, _ := ret[0].([]repo.Lesson)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListLessonsByPair indicates an expected call of ListLessonsByPair.
-func (mr *MockRepositoryMockRecorder) ListLessonsByPair(ctx, tutorID, studentID, statusFilter any) *gomock.Call {
+func (mr *MockRepositoryMockRecorder) ListLessonsByPair(ctx, tutorID, studentID, statusFilter, from, to any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListLessonsByPair", reflect.TypeOf((*MockRepository)(nil).ListLessonsByPair), ctx, tutorID, studentID, statusFilter)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListLessonsByPair", reflect.TypeOf((*MockRepository)(nil).ListLessonsByPair), ctx, tutorID, studentID, statusFilter, from, to)
 }
 
 // ListLessonsByStudent mocks base method.
-func (m *MockRepository) ListLessonsByStudent(ctx context.Context, studentID string, statusFilter []string) ([]repo.Lesson, error) {
+func (m *MockRepository) ListLessonsByStudent(ctx context.Context, studentID string, statusFilter []string, from, to *time.Time) ([]repo.Lesson, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListLessonsByStudent", ctx, studentID, statusFilter)
+	ret := m.ctrl.Call(m, "ListLessonsByStudent", ctx, studentID, statusFilter, from, to)
 	ret0, _ := ret[0].([]repo.Lesson)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListLessonsByStudent indicates an expected call of ListLessonsByStudent.
-func (mr *MockRepositoryMockRecorder) ListLessonsByStudent(ctx, studentID, statusFilter any) *gomock.Call {
+func (mr *MockRepositoryMockRecorder) ListLessonsByStudent(ctx, studentID, statusFilter, from, to any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListLessonsByStudent", reflect.TypeOf((*MockRepository)(nil).ListLessonsByStudent), ctx, studentID, statusFilter)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListLessonsByStudent", reflect.TypeOf((*MockRepository)(nil).ListLessonsByStudent), ctx, studentID, statusFilter, from, to)
 }
 
 // ListLessonsByTutor mocks base method.
-func (m *MockRepository) ListLessonsByTutor(ctx context.Context, tutorID string, statusFilter []string) ([]repo.Lesson, error) {
+func (m *MockRepository) ListLessonsByTutor(ctx context.Context, tutorID string, statusFilter []string, from, to *time.Time) ([]repo.Lesson, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListLessonsByTutor", ctx, tutorID, statusFilter)
+	ret := m.ctrl.Call(m, "ListLessonsByTutor", ctx, tutorID, statusFilter, from, to)
 	ret0, _ := ret[0].([]repo.Lesson)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListLessonsByTutor indicates an expected call of ListLessonsByTutor.
-func (mr *MockRepositoryMockRecorder) ListLessonsByTutor(ctx, tutorID, statusFilter any) *gomock.Call {
+func (mr *MockRepositoryMockRecorder) ListLessonsByTutor(ctx, tutorID, statusFilter, from, to any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListLessonsByTutor", reflect.TypeOf((*MockRepository)(nil).ListLessonsByTutor), ctx, tutorID, statusFilter)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListLessonsByTutor", reflect.TypeOf((*MockRepository)(nil).ListLessonsByTutor), ctx, tutorID, statusFilter, from, to)
 }
 
 // ListSlotsByTutor mocks base method.
