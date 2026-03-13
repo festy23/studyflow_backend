@@ -102,6 +102,36 @@ func (mr *MockIPaymentRepoMockRecorder) GetReceiptByLessonID(ctx, lessonID any) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceiptByLessonID", reflect.TypeOf((*MockIPaymentRepo)(nil).GetReceiptByLessonID), ctx, lessonID)
 }
 
+// ListReceiptsByStudent mocks base method.
+func (m *MockIPaymentRepo) ListReceiptsByStudent(ctx context.Context, studentID string) ([]*models.PaymentReceipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListReceiptsByStudent", ctx, studentID)
+	ret0, _ := ret[0].([]*models.PaymentReceipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListReceiptsByStudent indicates an expected call of ListReceiptsByStudent.
+func (mr *MockIPaymentRepoMockRecorder) ListReceiptsByStudent(ctx, studentID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListReceiptsByStudent", reflect.TypeOf((*MockIPaymentRepo)(nil).ListReceiptsByStudent), ctx, studentID)
+}
+
+// ListReceiptsByTutor mocks base method.
+func (m *MockIPaymentRepo) ListReceiptsByTutor(ctx context.Context, tutorID string) ([]*models.PaymentReceipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListReceiptsByTutor", ctx, tutorID)
+	ret0, _ := ret[0].([]*models.PaymentReceipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListReceiptsByTutor indicates an expected call of ListReceiptsByTutor.
+func (mr *MockIPaymentRepoMockRecorder) ListReceiptsByTutor(ctx, tutorID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListReceiptsByTutor", reflect.TypeOf((*MockIPaymentRepo)(nil).ListReceiptsByTutor), ctx, tutorID)
+}
+
 // UpdateReceipt mocks base method.
 func (m *MockIPaymentRepo) UpdateReceipt(ctx context.Context, id uuid.UUID, isVerified bool) (*models.PaymentReceipt, error) {
 	m.ctrl.T.Helper()

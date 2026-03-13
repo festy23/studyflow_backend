@@ -86,6 +86,21 @@ func (mr *MockPaymentServiceMockRecorder) GetReceiptFile(ctx, input any) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceiptFile", reflect.TypeOf((*MockPaymentService)(nil).GetReceiptFile), ctx, input)
 }
 
+// ListReceipts mocks base method.
+func (m *MockPaymentService) ListReceipts(ctx context.Context, input *models.ListReceiptsInput) ([]*models.PaymentReceipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListReceipts", ctx, input)
+	ret0, _ := ret[0].([]*models.PaymentReceipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListReceipts indicates an expected call of ListReceipts.
+func (mr *MockPaymentServiceMockRecorder) ListReceipts(ctx, input any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListReceipts", reflect.TypeOf((*MockPaymentService)(nil).ListReceipts), ctx, input)
+}
+
 // SubmitPaymentReceipt mocks base method.
 func (m *MockPaymentService) SubmitPaymentReceipt(ctx context.Context, input *models.SubmitPaymentReceiptInput) (*models.PaymentReceipt, error) {
 	m.ctrl.T.Helper()

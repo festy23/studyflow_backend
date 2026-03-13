@@ -33,42 +33,89 @@ func (r *recordingSender) SendMessage(_ context.Context, chatID int64, text stri
 	return r.err
 }
 
-func TestBuildMessage_LessonReminders(t *testing.T) {
-	t.Run("booked", func(t *testing.T) {
-		rec, text, ok := buildMessage("lesson-reminders", map[string]any{
+func TestBuildMessages_LessonReminders(t *testing.T) {
+	t.Run("booked notifies student and tutor", func(t *testing.T) {
+		ns, ok := buildMessages("lesson-reminders", map[string]any{
 			"event_type": "booked",
 			"student_id": "stu-1",
+			"tutor_id":   "tut-1",
 			"starts_at":  "2026-05-12T10:00:00Z",
 		})
-		if !ok || rec != "stu-1" || !strings.Contains(text, "booked") {
-			t.Fatalf("unexpected result: rec=%q text=%q ok=%v", rec, text, ok)
+		if !ok || len(ns) != 2 {
+			t.Fatalf("expected 2 notifications, got ok=%v len=%d", ok, len(ns))
+		}
+		if ns[0].userID != "stu-1" || !strings.Contains(ns[0].text, "booked") {
+			t.Fatalf("unexpected student notification: %+v", ns[0])
+		}
+		if ns[1].userID != "tut-1" || !strings.Contains(ns[1].text, "booked") {
+			t.Fatalf("unexpected tutor notification: %+v", ns[1])
+		}
+	})
+
+	t.Run("cancelled: student and tutor get different texts", func(t *testing.T) {
+		ns, ok := buildMessages("lesson-reminders", map[string]any{
+			"event_type": "cancelled",
+			"student_id": "stu-1",
+			"tutor_id":   "tut-1",
+		})
+		if !ok || len(ns) != 2 {
+			t.Fatalf("expected 2 notifications, got ok=%v len=%d", ok, len(ns))
+		}
+		if !strings.Contains(ns[0].text, "cancelled") {
+			t.Fatalf("expected 'cancelled' in student text, got %q", ns[0].text)
+		}
+		if !strings.Contains(ns[1].text, "cancelled") {
+			t.Fatalf("expected 'cancelled' in tutor text, got %q", ns[1].text)
 		}
 	})
 
 	t.Run("missing student_id is not deliverable", func(t *testing.T) {
-		_, _, ok := buildMessage("lesson-reminders", map[string]any{"event_type": "booked"})
+		_, ok := buildMessages("lesson-reminders", map[string]any{"event_type": "booked", "tutor_id": "tut-1"})
 		if ok {
 			t.Fatalf("expected ok=false for missing student_id")
 		}
 	})
-}
 
-func TestBuildMessage_AssignmentReminders(t *testing.T) {
-	rec, text, ok := buildMessage("assignment-reminders", map[string]any{
-		"student_id": "stu-1",
-		"title":      "Algebra worksheet",
-		"due_date":   "2026-05-15T18:00:00Z",
+	t.Run("missing tutor_id is not deliverable", func(t *testing.T) {
+		_, ok := buildMessages("lesson-reminders", map[string]any{"event_type": "booked", "student_id": "stu-1"})
+		if ok {
+			t.Fatalf("expected ok=false for missing tutor_id")
+		}
 	})
-	if !ok || rec != "stu-1" {
-		t.Fatalf("unexpected: rec=%q ok=%v", rec, ok)
-	}
-	if !strings.Contains(text, "Algebra worksheet") {
-		t.Fatalf("expected title in text, got %q", text)
-	}
 }
 
-func TestBuildMessage_UnknownTopic(t *testing.T) {
-	if _, _, ok := buildMessage("unknown", map[string]any{"student_id": "x"}); ok {
+func TestBuildMessages_AssignmentReminders(t *testing.T) {
+	t.Run("with tutor_id sends to both", func(t *testing.T) {
+		ns, ok := buildMessages("assignment-reminders", map[string]any{
+			"student_id": "stu-1",
+			"tutor_id":   "tut-1",
+			"title":      "Algebra worksheet",
+			"due_date":   "2026-05-15T18:00:00Z",
+		})
+		if !ok || len(ns) != 2 {
+			t.Fatalf("expected 2 notifications, got ok=%v len=%d", ok, len(ns))
+		}
+		if ns[0].userID != "stu-1" || !strings.Contains(ns[0].text, "Algebra worksheet") {
+			t.Fatalf("unexpected student notification: %+v", ns[0])
+		}
+		if ns[1].userID != "tut-1" || !strings.Contains(ns[1].text, "Algebra worksheet") {
+			t.Fatalf("unexpected tutor notification: %+v", ns[1])
+		}
+	})
+
+	t.Run("without tutor_id sends to student only", func(t *testing.T) {
+		ns, ok := buildMessages("assignment-reminders", map[string]any{
+			"student_id": "stu-1",
+			"title":      "hw",
+		})
+		if !ok || len(ns) != 1 || ns[0].userID != "stu-1" {
+			t.Fatalf("expected 1 student notification, got ok=%v len=%d", ok, len(ns))
+		}
+	})
+}
+
+func TestBuildMessages_UnknownTopic(t *testing.T) {
+	if _, ok := buildMessages("unknown", map[string]any{"student_id": "x"}); ok {
 		t.Fatalf("expected ok=false for unknown topic")
 	}
 }
@@ -82,13 +129,14 @@ func TestTelegramDispatcher_HappyPath(t *testing.T) {
 	}
 	msg := kafka.Message{
 		Topic: "lesson-reminders",
-		Value: []byte(`{"event_type":"booked","student_id":"stu-1","starts_at":"2026-05-12T10:00:00Z"}`),
+		Value: []byte(`{"event_type":"booked","student_id":"stu-1","tutor_id":"tut-1","starts_at":"2026-05-12T10:00:00Z"}`),
 	}
 	if err := d.Dispatch(context.Background(), msg); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
-	if sender.calls != 1 || sender.chatID != 42 {
-		t.Fatalf("expected 1 call to chat 42, got calls=%d chat=%d", sender.calls, sender.chatID)
+	// Two recipients: student and tutor.
+	if sender.calls != 2 {
+		t.Fatalf("expected 2 calls (student+tutor), got %d", sender.calls)
 	}
 }
 
@@ -101,7 +149,7 @@ func TestTelegramDispatcher_NoTelegramAccount_Commits(t *testing.T) {
 	}
 	msg := kafka.Message{
 		Topic: "assignment-reminders",
-		Value: []byte(`{"student_id":"stu-1","title":"hw"}`),
+		Value: []byte(`{"student_id":"stu-1","tutor_id":"tut-1","title":"hw"}`),
 	}
 	if err := d.Dispatch(context.Background(), msg); err != nil {
 		t.Fatalf("expected nil (commit), got %v", err)
@@ -119,7 +167,7 @@ func TestTelegramDispatcher_ResolverError_Retries(t *testing.T) {
 	}
 	msg := kafka.Message{
 		Topic: "lesson-reminders",
-		Value: []byte(`{"event_type":"booked","student_id":"stu-1"}`),
+		Value: []byte(`{"event_type":"booked","student_id":"stu-1","tutor_id":"tut-1"}`),
 	}
 	if err := d.Dispatch(context.Background(), msg); err == nil {
 		t.Fatalf("expected retriable error, got nil")
@@ -135,7 +183,7 @@ func TestTelegramDispatcher_RetriableSendError(t *testing.T) {
 	}
 	msg := kafka.Message{
 		Topic: "lesson-reminders",
-		Value: []byte(`{"event_type":"booked","student_id":"stu-1"}`),
+		Value: []byte(`{"event_type":"booked","student_id":"stu-1","tutor_id":"tut-1"}`),
 	}
 	err := d.Dispatch(context.Background(), msg)
 	if !errors.Is(err, errRetriableSend) {
@@ -152,7 +200,7 @@ func TestTelegramDispatcher_TerminalSendError_Commits(t *testing.T) {
 	}
 	msg := kafka.Message{
 		Topic: "lesson-reminders",
-		Value: []byte(`{"event_type":"booked","student_id":"stu-1"}`),
+		Value: []byte(`{"event_type":"booked","student_id":"stu-1","tutor_id":"tut-1"}`),
 	}
 	if err := d.Dispatch(context.Background(), msg); err != nil {
 		t.Fatalf("expected nil (commit), got %v", err)
