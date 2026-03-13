@@ -83,11 +83,15 @@ func TestSubmitPaymentReceipt(t *testing.T) {
 		mockFileClient.EXPECT().GetFileMeta(gomock.Any(), &api2.GetFileMetaRequest{FileId: fileID.String()}).
 			Return(&api2.File{}, nil)
 
-		// Create receipt (now happens BEFORE marking as paid)
+		// Resolve tutor from slot.
+		mockSchedule.EXPECT().GetSlot(gomock.Any(), gomock.Any()).
+			Return(&api.Slot{TutorId: uuid.New().String()}, nil)
+
+		// Create receipt.
 		mockRepo.EXPECT().CreateReceipt(gomock.Any(), gomock.AssignableToTypeOf(&models.PaymentReceiptCreateInput{})).
 			Return(&models.PaymentReceipt{ID: receiptID, LessonID: lessonID, FileID: fileID, IsVerified: false}, nil)
 
-		// Mark lesson as paid (now happens AFTER creating receipt)
+		// Mark lesson as paid.
 		mockSchedule.EXPECT().MarkAsPaid(gomock.Any(), &api.MarkAsPaidRequest{Id: lessonID.String()}).
 			Return(&api.Lesson{Id: lessonID.String(), IsPaid: true}, nil)
 
@@ -138,6 +142,7 @@ func TestSubmitPaymentReceipt(t *testing.T) {
 		// Get lesson unpaid
 		mockSchedule.EXPECT().GetLesson(gomock.Any(), gomock.Any()).Return(&api.Lesson{IsPaid: false}, nil)
 		mockFileClient.EXPECT().GetFileMeta(gomock.Any(), gomock.Any()).Return(&api2.File{}, nil)
+		mockSchedule.EXPECT().GetSlot(gomock.Any(), gomock.Any()).Return(&api.Slot{TutorId: uuid.New().String()}, nil)
 		// Create receipt succeeds
 		mockRepo.EXPECT().CreateReceipt(gomock.Any(), gomock.Any()).Return(&models.PaymentReceipt{}, nil)
 		// Fail to mark paid
@@ -155,6 +160,7 @@ func TestSubmitPaymentReceipt(t *testing.T) {
 		// Get lesson unpaid
 		mockSchedule.EXPECT().GetLesson(gomock.Any(), gomock.Any()).Return(&api.Lesson{IsPaid: false}, nil)
 		mockFileClient.EXPECT().GetFileMeta(gomock.Any(), gomock.Any()).Return(&api2.File{}, nil)
+		mockSchedule.EXPECT().GetSlot(gomock.Any(), gomock.Any()).Return(&api.Slot{TutorId: uuid.New().String()}, nil)
 		// DB error on create (non-retriable, returned as-is)
 		mockRepo.EXPECT().CreateReceipt(gomock.Any(), gomock.Any()).Return(nil, errors.New("db error"))
 
@@ -187,6 +193,7 @@ func TestSubmitPaymentReceipt(t *testing.T) {
 		// Get lesson unpaid
 		mockSchedule.EXPECT().GetLesson(gomock.Any(), gomock.Any()).Return(&api.Lesson{Id: lessonID.String(), IsPaid: false}, nil)
 		mockFileClient.EXPECT().GetFileMeta(gomock.Any(), gomock.Any()).Return(&api2.File{}, nil)
+		mockSchedule.EXPECT().GetSlot(gomock.Any(), gomock.Any()).Return(&api.Slot{TutorId: uuid.New().String()}, nil)
 
 		retriable := status.Error(codes.Unavailable, "unavailable")
 		mockRepo.EXPECT().CreateReceipt(gomock.Any(), gomock.Any()).Return(nil, retriable).Times(4)
@@ -241,6 +248,7 @@ func TestSubmitPaymentReceipt(t *testing.T) {
 		// First submission succeeds.
 		mockSchedule.EXPECT().GetLesson(gomock.Any(), gomock.Any()).Return(&api.Lesson{Id: lessonID.String(), IsPaid: false}, nil)
 		mockFileClient.EXPECT().GetFileMeta(gomock.Any(), gomock.Any()).Return(&api2.File{}, nil)
+		mockSchedule.EXPECT().GetSlot(gomock.Any(), gomock.Any()).Return(&api.Slot{TutorId: uuid.New().String()}, nil)
 		mockRepo.EXPECT().CreateReceipt(gomock.Any(), gomock.Any()).
 			Return(&models.PaymentReceipt{ID: uuid.New(), LessonID: lessonID, FileID: fileID}, nil)
 		mockSchedule.EXPECT().MarkAsPaid(gomock.Any(), gomock.Any()).Return(&api.Lesson{IsPaid: true}, nil)
@@ -249,6 +257,7 @@ func TestSubmitPaymentReceipt(t *testing.T) {
 		// repo INSERT hits unique constraint -> ErrAlreadyExists.
 		mockSchedule.EXPECT().GetLesson(gomock.Any(), gomock.Any()).Return(&api.Lesson{Id: lessonID.String(), IsPaid: false}, nil)
 		mockFileClient.EXPECT().GetFileMeta(gomock.Any(), gomock.Any()).Return(&api2.File{}, nil)
+		mockSchedule.EXPECT().GetSlot(gomock.Any(), gomock.Any()).Return(&api.Slot{TutorId: uuid.New().String()}, nil)
 		mockRepo.EXPECT().CreateReceipt(gomock.Any(), gomock.Any()).Return(nil, errdefs.ErrAlreadyExists)
 
 		ctx := studentCtx()

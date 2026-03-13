@@ -36,15 +36,20 @@ func TestPaymentRepo_CreateReceipt(t *testing.T) {
 	lessonID := uuid.New()
 	fileID := uuid.New()
 
+	tutorID := "tutor-123"
+	studentID := "student-456"
+
 	mockPool.ExpectQuery("INSERT INTO receipts").
-		WithArgs(id, lessonID, fileID, true, AnyTime{}, AnyTime{}).
-		WillReturnRows(pgxmock.NewRows([]string{"id", "lesson_id", "file_id", "is_verified", "created_at", "edited_at"}).
-			AddRow(id, lessonID, fileID, true, now, now))
+		WithArgs(id, lessonID, fileID, tutorID, studentID, true, AnyTime{}, AnyTime{}).
+		WillReturnRows(pgxmock.NewRows([]string{"id", "lesson_id", "file_id", "tutor_id", "student_id", "is_verified", "created_at", "edited_at"}).
+			AddRow(id, lessonID, fileID, tutorID, studentID, true, now, now))
 
 	input := &models.PaymentReceiptCreateInput{
-		ID:         id,
-		LessonID:   lessonID,
-		FileID:     fileID,
+		ID:        id,
+		LessonID:  lessonID,
+		FileID:    fileID,
+		TutorID:   tutorID,
+		StudentID: studentID,
 		IsVerified: true,
 	}
 
@@ -104,7 +109,7 @@ func TestPaymentRepo_CreateReceipt_UniqueViolation(t *testing.T) {
 	fileID := uuid.New()
 
 	mockPool.ExpectQuery("INSERT INTO receipts").
-		WithArgs(id, lessonID, fileID, false, AnyTime{}, AnyTime{}).
+		WithArgs(id, lessonID, fileID, "", "", false, AnyTime{}, AnyTime{}).
 		WillReturnError(&pgconn.PgError{Code: "23505", ConstraintName: "receipts_lesson_id_unique"})
 
 	_, err = repo.CreateReceipt(ctx, &models.PaymentReceiptCreateInput{

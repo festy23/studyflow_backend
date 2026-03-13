@@ -23,6 +23,7 @@ type PaymentService interface {
 	GetReceipt(ctx context.Context, input *models.GetReceiptInput) (*models.PaymentReceipt, error)
 	VerifyReceipt(ctx context.Context, input *models.VerifyReceiptInput) (*models.PaymentReceipt, error)
 	GetReceiptFile(ctx context.Context, input *models.GetReceiptFileInput) (*models.ReceiptFileUrl, error)
+	ListReceipts(ctx context.Context, input *models.ListReceiptsInput) ([]*models.PaymentReceipt, error)
 }
 
 type PaymentServiceServer struct {
@@ -147,6 +148,22 @@ func (h *PaymentServiceServer) GetReceiptFile(ctx context.Context, req *pb.GetRe
 	}
 
 	return toPbReceiptFileURl(receiptFileURL), nil
+}
+
+func (h *PaymentServiceServer) ListReceipts(ctx context.Context, req *pb.ListReceiptsRequest) (*pb.ListReceiptsResponse, error) {
+	input := &models.ListReceiptsInput{
+		TutorID:   req.GetTutorId(),
+		StudentID: req.GetStudentId(),
+	}
+	receipts, err := h.service.ListReceipts(ctx, input)
+	if err != nil {
+		return nil, mapError(err, errdefs.ErrPermissionDenied, errdefs.ErrInvalidArgument)
+	}
+	pbReceipts := make([]*pb.Receipt, 0, len(receipts))
+	for _, r := range receipts {
+		pbReceipts = append(pbReceipts, toPbReceipt(r))
+	}
+	return &pb.ListReceiptsResponse{Receipts: pbReceipts}, nil
 }
 
 func toPbReceiptFileURl(receiptFileUrl *models.ReceiptFileUrl) *pb.ReceiptFileURL {

@@ -54,6 +54,12 @@ type telegramDispatcher struct {
 	logger   *zap.Logger
 }
 
+// notification pairs a user ID with the message text to send them.
+type notification struct {
+	userID string
+	text   string
+}
+
 func (d *telegramDispatcher) Dispatch(ctx context.Context, msg kafka.Message) error {
 	var payload map[string]any
 	if err := json.Unmarshal(msg.Value, &payload); err != nil {
@@ -66,7 +72,7 @@ func (d *telegramDispatcher) Dispatch(ctx context.Context, msg kafka.Message) er
 		return nil
 	}
 
-	recipient, text, ok := buildMessage(msg.Topic, payload)
+	notifications, ok := buildMessages(msg.Topic, payload)
 	if !ok {
 		d.logger.Warn("Unknown event shape; skipping",
 			zap.String("topic", msg.Topic),
@@ -75,84 +81,115 @@ func (d *telegramDispatcher) Dispatch(ctx context.Context, msg kafka.Message) er
 		return nil
 	}
 
-	chatID, err := d.resolver.GetChatID(ctx, recipient)
-	if err != nil {
-		if errors.Is(err, errChatIDNotFound) {
-			d.logger.Info("Recipient has no Telegram account; skipping",
+	for _, n := range notifications {
+		chatID, err := d.resolver.GetChatID(ctx, n.userID)
+		if err != nil {
+			if errors.Is(err, errChatIDNotFound) {
+				d.logger.Info("Recipient has no Telegram account; skipping",
+					zap.String("topic", msg.Topic),
+					zap.Int64("offset", msg.Offset),
+					zap.String("user_id", n.userID),
+				)
+				continue
+			}
+			// gRPC failure — treat as retriable so we don't lose the event.
+			return fmt.Errorf("resolve chat_id for %s: %w", n.userID, err)
+		}
+
+		if err := d.tg.SendMessage(ctx, chatID, n.text); err != nil {
+			if errors.Is(err, errRetriableSend) {
+				return err
+			}
+			// Terminal Telegram error (e.g. bot blocked by user, bad chat_id).
+			d.logger.Warn("Terminal Telegram send error; skipping recipient",
 				zap.String("topic", msg.Topic),
 				zap.Int64("offset", msg.Offset),
+				zap.String("user_id", n.userID),
+				zap.Error(err),
 			)
-			return nil
+			continue
 		}
-		// gRPC failure — treat as retriable so we don't lose the event.
-		return fmt.Errorf("resolve chat_id: %w", err)
-	}
 
-	if err := d.tg.SendMessage(ctx, chatID, text); err != nil {
-		if errors.Is(err, errRetriableSend) {
-			return err
-		}
-		// Terminal Telegram error (e.g. bot blocked by user, bad chat_id).
-		d.logger.Warn("Terminal Telegram send error; committing",
+		d.logger.Info("Delivered telegram notification",
 			zap.String("topic", msg.Topic),
 			zap.Int64("offset", msg.Offset),
-			zap.Error(err),
+			zap.String("user_id", n.userID),
 		)
-		return nil
 	}
-
-	d.logger.Info("Delivered telegram notification",
-		zap.String("topic", msg.Topic),
-		zap.Int64("offset", msg.Offset),
-	)
 	return nil
 }
 
-// buildMessage returns (recipient_user_id, text, ok).
-// Notifications target the student by default — the audience that benefits
-// most from reminders/notifications. Returning ok=false means the event
-// shape is unknown and the message will be committed-and-skipped.
-func buildMessage(topic string, payload map[string]any) (string, string, bool) {
+// buildMessages returns the list of notifications to send for a Kafka message.
+// ok=false means the event shape is unknown and the message will be committed-and-skipped.
+func buildMessages(topic string, payload map[string]any) ([]notification, bool) {
 	switch topic {
 	case "lesson-reminders":
 		eventType, _ := payload["event_type"].(string)
 		studentID, _ := payload["student_id"].(string)
-		if studentID == "" {
-			return "", "", false
+		tutorID, _ := payload["tutor_id"].(string)
+		if studentID == "" || tutorID == "" {
+			return nil, false
 		}
 		startsAt := parseTime(payload["starts_at"])
 		when := ""
 		if !startsAt.IsZero() {
 			when = " at " + startsAt.UTC().Format("2006-01-02 15:04 UTC")
 		}
+		var studentText, tutorText string
 		switch eventType {
 		case "booked":
-			return studentID, "New lesson booked" + when + ".", true
+			studentText = "New lesson booked" + when + "."
+			tutorText = "New lesson booked" + when + "."
 		case "cancelled":
-			return studentID, "Your lesson" + when + " was cancelled.", true
+			studentText = "Your lesson" + when + " was cancelled."
+			tutorText = "Lesson" + when + " was cancelled by student."
 		default:
-			return studentID, "Lesson reminder" + when + ".", true
+			studentText = "Lesson reminder" + when + "."
+			tutorText = "Lesson reminder" + when + "."
 		}
+		return []notification{
+			{userID: studentID, text: studentText},
+			{userID: tutorID, text: tutorText},
+		}, true
+
 	case "assignment-reminders":
 		studentID, _ := payload["student_id"].(string)
+		tutorID, _ := payload["tutor_id"].(string)
 		if studentID == "" {
-			return "", "", false
+			return nil, false
 		}
 		title, _ := payload["title"].(string)
 		due := parseTime(payload["due_date"])
-		var b strings.Builder
-		b.WriteString("Assignment reminder")
+		var sb strings.Builder
+		sb.WriteString("Assignment reminder")
 		if title != "" {
-			b.WriteString(": ")
-			b.WriteString(title)
+			sb.WriteString(": ")
+			sb.WriteString(title)
 		}
 		if !due.IsZero() {
-			b.WriteString(" — due ")
-			b.WriteString(due.UTC().Format("2006-01-02 15:04 UTC"))
+			sb.WriteString(" — due ")
+			sb.WriteString(due.UTC().Format("2006-01-02 15:04 UTC"))
 		}
-		return studentID, b.String(), true
+		studentText := sb.String()
+
+		result := []notification{{userID: studentID, text: studentText}}
+		if tutorID != "" {
+			var tb strings.Builder
+			tb.WriteString("Homework not submitted")
+			if title != "" {
+				tb.WriteString(": ")
+				tb.WriteString(title)
+			}
+			if !due.IsZero() {
+				tb.WriteString(" — due ")
+				tb.WriteString(due.UTC().Format("2006-01-02 15:04 UTC"))
+			}
+			result = append(result, notification{userID: tutorID, text: tb.String()})
+		}
+		return result, true
+
 	default:
-		return "", "", false
+		return nil, false
 	}
 }
 

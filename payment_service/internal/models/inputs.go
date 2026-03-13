@@ -22,3 +22,8 @@ type VerifyReceiptInput struct {
 type GetReceiptFileInput struct {
 	ReceiptId uuid.UUID
 }
+
+type ListReceiptsInput struct {
+	TutorID   string
+	StudentID string
+}
