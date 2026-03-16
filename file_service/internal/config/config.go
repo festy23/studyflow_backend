@@ -4,19 +4,22 @@ import (
 	"errors"
 	"github.com/ilyakaznacheev/cleanenv"
 	"os"
+	"time"
 )
 
 type Config struct {
-	GRPCPort            int    `env:"GRPC_PORT" env-default:"50051"`
-	PostgresURL         string `env:"POSTGRES_URL" env-default:"postgres://postgres:postgres@localhost:5432/postgres"`
-	PostgresMaxConn     int32  `env:"POSTGRES_MAX_CONN" env-default:"5"`
-	PostgresMinConn     int32  `env:"POSTGRES_MIN_CONN" env-default:"1"`
-	PostgresAutoMigrate bool   `env:"POSTGRES_AUTO_MIGRATE" env-default:"true"`
-	S3AccessKeyID       string `env:"S3_ACCESS_KEY_ID" env-default:""`
-	S3SecretAccessKey   string `env:"S3_SECRET_ACCESS_KEY" env-default:""`
-	S3Endpoint          string `env:"S3_ENDPOINT" env-default:""`
-	S3Region            string `env:"S3_REGION" env-default:"us-east-1"`
-	GatewayPublicUrl    string `env:"GATEWAY_PUBLIC_URL" env-default:"localhost:8080"`
+	GRPCPort              int           `env:"GRPC_PORT" env-default:"50051"`
+	PostgresURL           string        `env:"POSTGRES_URL" env-default:"postgres://postgres:postgres@localhost:5432/postgres"`
+	PostgresMaxConn       int32         `env:"POSTGRES_MAX_CONN" env-default:"5"`
+	PostgresMinConn       int32         `env:"POSTGRES_MIN_CONN" env-default:"1"`
+	PostgresAutoMigrate   bool          `env:"POSTGRES_AUTO_MIGRATE" env-default:"true"`
+	S3AccessKeyID         string        `env:"S3_ACCESS_KEY_ID" env-default:""`
+	S3SecretAccessKey     string        `env:"S3_SECRET_ACCESS_KEY" env-default:""`
+	S3Endpoint            string        `env:"S3_ENDPOINT" env-default:""`
+	S3Region              string        `env:"S3_REGION" env-default:"us-east-1"`
+	GatewayPublicUrl      string        `env:"GATEWAY_PUBLIC_URL" env-default:"localhost:8080"`
+	OrphanCleanupInterval time.Duration `env:"ORPHAN_CLEANUP_INTERVAL" env-default:"1h"`
+	OrphanUploadTTL       time.Duration `env:"ORPHAN_UPLOAD_TTL" env-default:"24h"`
 }
 
 func New() (*Config, error) {

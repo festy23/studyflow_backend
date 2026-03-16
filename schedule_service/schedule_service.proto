@@ -20,6 +20,7 @@ service ScheduleService {
   rpc CreateLesson(CreateLessonRequest) returns (Lesson);
   rpc UpdateLesson(UpdateLessonRequest) returns (Lesson);
   rpc CancelLesson(CancelLessonRequest) returns (Lesson);
+  rpc RescheduleLesson(RescheduleLessonRequest) returns (Lesson);
   rpc MarkAsPaid(MarkAsPaidRequest) returns (Lesson);
 
   rpc ListLessonsByTutor(ListLessonsByTutorRequest) returns (ListLessonsResponse);
@@ -101,6 +102,11 @@ message CancelLessonRequest {
   string id = 1;
 }
 
+message RescheduleLessonRequest {
+  string id = 1;
+  string new_slot_id = 2;
+}
+
 message MarkAsPaidRequest{
   string id = 1;
 }
@@ -129,6 +135,8 @@ message ListLessonsByPairRequest {
 
 message ListCompletedUnpaidLessonsRequest {
   optional google.protobuf.Timestamp after = 1;  // вернуть только после этой даты (опционально)
+  optional google.protobuf.Timestamp before = 2; // вернуть только до этой даты (опционально)
+  optional string tutor_id = 3;                  // только для internal/service роли
 }
 
 
@@ -147,6 +155,7 @@ message Lesson {
   optional string payment_info = 8;
   google.protobuf.Timestamp created_at = 9;
   google.protobuf.Timestamp edited_at = 10;
+  optional string rescheduled_from_lesson_id = 11;
 }
 
 message Empty {}

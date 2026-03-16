@@ -33,6 +33,7 @@ func (h *ScheduleHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		r.Get("/lessons/{id}", h.GetLesson)
 		r.Patch("/lessons/{id}", h.UpdateLesson)
 		r.Post("/lessons/{id}/cancel", h.CancelLesson)
+		r.Post("/lessons/{id}/reschedule", h.RescheduleLesson)
 	})
 }
 
@@ -106,6 +107,15 @@ func parseUpdateLesson(ctx context.Context, r *http.Request, req *schedulepb.Upd
 }
 
 func parseCancelLesson(ctx context.Context, r *http.Request, req *schedulepb.CancelLessonRequest) error {
+	id, err := parseIDParam(r, "id")
+	if err != nil {
+		return err
+	}
+	req.Id = id
+	return nil
+}
+
+func parseRescheduleLesson(ctx context.Context, r *http.Request, req *schedulepb.RescheduleLessonRequest) error {
 	id, err := parseIDParam(r, "id")
 	if err != nil {
 		return err
@@ -231,6 +241,14 @@ func (h *ScheduleHandler) UpdateLesson(w http.ResponseWriter, r *http.Request) {
 
 func (h *ScheduleHandler) CancelLesson(w http.ResponseWriter, r *http.Request) {
 	handler, err := Handle[schedulepb.CancelLessonRequest, schedulepb.Lesson](h.c.CancelLesson, parseCancelLesson, false)
+	if err != nil {
+		panic(err)
+	}
+	handler(w, r)
+}
+
+func (h *ScheduleHandler) RescheduleLesson(w http.ResponseWriter, r *http.Request) {
+	handler, err := Handle[schedulepb.RescheduleLessonRequest, schedulepb.Lesson](h.c.RescheduleLesson, parseRescheduleLesson, true)
 	if err != nil {
 		panic(err)
 	}

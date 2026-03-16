@@ -143,6 +143,9 @@ func buildMessages(topic string, payload map[string]any) ([]notification, bool) 
 		case "cancelled":
 			studentText = "Your lesson" + when + " was cancelled."
 			tutorText = "Lesson" + when + " was cancelled by student."
+		case "rescheduled":
+			studentText = "Your lesson was rescheduled" + when + "."
+			tutorText = "Lesson was rescheduled" + when + "."
 		default:
 			studentText = "Lesson reminder" + when + "."
 			tutorText = "Lesson reminder" + when + "."
@@ -187,6 +190,21 @@ func buildMessages(topic string, payload map[string]any) ([]notification, bool) 
 			result = append(result, notification{userID: tutorID, text: tb.String()})
 		}
 		return result, true
+
+	case "payment-reminders":
+		studentID, _ := payload["student_id"].(string)
+		tutorID, _ := payload["tutor_id"].(string)
+		if studentID == "" || tutorID == "" {
+			return nil, false
+		}
+		price := ""
+		if v, ok := payload["price_rub"].(float64); ok && v > 0 {
+			price = fmt.Sprintf(" for %.0f RUB", v)
+		}
+		return []notification{
+			{userID: studentID, text: "Payment reminder" + price + "."},
+			{userID: tutorID, text: "Payment is still pending" + price + "."},
+		}, true
 
 	default:
 		return nil, false

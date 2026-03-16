@@ -105,7 +105,9 @@ func (s *ScheduleServer) GetSlot(ctx context.Context, req *pb.GetSlotRequest) (*
 		return nil, status.Error(codes.Internal, "internal error")
 	}
 
-	if slot.TutorID != userID {
+	if role, ok := ctxdata.GetUserRole(ctx); ok && role == "service" {
+		// Internal callers need slot metadata to enrich cross-service jobs.
+	} else if slot.TutorID != userID {
 		isValidPair, err := s.ValidateTutorStudentPair(ctx, slot.TutorID, userID)
 		if err != nil || !isValidPair {
 			return nil, status.Error(codes.PermissionDenied, "permission denied")
@@ -571,6 +573,105 @@ func (s *ScheduleServer) CancelLesson(ctx context.Context, req *pb.CancelLessonR
 	return proto, nil
 }
 
+func (s *ScheduleServer) RescheduleLesson(ctx context.Context, req *pb.RescheduleLessonRequest) (*pb.Lesson, error) {
+	userID, ok := ctxdata.GetUserID(ctx)
+	if !ok {
+		return nil, StatusUnauthenticated
+	}
+	if err := uuid.Validate(req.Id); err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid lesson ID")
+	}
+	if err := uuid.Validate(req.NewSlotId); err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid new slot ID")
+	}
+
+	lesson, err := s.db.GetLesson(ctx, req.Id)
+	if err != nil {
+		if errors.Is(err, ErrLessonNotFound) {
+			return nil, StatusNotFound
+		}
+		return nil, StatusInternalError
+	}
+	if lesson.Status == "cancelled" {
+		return nil, status.Error(codes.FailedPrecondition, "cannot reschedule a cancelled lesson")
+	}
+
+	oldSlot, err := s.db.GetSlot(ctx, lesson.SlotID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to get old slot information")
+	}
+	if userID != oldSlot.TutorID && userID != lesson.StudentID {
+		return nil, StatusPermissionDenied
+	}
+
+	newSlot, err := s.db.GetSlot(ctx, req.NewSlotId)
+	if err != nil {
+		if errors.Is(err, ErrSlotNotFound) {
+			return nil, status.Error(codes.NotFound, "new slot not found")
+		}
+		return nil, status.Error(codes.Internal, "failed to get new slot information")
+	}
+	if newSlot.TutorID != oldSlot.TutorID {
+		return nil, status.Error(codes.FailedPrecondition, "new slot belongs to another tutor")
+	}
+	if newSlot.IsBooked {
+		return nil, status.Error(codes.AlreadyExists, "new slot is already booked")
+	}
+
+	now := time.Now()
+	cancelledLesson := *lesson
+	cancelledLesson.Status = "cancelled"
+	cancelledLesson.EditedAt = now
+
+	newLessonID := uuid.New().String()
+	newLesson := repo.Lesson{
+		ID:                      newLessonID,
+		SlotID:                  req.NewSlotId,
+		StudentID:               lesson.StudentID,
+		Status:                  "booked",
+		IsPaid:                  lesson.IsPaid,
+		ConnectionLink:          lesson.ConnectionLink,
+		PriceRub:                lesson.PriceRub,
+		PaymentInfo:             lesson.PaymentInfo,
+		CreatedAt:               now,
+		EditedAt:                now,
+		RescheduledFromLessonID: &lesson.ID,
+	}
+
+	if err := s.db.RescheduleLesson(ctx, cancelledLesson, newLesson, lesson.SlotID, req.NewSlotId); err != nil {
+		if errors.Is(err, ErrSlotBooked) {
+			return nil, status.Error(codes.AlreadyExists, "new slot is already booked")
+		}
+		if errors.Is(err, ErrSlotNotFound) {
+			return nil, status.Error(codes.NotFound, "new slot not found")
+		}
+		return nil, status.Error(codes.Internal, "failed to reschedule lesson")
+	}
+
+	if s.eventSender != nil {
+		reminderEvent := kafka.ReminderEvent{
+			LessonID:  newLessonID,
+			SlotID:    req.NewSlotId,
+			TutorID:   oldSlot.TutorID,
+			StudentID: lesson.StudentID,
+			StartsAt:  newSlot.StartsAt,
+			EndsAt:    newSlot.EndsAt,
+			EventType: "rescheduled",
+		}
+		sendCtx := context.WithoutCancel(ctx)
+		if err := s.eventSender.SendReminderEvent(sendCtx, reminderEvent); err != nil {
+			if s.logger != nil {
+				s.logger.Error(ctx, "failed to send lesson reschedule event",
+					zap.String("lesson_id", newLessonID), zap.Error(err))
+			}
+		}
+	}
+
+	proto := convertrepoLessonToProto(&newLesson)
+	s.enrichLesson(ctx, proto, oldSlot.TutorID, lesson.StudentID)
+	return proto, nil
+}
+
 func (s *ScheduleServer) ListLessonsByTutor(ctx context.Context, req *pb.ListLessonsByTutorRequest) (*pb.ListLessonsResponse, error) {
 	userID, ok := ctxdata.GetUserID(ctx)
 	if !ok {
@@ -708,27 +809,46 @@ func (s *ScheduleServer) ListCompletedUnpaidLessons(ctx context.Context, req *pb
 		return nil, StatusUnauthenticated
 	}
 
-	isTutor, err := IsTutor(ctx, userID)
-	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to verify tutor status")
-	}
-	if !isTutor {
-		return nil, StatusPermissionDenied
-	}
-
 	var after *time.Time
 	if req.After != nil {
 		t := req.After.AsTime()
 		after = &t
 	}
+	var before *time.Time
+	if req.Before != nil {
+		t := req.Before.AsTime()
+		before = &t
+	}
 
-	lessons, err := s.db.ListCompletedUnpaidLessons(ctx, userID, after)
+	tutorID := userID
+	if role, ok := ctxdata.GetUserRole(ctx); ok && role == "service" {
+		if req.TutorId != nil {
+			tutorID = req.GetTutorId()
+			if err := uuid.Validate(tutorID); err != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid tutor_id")
+			}
+		} else {
+			tutorID = ""
+		}
+	} else {
+		isTutor, err := IsTutor(ctx, userID)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "failed to verify tutor status")
+		}
+		if !isTutor {
+			return nil, StatusPermissionDenied
+		}
+	}
+
+	lessons, err := s.db.ListCompletedUnpaidLessons(ctx, tutorID, after, before)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list completed unpaid lessons")
 	}
 
 	resp := createListLessonsResponse(lessons)
-	s.enrichLessonList(ctx, resp, userID)
+	if tutorID != "" {
+		s.enrichLessonList(ctx, resp, tutorID)
+	}
 	return resp, nil
 }
 
