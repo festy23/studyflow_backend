@@ -129,18 +129,18 @@ func (mr *MockRepositoryMockRecorder) GetSlot(ctx, id any) *gomock.Call {
 }
 
 // ListCompletedUnpaidLessons mocks base method.
-func (m *MockRepository) ListCompletedUnpaidLessons(ctx context.Context, tutorID string, after *time.Time) ([]repo.Lesson, error) {
+func (m *MockRepository) ListCompletedUnpaidLessons(ctx context.Context, tutorID string, after, before *time.Time) ([]repo.Lesson, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListCompletedUnpaidLessons", ctx, tutorID, after)
+	ret := m.ctrl.Call(m, "ListCompletedUnpaidLessons", ctx, tutorID, after, before)
 	ret0, _ := ret[0].([]repo.Lesson)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListCompletedUnpaidLessons indicates an expected call of ListCompletedUnpaidLessons.
-func (mr *MockRepositoryMockRecorder) ListCompletedUnpaidLessons(ctx, tutorID, after any) *gomock.Call {
+func (mr *MockRepositoryMockRecorder) ListCompletedUnpaidLessons(ctx, tutorID, after, before any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCompletedUnpaidLessons", reflect.TypeOf((*MockRepository)(nil).ListCompletedUnpaidLessons), ctx, tutorID, after)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCompletedUnpaidLessons", reflect.TypeOf((*MockRepository)(nil).ListCompletedUnpaidLessons), ctx, tutorID, after, before)
 }
 
 // ListLessonsByPair mocks base method.
@@ -215,6 +215,20 @@ func (m *MockRepository) MarkAsPaid(ctx context.Context, lessonID string) error 
 func (mr *MockRepositoryMockRecorder) MarkAsPaid(ctx, lessonID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkAsPaid", reflect.TypeOf((*MockRepository)(nil).MarkAsPaid), ctx, lessonID)
+}
+
+// RescheduleLesson mocks base method.
+func (m *MockRepository) RescheduleLesson(ctx context.Context, cancelledLesson, newLesson repo.Lesson, oldSlotID, newSlotID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RescheduleLesson", ctx, cancelledLesson, newLesson, oldSlotID, newSlotID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RescheduleLesson indicates an expected call of RescheduleLesson.
+func (mr *MockRepositoryMockRecorder) RescheduleLesson(ctx, cancelledLesson, newLesson, oldSlotID, newSlotID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RescheduleLesson", reflect.TypeOf((*MockRepository)(nil).RescheduleLesson), ctx, cancelledLesson, newLesson, oldSlotID, newSlotID)
 }
 
 // UpdateCompletedLessons mocks base method.

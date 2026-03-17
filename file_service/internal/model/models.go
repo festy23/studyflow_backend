@@ -11,6 +11,7 @@ type File struct {
 	UploadedBy uuid.UUID `db:"uploaded_by"`
 	Filename   *string   `db:"filename"`
 	CreatedAt  time.Time `db:"created_at"`
+	IsUploaded bool      `db:"is_uploaded"`
 }
 
 type InitUpload struct {

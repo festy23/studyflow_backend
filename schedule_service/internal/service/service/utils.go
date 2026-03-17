@@ -110,6 +110,10 @@ func convertrepoLessonToProto(lesson *repo.Lesson) *pb.Lesson {
 		protoLesson.PaymentInfo = lesson.PaymentInfo
 	}
 
+	if lesson.RescheduledFromLessonID != nil {
+		protoLesson.RescheduledFromLessonId = lesson.RescheduledFromLessonID
+	}
+
 	return protoLesson
 }
 

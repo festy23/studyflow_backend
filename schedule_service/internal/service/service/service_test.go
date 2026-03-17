@@ -1185,7 +1185,7 @@ func TestListCompletedUnpaidLessons(t *testing.T) {
 			},
 		}
 
-		mockRepo.EXPECT().ListCompletedUnpaidLessons(gomock.Any(), tutorID, (*time.Time)(nil)).Return(lessons, nil)
+		mockRepo.EXPECT().ListCompletedUnpaidLessons(gomock.Any(), tutorID, (*time.Time)(nil), (*time.Time)(nil)).Return(lessons, nil)
 
 		resp, err := srv.ListCompletedUnpaidLessons(ctx, &pb.ListCompletedUnpaidLessonsRequest{})
 		require.NoError(t, err)
@@ -1202,7 +1202,7 @@ func TestListCompletedUnpaidLessons(t *testing.T) {
 
 		afterTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
-		mockRepo.EXPECT().ListCompletedUnpaidLessons(gomock.Any(), tutorID, gomock.Any()).Return([]repo.Lesson{}, nil)
+		mockRepo.EXPECT().ListCompletedUnpaidLessons(gomock.Any(), tutorID, gomock.Any(), (*time.Time)(nil)).Return([]repo.Lesson{}, nil)
 
 		resp, err := srv.ListCompletedUnpaidLessons(ctx, &pb.ListCompletedUnpaidLessonsRequest{
 			After: timestamppb.New(afterTime),
@@ -1241,7 +1241,7 @@ func TestListCompletedUnpaidLessons(t *testing.T) {
 
 		// Repo must receive caller's tutorID; any other tutor's data must not leak.
 		mockRepo.EXPECT().
-			ListCompletedUnpaidLessons(gomock.Any(), tutorID, (*time.Time)(nil)).
+			ListCompletedUnpaidLessons(gomock.Any(), tutorID, (*time.Time)(nil), (*time.Time)(nil)).
 			Return([]repo.Lesson{}, nil)
 
 		_, err := srv.ListCompletedUnpaidLessons(ctx, &pb.ListCompletedUnpaidLessonsRequest{})

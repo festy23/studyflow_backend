@@ -33,7 +33,7 @@ func main() {
 	defer func() { _ = logger.Sync() }()
 
 	brokers := getEnv("KAFKA_BROKERS", "kafka:9092")
-	topics := getEnv("KAFKA_TOPICS", "lesson-reminders,assignment-reminders")
+	topics := getEnv("KAFKA_TOPICS", "lesson-reminders,assignment-reminders,payment-reminders")
 	groupID := getEnv("KAFKA_GROUP_ID", "notification-service")
 	telegramToken := os.Getenv("TELEGRAM_BOT_TOKEN")
 	userServiceAddr := getEnv("USER_SERVICE_ADDR", "user_service:50051")

@@ -4,17 +4,22 @@ import (
 	"errors"
 	"github.com/ilyakaznacheev/cleanenv"
 	"os"
+	"time"
 )
 
 type Config struct {
-	GRPCPort            int    `env:"GRPC_PORT" env-default:"50051"`
-	PostgresURL         string `env:"POSTGRES_URL" env-default:"postgres://postgres:postgres@localhost:5432/postgres"`
-	PostgresMaxConn     int32  `env:"POSTGRES_MAX_CONN" env-default:"5"`
-	PostgresMinConn     int32  `env:"POSTGRES_MIN_CONN" env-default:"1"`
-	PostgresAutoMigrate bool   `env:"POSTGRES_AUTO_MIGRATE" env-default:"true"`
-	UserServiceURL      string `env:"USER_CLIENT_URL"`
-	FileServiceURL      string `env:"FILE_SERVICE_URL"`
-	ScheduleServiceURL  string `env:"SCHEDULE_SERVICE_URL"`
+	GRPCPort                int           `env:"GRPC_PORT" env-default:"50051"`
+	PostgresURL             string        `env:"POSTGRES_URL" env-default:"postgres://postgres:postgres@localhost:5432/postgres"`
+	PostgresMaxConn         int32         `env:"POSTGRES_MAX_CONN" env-default:"5"`
+	PostgresMinConn         int32         `env:"POSTGRES_MIN_CONN" env-default:"1"`
+	PostgresAutoMigrate     bool          `env:"POSTGRES_AUTO_MIGRATE" env-default:"true"`
+	UserServiceURL          string        `env:"USER_CLIENT_URL"`
+	FileServiceURL          string        `env:"FILE_SERVICE_URL"`
+	ScheduleServiceURL      string        `env:"SCHEDULE_SERVICE_URL"`
+	KafkaBrokers            string        `env:"KAFKA_BROKERS" env-default:"kafka:9092"`
+	PaymentReminderTopic    string        `env:"PAYMENT_REMINDER_TOPIC" env-default:"payment-reminders"`
+	PaymentReminderInterval time.Duration `env:"PAYMENT_REMINDER_INTERVAL" env-default:"24h"`
+	PaymentReminderAfter    time.Duration `env:"PAYMENT_REMINDER_AFTER" env-default:"24h"`
 }
 
 func New() (*Config, error) {

@@ -28,6 +28,7 @@ const (
 	ScheduleService_CreateLesson_FullMethodName               = "/schedule.v1.ScheduleService/CreateLesson"
 	ScheduleService_UpdateLesson_FullMethodName               = "/schedule.v1.ScheduleService/UpdateLesson"
 	ScheduleService_CancelLesson_FullMethodName               = "/schedule.v1.ScheduleService/CancelLesson"
+	ScheduleService_RescheduleLesson_FullMethodName           = "/schedule.v1.ScheduleService/RescheduleLesson"
 	ScheduleService_MarkAsPaid_FullMethodName                 = "/schedule.v1.ScheduleService/MarkAsPaid"
 	ScheduleService_ListLessonsByTutor_FullMethodName         = "/schedule.v1.ScheduleService/ListLessonsByTutor"
 	ScheduleService_ListLessonsByStudent_FullMethodName       = "/schedule.v1.ScheduleService/ListLessonsByStudent"
@@ -50,6 +51,7 @@ type ScheduleServiceClient interface {
 	CreateLesson(ctx context.Context, in *CreateLessonRequest, opts ...grpc.CallOption) (*Lesson, error)
 	UpdateLesson(ctx context.Context, in *UpdateLessonRequest, opts ...grpc.CallOption) (*Lesson, error)
 	CancelLesson(ctx context.Context, in *CancelLessonRequest, opts ...grpc.CallOption) (*Lesson, error)
+	RescheduleLesson(ctx context.Context, in *RescheduleLessonRequest, opts ...grpc.CallOption) (*Lesson, error)
 	MarkAsPaid(ctx context.Context, in *MarkAsPaidRequest, opts ...grpc.CallOption) (*Lesson, error)
 	ListLessonsByTutor(ctx context.Context, in *ListLessonsByTutorRequest, opts ...grpc.CallOption) (*ListLessonsResponse, error)
 	ListLessonsByStudent(ctx context.Context, in *ListLessonsByStudentRequest, opts ...grpc.CallOption) (*ListLessonsResponse, error)
@@ -156,6 +158,16 @@ func (c *scheduleServiceClient) CancelLesson(ctx context.Context, in *CancelLess
 	return out, nil
 }
 
+func (c *scheduleServiceClient) RescheduleLesson(ctx context.Context, in *RescheduleLessonRequest, opts ...grpc.CallOption) (*Lesson, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Lesson)
+	err := c.cc.Invoke(ctx, ScheduleService_RescheduleLesson_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *scheduleServiceClient) MarkAsPaid(ctx context.Context, in *MarkAsPaidRequest, opts ...grpc.CallOption) (*Lesson, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Lesson)
@@ -221,6 +233,7 @@ type ScheduleServiceServer interface {
 	CreateLesson(context.Context, *CreateLessonRequest) (*Lesson, error)
 	UpdateLesson(context.Context, *UpdateLessonRequest) (*Lesson, error)
 	CancelLesson(context.Context, *CancelLessonRequest) (*Lesson, error)
+	RescheduleLesson(context.Context, *RescheduleLessonRequest) (*Lesson, error)
 	MarkAsPaid(context.Context, *MarkAsPaidRequest) (*Lesson, error)
 	ListLessonsByTutor(context.Context, *ListLessonsByTutorRequest) (*ListLessonsResponse, error)
 	ListLessonsByStudent(context.Context, *ListLessonsByStudentRequest) (*ListLessonsResponse, error)
@@ -263,6 +276,9 @@ func (UnimplementedScheduleServiceServer) UpdateLesson(context.Context, *UpdateL
 }
 func (UnimplementedScheduleServiceServer) CancelLesson(context.Context, *CancelLessonRequest) (*Lesson, error) {
 	return nil, status.Error(codes.Unimplemented, "method CancelLesson not implemented")
+}
+func (UnimplementedScheduleServiceServer) RescheduleLesson(context.Context, *RescheduleLessonRequest) (*Lesson, error) {
+	return nil, status.Error(codes.Unimplemented, "method RescheduleLesson not implemented")
 }
 func (UnimplementedScheduleServiceServer) MarkAsPaid(context.Context, *MarkAsPaidRequest) (*Lesson, error) {
 	return nil, status.Error(codes.Unimplemented, "method MarkAsPaid not implemented")
@@ -462,6 +478,24 @@ func _ScheduleService_CancelLesson_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ScheduleService_RescheduleLesson_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RescheduleLessonRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ScheduleServiceServer).RescheduleLesson(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ScheduleService_RescheduleLesson_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ScheduleServiceServer).RescheduleLesson(ctx, req.(*RescheduleLessonRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ScheduleService_MarkAsPaid_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MarkAsPaidRequest)
 	if err := dec(in); err != nil {
@@ -594,6 +628,10 @@ var ScheduleService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CancelLesson",
 			Handler:    _ScheduleService_CancelLesson_Handler,
+		},
+		{
+			MethodName: "RescheduleLesson",
+			Handler:    _ScheduleService_RescheduleLesson_Handler,
 		},
 		{
 			MethodName: "MarkAsPaid",

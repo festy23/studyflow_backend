@@ -48,6 +48,9 @@ func authorizeFileAccess(ctx context.Context, file *model.File) error {
 type FileRepository interface {
 	CreateFile(ctx context.Context, input *model.RepositoryCreateFileInput) (*model.File, error)
 	GetFile(ctx context.Context, fileId uuid.UUID) (*model.File, error)
+	ConfirmUpload(ctx context.Context, fileId uuid.UUID) (*model.File, error)
+	ListOrphanUploads(ctx context.Context, olderThan time.Time) ([]*model.File, error)
+	DeleteFile(ctx context.Context, fileId uuid.UUID) error
 }
 
 type FileService struct {
@@ -169,6 +172,9 @@ func (s *FileService) GenerateDownloadURL(ctx context.Context, fileId uuid.UUID)
 	if err := authorizeFileAccess(ctx, file); err != nil {
 		return "", err
 	}
+	if !file.IsUploaded {
+		return "", fmt.Errorf("file upload is not confirmed: %w", errdefs.ErrNotFound)
+	}
 
 	key := file.Id.String() + file.Extension
 	downloadRequest, err := s.generateDownloadURL(ctx, key)
@@ -193,6 +199,46 @@ func (s *FileService) GetFileMeta(ctx context.Context, fileId uuid.UUID) (*model
 	}
 
 	return file, nil
+}
+
+func (s *FileService) ConfirmUpload(ctx context.Context, fileId uuid.UUID) (*model.File, error) {
+	file, err := s.fileRepo.GetFile(ctx, fileId)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("file not found: %w", errdefs.ErrNotFound)
+		}
+		return nil, fmt.Errorf("failed to get file: %w", err)
+	}
+	if err := authorizeFileAccess(ctx, file); err != nil {
+		return nil, err
+	}
+	file, err = s.fileRepo.ConfirmUpload(ctx, fileId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to confirm upload: %w", err)
+	}
+	return file, nil
+}
+
+func (s *FileService) CleanupOrphanUploads(ctx context.Context, olderThan time.Time) (int, error) {
+	files, err := s.fileRepo.ListOrphanUploads(ctx, olderThan)
+	if err != nil {
+		return 0, fmt.Errorf("failed to list orphan uploads: %w", err)
+	}
+	deleted := 0
+	for _, file := range files {
+		key := file.Id.String() + file.Extension
+		if _, err := s.s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+			Bucket: s.bucket,
+			Key:    aws.String(key),
+		}); err != nil {
+			return deleted, fmt.Errorf("failed to delete orphan object: %w", err)
+		}
+		if err := s.fileRepo.DeleteFile(ctx, file.Id); err != nil {
+			return deleted, fmt.Errorf("failed to delete orphan metadata: %w", err)
+		}
+		deleted++
+	}
+	return deleted, nil
 }
 
 func (s *FileService) createBucket(ctx context.Context, name string) error {

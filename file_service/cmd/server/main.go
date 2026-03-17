@@ -10,6 +10,7 @@ import (
 	"fileservice/internal/handler"
 	"fileservice/internal/s3_client"
 	"fileservice/internal/service"
+	"fileservice/internal/worker"
 	pb "fileservice/pkg/api"
 	"fmt"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -18,7 +19,9 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
+	"time"
 )
 
 func main() {
@@ -58,6 +61,9 @@ func main() {
 	}
 
 	fileHandler := handler.NewFileHandler(fileService)
+	cleanupWorker := worker.NewOrphanCleanupWorker(fileService, cfg.OrphanCleanupInterval, cfg.OrphanUploadTTL, logger)
+	var workerWg sync.WaitGroup
+	cleanupWorker.Start(ctx, &workerWg)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.GRPCPort))
 	if err != nil {
@@ -81,6 +87,16 @@ func main() {
 	}()
 
 	<-ctx.Done()
-	server.Stop()
+	stopped := make(chan struct{})
+	go func() {
+		server.GracefulStop()
+		close(stopped)
+	}()
+	select {
+	case <-stopped:
+	case <-time.After(10 * time.Second):
+		server.Stop()
+	}
+	workerWg.Wait()
 	logger.Info(ctx, "Server Stopped")
 }
