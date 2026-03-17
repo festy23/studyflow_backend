@@ -275,6 +275,7 @@ func (h *HomeworkHandler) CreateFeedback(ctx context.Context, req *v1.CreateFeed
 		SubmissionID: submissionId,
 		Comment:      req.Comment,
 		FileID:       fileId,
+		Grade:        req.Grade,
 	}
 
 	createdFeedback, err := h.feedbackService.CreateFeedback(ctx, feedback)
@@ -303,6 +304,9 @@ func (h *HomeworkHandler) UpdateFeedback(ctx context.Context, req *v1.UpdateFeed
 
 	if req.Comment != nil {
 		update.Comment = req.Comment
+	}
+	if req.Grade != nil {
+		update.Grade = req.Grade
 	}
 
 	if req.FileId != nil {
@@ -458,6 +462,7 @@ func toProtoFeedback(f *domain.Feedback) *v1.Feedback {
 		Comment:      f.Comment,
 		CreatedAt:    timestamppb.New(f.CreatedAt),
 		EditedAt:     timestamppb.New(f.EditedAt),
+		Grade:        f.Grade,
 	}
 
 	if f.FileID != nil {

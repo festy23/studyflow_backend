@@ -1,0 +1,2 @@
+ALTER TABLE feedbacks
+DROP COLUMN IF EXISTS grade;

@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/georgysavva/scany/v2/pgxscan"
@@ -131,6 +132,25 @@ func (r *PaymentRepo) ListReceiptsByStudent(ctx context.Context, studentID strin
 		return nil, handleError(err)
 	}
 	return receipts, nil
+}
+
+func (r *PaymentRepo) GetTutorRevenue(ctx context.Context, tutorID string, from, to *time.Time) (int64, error) {
+	query := `SELECT COALESCE(SUM(price_rub), 0) FROM receipts WHERE tutor_id = $1`
+	args := []any{tutorID}
+	if from != nil {
+		args = append(args, *from)
+		query += ` AND created_at >= $` + strconv.Itoa(len(args))
+	}
+	if to != nil {
+		args = append(args, *to)
+		query += ` AND created_at <= $` + strconv.Itoa(len(args))
+	}
+
+	var revenue int64
+	if err := r.db.QueryRow(ctx, query, args...).Scan(&revenue); err != nil {
+		return 0, handleError(err)
+	}
+	return revenue, nil
 }
 
 func (r *PaymentRepo) PaymentReminderSent(ctx context.Context, lessonID uuid.UUID) (bool, error) {

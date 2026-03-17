@@ -24,6 +24,7 @@ type PaymentService interface {
 	VerifyReceipt(ctx context.Context, input *models.VerifyReceiptInput) (*models.PaymentReceipt, error)
 	GetReceiptFile(ctx context.Context, input *models.GetReceiptFileInput) (*models.ReceiptFileUrl, error)
 	ListReceipts(ctx context.Context, input *models.ListReceiptsInput) ([]*models.PaymentReceipt, error)
+	GetTutorAnalytics(ctx context.Context, input *models.GetTutorAnalyticsInput) (*models.TutorAnalytics, error)
 }
 
 type PaymentServiceServer struct {
@@ -166,6 +167,27 @@ func (h *PaymentServiceServer) ListReceipts(ctx context.Context, req *pb.ListRec
 	return &pb.ListReceiptsResponse{Receipts: pbReceipts}, nil
 }
 
+func (h *PaymentServiceServer) GetTutorAnalytics(ctx context.Context, req *pb.GetTutorAnalyticsRequest) (*pb.TutorAnalytics, error) {
+	if req.TutorId == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "tutor_id is required")
+	}
+	input := &models.GetTutorAnalyticsInput{TutorID: req.TutorId}
+	if req.From != nil {
+		from := req.From.AsTime()
+		input.From = &from
+	}
+	if req.To != nil {
+		to := req.To.AsTime()
+		input.To = &to
+	}
+
+	analytics, err := h.service.GetTutorAnalytics(ctx, input)
+	if err != nil {
+		return nil, mapError(err, errdefs.ErrPermissionDenied, errdefs.ErrInvalidArgument)
+	}
+	return toPbTutorAnalytics(analytics), nil
+}
+
 func toPbReceiptFileURl(receiptFileUrl *models.ReceiptFileUrl) *pb.ReceiptFileURL {
 	return &pb.ReceiptFileURL{
 		Url: &receiptFileUrl.URL,
@@ -184,6 +206,24 @@ func toPbReceipt(receipt *models.PaymentReceipt) *pb.Receipt {
 		EditedAt:   timestamppb.New(receipt.EditedAt),
 		PriceRub:   &receipt.PriceRub,
 	}
+}
+
+func toPbTutorAnalytics(analytics *models.TutorAnalytics) *pb.TutorAnalytics {
+	resp := &pb.TutorAnalytics{
+		TutorId:               analytics.TutorID,
+		TotalRevenueRub:       analytics.TotalRevenueRub,
+		CompletedLessonsCount: analytics.CompletedLessonsCount,
+		CancelledLessonsCount: analytics.CancelledLessonsCount,
+		ActiveStudentsCount:   analytics.ActiveStudentsCount,
+		UnpaidLessonsCount:    analytics.UnpaidLessonsCount,
+	}
+	if analytics.From != nil {
+		resp.From = timestamppb.New(*analytics.From)
+	}
+	if analytics.To != nil {
+		resp.To = timestamppb.New(*analytics.To)
+	}
+	return resp
 }
 
 func mapError(err error, possibleErrors ...error) error {
