@@ -120,21 +120,29 @@ func parseListLessons(ctx context.Context, r *http.Request) (context.Context, an
 	studentID := q.Get("student_id")
 	statusParams := q["status_filter"]
 
+	var fromPtr, toPtr *string
+	if v := q.Get("from"); v != "" {
+		fromPtr = &v
+	}
+	if v := q.Get("to"); v != "" {
+		toPtr = &v
+	}
+
 	switch {
 	case tutorID != "" && studentID != "":
-		req := &schedulepb.ListLessonsByPairRequest{TutorId: tutorID, StudentId: studentID}
+		req := &schedulepb.ListLessonsByPairRequest{TutorId: tutorID, StudentId: studentID, From: fromPtr, To: toPtr}
 		for _, s := range statusParams {
 			req.StatusFilter = append(req.StatusFilter, parseStatus(s))
 		}
 		return ctx, req, nil
 	case tutorID != "":
-		req := &schedulepb.ListLessonsByTutorRequest{TutorId: tutorID}
+		req := &schedulepb.ListLessonsByTutorRequest{TutorId: tutorID, From: fromPtr, To: toPtr}
 		for _, s := range statusParams {
 			req.StatusFilter = append(req.StatusFilter, parseStatus(s))
 		}
 		return ctx, req, nil
 	case studentID != "":
-		req := &schedulepb.ListLessonsByStudentRequest{StudentId: studentID}
+		req := &schedulepb.ListLessonsByStudentRequest{StudentId: studentID, From: fromPtr, To: toPtr}
 		for _, s := range statusParams {
 			req.StatusFilter = append(req.StatusFilter, parseStatus(s))
 		}
@@ -244,6 +252,8 @@ func (h *ScheduleHandler) ListLessons(w http.ResponseWriter, r *http.Request) {
 			func(_ context.Context, _ *http.Request, grpcReq *schedulepb.ListLessonsByTutorRequest) error {
 				grpcReq.TutorId = req.TutorId
 				grpcReq.StatusFilter = req.StatusFilter
+				grpcReq.From = req.From
+				grpcReq.To = req.To
 				return nil
 			}, false,
 		)
@@ -257,6 +267,8 @@ func (h *ScheduleHandler) ListLessons(w http.ResponseWriter, r *http.Request) {
 			func(_ context.Context, _ *http.Request, grpcReq *schedulepb.ListLessonsByStudentRequest) error {
 				grpcReq.StudentId = req.StudentId
 				grpcReq.StatusFilter = req.StatusFilter
+				grpcReq.From = req.From
+				grpcReq.To = req.To
 				return nil
 			}, false)
 		if err != nil {
@@ -270,6 +282,8 @@ func (h *ScheduleHandler) ListLessons(w http.ResponseWriter, r *http.Request) {
 				grpcReq.TutorId = req.TutorId
 				grpcReq.StudentId = req.StudentId
 				grpcReq.StatusFilter = req.StatusFilter
+				grpcReq.From = req.From
+				grpcReq.To = req.To
 				return nil
 			}, false)
 		if err != nil {

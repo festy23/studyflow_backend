@@ -127,6 +127,27 @@ func createListLessonsResponse(lessons []repo.Lesson) *pb.ListLessonsResponse {
 	}
 }
 
+// parseFromTo parses optional RFC3339 from/to strings into *time.Time.
+// Returns codes.InvalidArgument if either string is non-nil but not valid RFC3339.
+func parseFromTo(fromStr, toStr *string) (*time.Time, *time.Time, error) {
+	var from, to *time.Time
+	if fromStr != nil {
+		t, err := time.Parse(time.RFC3339, *fromStr)
+		if err != nil {
+			return nil, nil, status.Errorf(codes.InvalidArgument, "invalid from: %v", err)
+		}
+		from = &t
+	}
+	if toStr != nil {
+		t, err := time.Parse(time.RFC3339, *toStr)
+		if err != nil {
+			return nil, nil, status.Errorf(codes.InvalidArgument, "invalid to: %v", err)
+		}
+		to = &t
+	}
+	return from, to, nil
+}
+
 func validateTimeRange(start, end time.Time) bool {
 	return start.Before(end)
 }
