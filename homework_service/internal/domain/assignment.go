@@ -31,4 +31,24 @@ type AssignmentFilter struct {
 	TutorID   uuid.UUID
 	StudentID uuid.UUID
 	Statuses  []AssignmentStatus
+	Page      *int32
+	PageSize  *int32
+}
+
+func (f *AssignmentFilter) Paginate() (limit, offset int) {
+	if f.Page == nil {
+		return 0, 0
+	}
+	p := int(*f.Page)
+	if p < 1 {
+		p = 1
+	}
+	ps := 20
+	if f.PageSize != nil && *f.PageSize > 0 {
+		ps = int(*f.PageSize)
+	}
+	if ps > 100 {
+		ps = 100
+	}
+	return ps, (p - 1) * ps
 }

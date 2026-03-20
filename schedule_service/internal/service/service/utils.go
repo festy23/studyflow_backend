@@ -117,7 +117,7 @@ func convertrepoLessonToProto(lesson *repo.Lesson) *pb.Lesson {
 	return protoLesson
 }
 
-func createListLessonsResponse(lessons []repo.Lesson) *pb.ListLessonsResponse {
+func createListLessonsResponse(lessons []repo.Lesson, page int32, totalCount int64) *pb.ListLessonsResponse {
 	protoLessons := make([]*pb.Lesson, 0, len(lessons))
 
 	for _, lesson := range lessons {
@@ -127,8 +127,35 @@ func createListLessonsResponse(lessons []repo.Lesson) *pb.ListLessonsResponse {
 	}
 
 	return &pb.ListLessonsResponse{
-		Lessons: protoLessons,
+		Lessons:     protoLessons,
+		Page:        page,
+		TotalCount:  totalCount,
 	}
+}
+
+const (
+	defaultPageSize = 20
+	maxPageSize     = 100
+)
+
+// paginateParams converts optional page/page_size to limit/offset.
+// If page is nil, returns 0, 0 (no pagination).
+func paginateParams(page, pageSize *int32) (limit, offset int) {
+	if page == nil {
+		return 0, 0
+	}
+	p := int(*page)
+	if p < 1 {
+		p = 1
+	}
+	ps := int(defaultPageSize)
+	if pageSize != nil && *pageSize > 0 {
+		ps = int(*pageSize)
+	}
+	if ps > maxPageSize {
+		ps = maxPageSize
+	}
+	return ps, (p - 1) * ps
 }
 
 // parseFromTo parses optional RFC3339 from/to strings into *time.Time.

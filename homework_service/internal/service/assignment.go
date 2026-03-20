@@ -16,9 +16,9 @@ type AssignmentServiceInterface interface {
 	GetAssignment(ctx context.Context, id uuid.UUID) (*domain.Assignment, error)
 	UpdateAssignment(ctx context.Context, assignment *domain.Assignment) error
 	DeleteAssignment(ctx context.Context, id uuid.UUID) error
-	ListAssignmentsByTutor(ctx context.Context, tutorID uuid.UUID, statuses []domain.AssignmentStatus) ([]*domain.Assignment, error)
-	ListAssignmentsByStudent(ctx context.Context, studentID uuid.UUID, statuses []domain.AssignmentStatus) ([]*domain.Assignment, error)
-	ListAssignmentsByPair(ctx context.Context, tutorID uuid.UUID, studentID uuid.UUID, statuses []domain.AssignmentStatus) ([]*domain.Assignment, error)
+	ListAssignmentsByTutor(ctx context.Context, tutorID uuid.UUID, statuses []domain.AssignmentStatus, page, pageSize *int32) ([]*domain.Assignment, int64, error)
+	ListAssignmentsByStudent(ctx context.Context, studentID uuid.UUID, statuses []domain.AssignmentStatus, page, pageSize *int32) ([]*domain.Assignment, int64, error)
+	ListAssignmentsByPair(ctx context.Context, tutorID uuid.UUID, studentID uuid.UUID, statuses []domain.AssignmentStatus, page, pageSize *int32) ([]*domain.Assignment, int64, error)
 	GetAssignmentFileURL(ctx context.Context, id uuid.UUID) (string, error)
 }
 
@@ -29,7 +29,7 @@ type AssignmentRepo interface {
 	Update(ctx context.Context, assignment *domain.Assignment) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Assignment, error)
-	ListByFilter(ctx context.Context, filter domain.AssignmentFilter) ([]*domain.Assignment, error)
+	ListByFilter(ctx context.Context, filter domain.AssignmentFilter) ([]*domain.Assignment, int64, error)
 }
 
 type AssignmentService struct {
@@ -157,31 +157,47 @@ func (s *AssignmentService) DeleteAssignment(ctx context.Context, id uuid.UUID) 
 	return s.assignmentRepo.Delete(ctx, id)
 }
 
-func (s *AssignmentService) ListAssignmentsByTutor(ctx context.Context, tutorID uuid.UUID, statuses []domain.AssignmentStatus) ([]*domain.Assignment, error) {
+func (s *AssignmentService) ListAssignmentsByTutor(ctx context.Context, tutorID uuid.UUID, statuses []domain.AssignmentStatus, page, pageSize *int32) ([]*domain.Assignment, int64, error) {
 	userID, ok := ctxdata.GetUserID(ctx)
 	if !ok || tutorID.String() != userID {
-		return nil, ErrPermissionDenied
+		return nil, 0, ErrPermissionDenied
 	}
 
-	return s.assignmentRepo.ListByFilter(ctx, domain.AssignmentFilter{TutorID: tutorID, Statuses: statuses})
+	return s.assignmentRepo.ListByFilter(ctx, domain.AssignmentFilter{
+		TutorID:  tutorID,
+		Statuses: statuses,
+		Page:     page,
+		PageSize: pageSize,
+	})
 }
 
-func (s *AssignmentService) ListAssignmentsByStudent(ctx context.Context, studentID uuid.UUID, statuses []domain.AssignmentStatus) ([]*domain.Assignment, error) {
+func (s *AssignmentService) ListAssignmentsByStudent(ctx context.Context, studentID uuid.UUID, statuses []domain.AssignmentStatus, page, pageSize *int32) ([]*domain.Assignment, int64, error) {
 	userID, ok := ctxdata.GetUserID(ctx)
 	if !ok || studentID.String() != userID {
-		return nil, ErrPermissionDenied
+		return nil, 0, ErrPermissionDenied
 	}
 
-	return s.assignmentRepo.ListByFilter(ctx, domain.AssignmentFilter{StudentID: studentID, Statuses: statuses})
+	return s.assignmentRepo.ListByFilter(ctx, domain.AssignmentFilter{
+		StudentID: studentID,
+		Statuses:  statuses,
+		Page:      page,
+		PageSize:  pageSize,
+	})
 }
 
-func (s *AssignmentService) ListAssignmentsByPair(ctx context.Context, tutorID uuid.UUID, studentID uuid.UUID, statuses []domain.AssignmentStatus) ([]*domain.Assignment, error) {
+func (s *AssignmentService) ListAssignmentsByPair(ctx context.Context, tutorID uuid.UUID, studentID uuid.UUID, statuses []domain.AssignmentStatus, page, pageSize *int32) ([]*domain.Assignment, int64, error) {
 	userID, ok := ctxdata.GetUserID(ctx)
 	if !ok || (tutorID.String() != userID && studentID.String() != userID) {
-		return nil, ErrPermissionDenied
+		return nil, 0, ErrPermissionDenied
 	}
 
-	return s.assignmentRepo.ListByFilter(ctx, domain.AssignmentFilter{TutorID: tutorID, StudentID: studentID, Statuses: statuses})
+	return s.assignmentRepo.ListByFilter(ctx, domain.AssignmentFilter{
+		TutorID:   tutorID,
+		StudentID: studentID,
+		Statuses:  statuses,
+		Page:      page,
+		PageSize:  pageSize,
+	})
 }
 
 func (s *AssignmentService) GetAssignmentFileURL(ctx context.Context, id uuid.UUID) (string, error) {

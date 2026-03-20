@@ -4,7 +4,7 @@ package schedule.v1;
 
 import "google/protobuf/timestamp.proto";
 
-option go_package = "./pkg/pkg";
+option go_package = "./pkg/api";
 // ==== SERVICE ====
 
 service ScheduleService {
@@ -116,6 +116,8 @@ message ListLessonsByTutorRequest {
   repeated  LessonStatusFilter status_filter = 2;
   optional string from = 3;  // RFC3339
   optional string to = 4;    // RFC3339
+  optional int32 page = 5;
+  optional int32 page_size = 6;
 }
 
 message ListLessonsByStudentRequest {
@@ -123,6 +125,8 @@ message ListLessonsByStudentRequest {
   repeated LessonStatusFilter status_filter = 2;
   optional string from = 3;  // RFC3339
   optional string to = 4;    // RFC3339
+  optional int32 page = 5;
+  optional int32 page_size = 6;
 }
 
 message ListLessonsByPairRequest {
@@ -131,6 +135,8 @@ message ListLessonsByPairRequest {
   repeated LessonStatusFilter status_filter = 3;
   optional string from = 4;  // RFC3339
   optional string to = 5;    // RFC3339
+  optional int32 page = 6;
+  optional int32 page_size = 7;
 }
 
 message ListCompletedUnpaidLessonsRequest {
@@ -142,6 +148,8 @@ message ListCompletedUnpaidLessonsRequest {
 
 message ListLessonsResponse {
   repeated Lesson lessons = 1;
+  int32 page = 2;
+  int64 total_count = 3;
 }
 
 message Lesson {

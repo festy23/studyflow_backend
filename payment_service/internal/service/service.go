@@ -33,9 +33,9 @@ type IPaymentRepo interface {
 
 	GetReceiptByLessonID(ctx context.Context, lessonID uuid.UUID) (*models.PaymentReceipt, error)
 
-	ListReceiptsByTutor(ctx context.Context, tutorID string) ([]*models.PaymentReceipt, error)
+	ListReceiptsByTutor(ctx context.Context, tutorID string, limit, offset int) ([]*models.PaymentReceipt, int64, error)
 
-	ListReceiptsByStudent(ctx context.Context, studentID string) ([]*models.PaymentReceipt, error)
+	ListReceiptsByStudent(ctx context.Context, studentID string, limit, offset int) ([]*models.PaymentReceipt, int64, error)
 
 	GetTutorRevenue(ctx context.Context, tutorID string, from, to *time.Time) (int64, error)
 }
@@ -308,24 +308,25 @@ func (s *PaymentService) GetReceiptFile(ctx context.Context, input *models.GetRe
 	return receiptFileURL, nil
 }
 
-func (s *PaymentService) ListReceipts(ctx context.Context, input *models.ListReceiptsInput) ([]*models.PaymentReceipt, error) {
+func (s *PaymentService) ListReceipts(ctx context.Context, input *models.ListReceiptsInput) ([]*models.PaymentReceipt, int64, error) {
 	callerID, ok := ctxdata.GetUserID(ctx)
 	if !ok || callerID == "" {
-		return nil, errdefs.ErrPermissionDenied
+		return nil, 0, errdefs.ErrPermissionDenied
 	}
+	limit, offset := input.Paginate()
 	switch {
 	case input.TutorID != "":
 		if callerID != input.TutorID {
-			return nil, errdefs.ErrPermissionDenied
+			return nil, 0, errdefs.ErrPermissionDenied
 		}
-		return s.repo.ListReceiptsByTutor(ctx, input.TutorID)
+		return s.repo.ListReceiptsByTutor(ctx, input.TutorID, limit, offset)
 	case input.StudentID != "":
 		if callerID != input.StudentID {
-			return nil, errdefs.ErrPermissionDenied
+			return nil, 0, errdefs.ErrPermissionDenied
 		}
-		return s.repo.ListReceiptsByStudent(ctx, input.StudentID)
+		return s.repo.ListReceiptsByStudent(ctx, input.StudentID, limit, offset)
 	default:
-		return nil, errdefs.ErrInvalidArgument
+		return nil, 0, errdefs.ErrInvalidArgument
 	}
 }
 

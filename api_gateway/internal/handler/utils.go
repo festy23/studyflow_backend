@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -234,4 +235,16 @@ func parsePathParam(r *http.Request, key string) (string, error) {
 		return "", fmt.Errorf("missing path param: %s", key)
 	}
 	return val, nil
+}
+
+func parseInt32Ptr(s string) *int32 {
+	if s == "" {
+		return nil
+	}
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		return nil
+	}
+	i32 := int32(v)
+	return &i32
 }

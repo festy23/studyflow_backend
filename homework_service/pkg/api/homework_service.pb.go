@@ -321,6 +321,8 @@ type ListAssignmentsByTutorRequest struct {
 	state         protoimpl.MessageState   `protogen:"open.v1"`
 	TutorId       string                   `protobuf:"bytes,1,opt,name=tutor_id,json=tutorId,proto3" json:"tutor_id,omitempty"`
 	StatusFilter  []AssignmentStatusFilter `protobuf:"varint,2,rep,packed,name=status_filter,json=statusFilter,proto3,enum=homework.v1.AssignmentStatusFilter" json:"status_filter,omitempty"`
+	Page          *int32                   `protobuf:"varint,3,opt,name=page,proto3,oneof" json:"page,omitempty"`
+	PageSize      *int32                   `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3,oneof" json:"page_size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -369,10 +371,26 @@ func (x *ListAssignmentsByTutorRequest) GetStatusFilter() []AssignmentStatusFilt
 	return nil
 }
 
+func (x *ListAssignmentsByTutorRequest) GetPage() int32 {
+	if x != nil && x.Page != nil {
+		return *x.Page
+	}
+	return 0
+}
+
+func (x *ListAssignmentsByTutorRequest) GetPageSize() int32 {
+	if x != nil && x.PageSize != nil {
+		return *x.PageSize
+	}
+	return 0
+}
+
 type ListAssignmentsByStudentRequest struct {
 	state         protoimpl.MessageState   `protogen:"open.v1"`
 	StudentId     string                   `protobuf:"bytes,1,opt,name=student_id,json=studentId,proto3" json:"student_id,omitempty"`
 	StatusFilter  []AssignmentStatusFilter `protobuf:"varint,2,rep,packed,name=status_filter,json=statusFilter,proto3,enum=homework.v1.AssignmentStatusFilter" json:"status_filter,omitempty"`
+	Page          *int32                   `protobuf:"varint,3,opt,name=page,proto3,oneof" json:"page,omitempty"`
+	PageSize      *int32                   `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3,oneof" json:"page_size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -421,11 +439,27 @@ func (x *ListAssignmentsByStudentRequest) GetStatusFilter() []AssignmentStatusFi
 	return nil
 }
 
+func (x *ListAssignmentsByStudentRequest) GetPage() int32 {
+	if x != nil && x.Page != nil {
+		return *x.Page
+	}
+	return 0
+}
+
+func (x *ListAssignmentsByStudentRequest) GetPageSize() int32 {
+	if x != nil && x.PageSize != nil {
+		return *x.PageSize
+	}
+	return 0
+}
+
 type ListAssignmentsByPairRequest struct {
 	state         protoimpl.MessageState   `protogen:"open.v1"`
 	TutorId       string                   `protobuf:"bytes,1,opt,name=tutor_id,json=tutorId,proto3" json:"tutor_id,omitempty"`
 	StudentId     string                   `protobuf:"bytes,2,opt,name=student_id,json=studentId,proto3" json:"student_id,omitempty"`
 	StatusFilter  []AssignmentStatusFilter `protobuf:"varint,3,rep,packed,name=status_filter,json=statusFilter,proto3,enum=homework.v1.AssignmentStatusFilter" json:"status_filter,omitempty"`
+	Page          *int32                   `protobuf:"varint,4,opt,name=page,proto3,oneof" json:"page,omitempty"`
+	PageSize      *int32                   `protobuf:"varint,5,opt,name=page_size,json=pageSize,proto3,oneof" json:"page_size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -481,9 +515,25 @@ func (x *ListAssignmentsByPairRequest) GetStatusFilter() []AssignmentStatusFilte
 	return nil
 }
 
+func (x *ListAssignmentsByPairRequest) GetPage() int32 {
+	if x != nil && x.Page != nil {
+		return *x.Page
+	}
+	return 0
+}
+
+func (x *ListAssignmentsByPairRequest) GetPageSize() int32 {
+	if x != nil && x.PageSize != nil {
+		return *x.PageSize
+	}
+	return 0
+}
+
 type ListAssignmentsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Assignments   []*Assignment          `protobuf:"bytes,1,rep,name=assignments,proto3" json:"assignments,omitempty"`
+	Page          int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
+	TotalCount    int64                  `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -523,6 +573,20 @@ func (x *ListAssignmentsResponse) GetAssignments() []*Assignment {
 		return x.Assignments
 	}
 	return nil
+}
+
+func (x *ListAssignmentsResponse) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListAssignmentsResponse) GetTotalCount() int64 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
 }
 
 type CreateSubmissionRequest struct {
@@ -1388,21 +1452,39 @@ const file_homework_service_proto_rawDesc = "" +
 	"\f_descriptionB\n" +
 	"\n" +
 	"\b_file_idB\v\n" +
-	"\t_due_date\"\x84\x01\n" +
+	"\t_due_date\"\xd6\x01\n" +
 	"\x1dListAssignmentsByTutorRequest\x12\x19\n" +
 	"\btutor_id\x18\x01 \x01(\tR\atutorId\x12H\n" +
-	"\rstatus_filter\x18\x02 \x03(\x0e2#.homework.v1.AssignmentStatusFilterR\fstatusFilter\"\x8a\x01\n" +
+	"\rstatus_filter\x18\x02 \x03(\x0e2#.homework.v1.AssignmentStatusFilterR\fstatusFilter\x12\x17\n" +
+	"\x04page\x18\x03 \x01(\x05H\x00R\x04page\x88\x01\x01\x12 \n" +
+	"\tpage_size\x18\x04 \x01(\x05H\x01R\bpageSize\x88\x01\x01B\a\n" +
+	"\x05_pageB\f\n" +
+	"\n" +
+	"_page_size\"\xdc\x01\n" +
 	"\x1fListAssignmentsByStudentRequest\x12\x1d\n" +
 	"\n" +
 	"student_id\x18\x01 \x01(\tR\tstudentId\x12H\n" +
-	"\rstatus_filter\x18\x02 \x03(\x0e2#.homework.v1.AssignmentStatusFilterR\fstatusFilter\"\xa2\x01\n" +
+	"\rstatus_filter\x18\x02 \x03(\x0e2#.homework.v1.AssignmentStatusFilterR\fstatusFilter\x12\x17\n" +
+	"\x04page\x18\x03 \x01(\x05H\x00R\x04page\x88\x01\x01\x12 \n" +
+	"\tpage_size\x18\x04 \x01(\x05H\x01R\bpageSize\x88\x01\x01B\a\n" +
+	"\x05_pageB\f\n" +
+	"\n" +
+	"_page_size\"\xf4\x01\n" +
 	"\x1cListAssignmentsByPairRequest\x12\x19\n" +
 	"\btutor_id\x18\x01 \x01(\tR\atutorId\x12\x1d\n" +
 	"\n" +
 	"student_id\x18\x02 \x01(\tR\tstudentId\x12H\n" +
-	"\rstatus_filter\x18\x03 \x03(\x0e2#.homework.v1.AssignmentStatusFilterR\fstatusFilter\"T\n" +
+	"\rstatus_filter\x18\x03 \x03(\x0e2#.homework.v1.AssignmentStatusFilterR\fstatusFilter\x12\x17\n" +
+	"\x04page\x18\x04 \x01(\x05H\x00R\x04page\x88\x01\x01\x12 \n" +
+	"\tpage_size\x18\x05 \x01(\x05H\x01R\bpageSize\x88\x01\x01B\a\n" +
+	"\x05_pageB\f\n" +
+	"\n" +
+	"_page_size\"\x89\x01\n" +
 	"\x17ListAssignmentsResponse\x129\n" +
-	"\vassignments\x18\x01 \x03(\v2\x17.homework.v1.AssignmentR\vassignments\"\x93\x01\n" +
+	"\vassignments\x18\x01 \x03(\v2\x17.homework.v1.AssignmentR\vassignments\x12\x12\n" +
+	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1f\n" +
+	"\vtotal_count\x18\x03 \x01(\x03R\n" +
+	"totalCount\"\x93\x01\n" +
 	"\x17CreateSubmissionRequest\x12#\n" +
 	"\rassignment_id\x18\x01 \x01(\tR\fassignmentId\x12\x1c\n" +
 	"\afile_id\x18\x02 \x01(\tH\x00R\x06fileId\x88\x01\x01\x12\x1d\n" +
@@ -1616,6 +1698,9 @@ func file_homework_service_proto_init() {
 	}
 	file_homework_service_proto_msgTypes[2].OneofWrappers = []any{}
 	file_homework_service_proto_msgTypes[3].OneofWrappers = []any{}
+	file_homework_service_proto_msgTypes[4].OneofWrappers = []any{}
+	file_homework_service_proto_msgTypes[5].OneofWrappers = []any{}
+	file_homework_service_proto_msgTypes[6].OneofWrappers = []any{}
 	file_homework_service_proto_msgTypes[8].OneofWrappers = []any{}
 	file_homework_service_proto_msgTypes[11].OneofWrappers = []any{}
 	file_homework_service_proto_msgTypes[12].OneofWrappers = []any{}

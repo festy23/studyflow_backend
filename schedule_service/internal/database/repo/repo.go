@@ -43,9 +43,9 @@ type Repository interface {
 	UpdateLesson(ctx context.Context, lesson Lesson) error
 	CancelLessonAndFreeSlot(ctx context.Context, lesson Lesson, slotID string) error
 	RescheduleLesson(ctx context.Context, cancelledLesson Lesson, newLesson Lesson, oldSlotID, newSlotID string) error
-	ListLessonsByTutor(ctx context.Context, tutorID string, statusFilter []string, from, to *time.Time) ([]Lesson, error)
-	ListLessonsByStudent(ctx context.Context, studentID string, statusFilter []string, from, to *time.Time) ([]Lesson, error)
-	ListLessonsByPair(ctx context.Context, tutorID, studentID string, statusFilter []string, from, to *time.Time) ([]Lesson, error)
+	ListLessonsByTutor(ctx context.Context, tutorID string, statusFilter []string, from, to *time.Time, limit, offset int) ([]Lesson, int64, error)
+	ListLessonsByStudent(ctx context.Context, studentID string, statusFilter []string, from, to *time.Time, limit, offset int) ([]Lesson, int64, error)
+	ListLessonsByPair(ctx context.Context, tutorID, studentID string, statusFilter []string, from, to *time.Time, limit, offset int) ([]Lesson, int64, error)
 	ListCompletedUnpaidLessons(ctx context.Context, tutorID string, after, before *time.Time) ([]Lesson, error)
 
 	UpdateCompletedLessons(ctx context.Context) (int, error)

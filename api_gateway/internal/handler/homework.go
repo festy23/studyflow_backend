@@ -99,15 +99,18 @@ func parseAssignmentQuery(ctx context.Context, r *http.Request) (context.Context
 		return res
 	}
 
+	page := parseInt32Ptr(q.Get("page"))
+	pageSize := parseInt32Ptr(q.Get("page_size"))
+
 	switch {
 	case tutorID != "" && studentID != "":
-		req := &homeworkpb.ListAssignmentsByPairRequest{TutorId: tutorID, StudentId: studentID, StatusFilter: parseStatuses(statuses)}
+		req := &homeworkpb.ListAssignmentsByPairRequest{TutorId: tutorID, StudentId: studentID, StatusFilter: parseStatuses(statuses), Page: page, PageSize: pageSize}
 		return ctx, req, nil
 	case tutorID != "":
-		req := &homeworkpb.ListAssignmentsByTutorRequest{TutorId: tutorID, StatusFilter: parseStatuses(statuses)}
+		req := &homeworkpb.ListAssignmentsByTutorRequest{TutorId: tutorID, StatusFilter: parseStatuses(statuses), Page: page, PageSize: pageSize}
 		return ctx, req, nil
 	case studentID != "":
-		req := &homeworkpb.ListAssignmentsByStudentRequest{StudentId: studentID, StatusFilter: parseStatuses(statuses)}
+		req := &homeworkpb.ListAssignmentsByStudentRequest{StudentId: studentID, StatusFilter: parseStatuses(statuses), Page: page, PageSize: pageSize}
 		return ctx, req, nil
 	default:
 		return nil, nil, fmt.Errorf("invalid filter combination")

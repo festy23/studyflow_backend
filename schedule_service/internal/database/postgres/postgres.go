@@ -405,7 +405,17 @@ func (r *PostgresRepository) RescheduleLesson(ctx context.Context, cancelledLess
 	return nil
 }
 
-func (r *PostgresRepository) ListLessonsByTutor(ctx context.Context, tutorID string, statusFilter []string, from, to *time.Time) ([]repo.Lesson, error) {
+func (r *PostgresRepository) ListLessonsByTutor(ctx context.Context, tutorID string, statusFilter []string, from, to *time.Time, limit, offset int) ([]repo.Lesson, int64, error) {
+	countQuery := `SELECT COUNT(*) FROM lessons l JOIN slots s ON l.slot_id = s.id WHERE s.tutor_id = $1`
+	countArgs := []interface{}{tutorID}
+	countQuery, countArgs = appendStatusFilter(countQuery, countArgs, statusFilter)
+	countQuery, countArgs = appendDateFilter(countQuery, countArgs, from, to)
+
+	var totalCount int64
+	if err := r.pool.QueryRow(ctx, countQuery, countArgs...).Scan(&totalCount); err != nil {
+		return nil, 0, fmt.Errorf("failed to count lessons: %w", err)
+	}
+
 	query := `
 		SELECT l.id, l.slot_id, l.student_id, l.status, l.is_paid, l.connection_link, l.price_rub, l.payment_info, l.created_at, l.edited_at, l.rescheduled_from_lesson_id
 		FROM lessons l
@@ -417,11 +427,26 @@ func (r *PostgresRepository) ListLessonsByTutor(ctx context.Context, tutorID str
 	query, args = appendStatusFilter(query, args, statusFilter)
 	query, args = appendDateFilter(query, args, from, to)
 	query += " ORDER BY s.starts_at ASC"
+	query, args = appendPagination(query, args, limit, offset)
 
-	return r.queryLessons(ctx, query, args...)
+	lessons, err := r.queryLessons(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	return lessons, totalCount, nil
 }
 
-func (r *PostgresRepository) ListLessonsByStudent(ctx context.Context, studentID string, statusFilter []string, from, to *time.Time) ([]repo.Lesson, error) {
+func (r *PostgresRepository) ListLessonsByStudent(ctx context.Context, studentID string, statusFilter []string, from, to *time.Time, limit, offset int) ([]repo.Lesson, int64, error) {
+	countQuery := `SELECT COUNT(*) FROM lessons l JOIN slots s ON l.slot_id = s.id WHERE l.student_id = $1`
+	countArgs := []interface{}{studentID}
+	countQuery, countArgs = appendStatusFilter(countQuery, countArgs, statusFilter)
+	countQuery, countArgs = appendDateFilter(countQuery, countArgs, from, to)
+
+	var totalCount int64
+	if err := r.pool.QueryRow(ctx, countQuery, countArgs...).Scan(&totalCount); err != nil {
+		return nil, 0, fmt.Errorf("failed to count lessons: %w", err)
+	}
+
 	query := `
 		SELECT l.id, l.slot_id, l.student_id, l.status, l.is_paid, l.connection_link, l.price_rub, l.payment_info, l.created_at, l.edited_at, l.rescheduled_from_lesson_id
 		FROM lessons l
@@ -433,11 +458,26 @@ func (r *PostgresRepository) ListLessonsByStudent(ctx context.Context, studentID
 	query, args = appendStatusFilter(query, args, statusFilter)
 	query, args = appendDateFilter(query, args, from, to)
 	query += " ORDER BY s.starts_at ASC"
+	query, args = appendPagination(query, args, limit, offset)
 
-	return r.queryLessons(ctx, query, args...)
+	lessons, err := r.queryLessons(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	return lessons, totalCount, nil
 }
 
-func (r *PostgresRepository) ListLessonsByPair(ctx context.Context, tutorID, studentID string, statusFilter []string, from, to *time.Time) ([]repo.Lesson, error) {
+func (r *PostgresRepository) ListLessonsByPair(ctx context.Context, tutorID, studentID string, statusFilter []string, from, to *time.Time, limit, offset int) ([]repo.Lesson, int64, error) {
+	countQuery := `SELECT COUNT(*) FROM lessons l JOIN slots s ON l.slot_id = s.id WHERE s.tutor_id = $1 AND l.student_id = $2`
+	countArgs := []interface{}{tutorID, studentID}
+	countQuery, countArgs = appendStatusFilter(countQuery, countArgs, statusFilter)
+	countQuery, countArgs = appendDateFilter(countQuery, countArgs, from, to)
+
+	var totalCount int64
+	if err := r.pool.QueryRow(ctx, countQuery, countArgs...).Scan(&totalCount); err != nil {
+		return nil, 0, fmt.Errorf("failed to count lessons: %w", err)
+	}
+
 	query := `
 		SELECT l.id, l.slot_id, l.student_id, l.status, l.is_paid, l.connection_link, l.price_rub, l.payment_info, l.created_at, l.edited_at, l.rescheduled_from_lesson_id
 		FROM lessons l
@@ -449,8 +489,13 @@ func (r *PostgresRepository) ListLessonsByPair(ctx context.Context, tutorID, stu
 	query, args = appendStatusFilter(query, args, statusFilter)
 	query, args = appendDateFilter(query, args, from, to)
 	query += " ORDER BY s.starts_at ASC"
+	query, args = appendPagination(query, args, limit, offset)
 
-	return r.queryLessons(ctx, query, args...)
+	lessons, err := r.queryLessons(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	return lessons, totalCount, nil
 }
 
 // appendStatusFilter adds an IN clause for status filtering to the query.
@@ -475,6 +520,14 @@ func appendDateFilter(query string, args []interface{}, from, to *time.Time) (st
 	if to != nil {
 		query += fmt.Sprintf(" AND s.starts_at <= $%d", len(args)+1)
 		args = append(args, *to)
+	}
+	return query, args
+}
+
+func appendPagination(query string, args []interface{}, limit, offset int) (string, []interface{}) {
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", len(args)+1, len(args)+2)
+		args = append(args, limit, offset)
 	}
 	return query, args
 }
