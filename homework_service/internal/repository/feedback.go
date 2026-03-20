@@ -22,8 +22,8 @@ func NewFeedbackRepository(db *sql.DB) *FeedbackRepository {
 
 func (r *FeedbackRepository) Create(ctx context.Context, feedback *domain.Feedback) error {
 	query := `
-		INSERT INTO feedbacks (id, submission_id, file_id, comment, created_at, edited_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO feedbacks (id, submission_id, file_id, comment, grade, created_at, edited_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 
 	id, err := uuid.NewV7()
@@ -36,6 +36,7 @@ func (r *FeedbackRepository) Create(ctx context.Context, feedback *domain.Feedba
 		feedback.SubmissionID,
 		feedback.FileID,
 		feedback.Comment,
+		feedback.Grade,
 		time.Now(),
 		time.Now(),
 	)
@@ -51,13 +52,14 @@ func (r *FeedbackRepository) Create(ctx context.Context, feedback *domain.Feedba
 func (r *FeedbackRepository) Update(ctx context.Context, feedback *domain.Feedback) error {
 	query := `
 		UPDATE feedbacks 
-		SET file_id = $1, comment = $2, edited_at = $3
-		WHERE id = $4
+		SET file_id = $1, comment = $2, grade = $3, edited_at = $4
+		WHERE id = $5
 	`
 
 	result, err := r.db.ExecContext(ctx, query,
 		feedback.FileID,
 		feedback.Comment,
+		feedback.Grade,
 		time.Now(),
 		feedback.ID,
 	)
@@ -78,7 +80,7 @@ func (r *FeedbackRepository) Update(ctx context.Context, feedback *domain.Feedba
 
 func (r *FeedbackRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Feedback, error) {
 	query := `
-		SELECT id, submission_id, file_id, comment, created_at, edited_at
+		SELECT id, submission_id, file_id, comment, grade, created_at, edited_at
 		FROM feedbacks
 		WHERE id = $1
 	`
@@ -89,6 +91,7 @@ func (r *FeedbackRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 		&feedback.SubmissionID,
 		&feedback.FileID,
 		&feedback.Comment,
+		&feedback.Grade,
 		&feedback.CreatedAt,
 		&feedback.EditedAt,
 	)
@@ -125,7 +128,7 @@ func (r *FeedbackRepository) HasFeedbackForAssignmentStudent(ctx context.Context
 
 func (r *FeedbackRepository) ListByAssignment(ctx context.Context, assignmentId uuid.UUID) ([]*domain.Feedback, error) {
 	baseQuery := `
-		SELECT f.id, f.submission_id, f.file_id, f.comment, f.created_at, f.edited_at
+		SELECT f.id, f.submission_id, f.file_id, f.comment, f.grade, f.created_at, f.edited_at
 		FROM feedbacks f
 		JOIN submissions s
 		ON s.id = f.submission_id
@@ -146,6 +149,7 @@ func (r *FeedbackRepository) ListByAssignment(ctx context.Context, assignmentId 
 			&feedback.SubmissionID,
 			&feedback.FileID,
 			&feedback.Comment,
+			&feedback.Grade,
 			&feedback.CreatedAt,
 			&feedback.EditedAt,
 		)

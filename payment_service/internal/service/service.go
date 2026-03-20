@@ -36,6 +36,8 @@ type IPaymentRepo interface {
 	ListReceiptsByTutor(ctx context.Context, tutorID string) ([]*models.PaymentReceipt, error)
 
 	ListReceiptsByStudent(ctx context.Context, studentID string) ([]*models.PaymentReceipt, error)
+
+	GetTutorRevenue(ctx context.Context, tutorID string, from, to *time.Time) (int64, error)
 }
 
 type PaymentService struct {
@@ -325,6 +327,75 @@ func (s *PaymentService) ListReceipts(ctx context.Context, input *models.ListRec
 	default:
 		return nil, errdefs.ErrInvalidArgument
 	}
+}
+
+func (s *PaymentService) GetTutorAnalytics(ctx context.Context, input *models.GetTutorAnalyticsInput) (*models.TutorAnalytics, error) {
+	if input == nil || input.TutorID == "" {
+		return nil, errdefs.ErrInvalidArgument
+	}
+	if input.From != nil && input.To != nil && input.From.After(*input.To) {
+		return nil, errdefs.ErrInvalidArgument
+	}
+	if err := requireRole(ctx, models.RoleTutor); err != nil {
+		return nil, err
+	}
+	callerID, ok := ctxdata.GetUserID(ctx)
+	if !ok || callerID != input.TutorID {
+		return nil, errdefs.ErrPermissionDenied
+	}
+
+	revenue, err := utils.RetryWithBackoff(ctx, maxRetries, retryDelay, func() (int64, error) {
+		return s.repo.GetTutorRevenue(ctxWithMetadata(ctx), input.TutorID, input.From, input.To)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var fromStr, toStr *string
+	if input.From != nil {
+		v := input.From.Format(time.RFC3339)
+		fromStr = &v
+	}
+	if input.To != nil {
+		v := input.To.Format(time.RFC3339)
+		toStr = &v
+	}
+
+	lessonsResp, err := utils.RetryWithBackoff(ctx, maxRetries, retryDelay, func() (*api3.ListLessonsResponse, error) {
+		return s.scheduleClient.ListLessonsByTutor(ctxWithMetadata(ctx), &api3.ListLessonsByTutorRequest{
+			TutorId: input.TutorID,
+			From:    fromStr,
+			To:      toStr,
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	activeStudents := make(map[string]struct{})
+	analytics := &models.TutorAnalytics{
+		TutorID:         input.TutorID,
+		From:            input.From,
+		To:              input.To,
+		TotalRevenueRub: revenue,
+	}
+	for _, lesson := range lessonsResp.GetLessons() {
+		switch lesson.GetStatus() {
+		case "completed":
+			analytics.CompletedLessonsCount++
+			if !lesson.GetIsPaid() {
+				analytics.UnpaidLessonsCount++
+			}
+		case "cancelled":
+			analytics.CancelledLessonsCount++
+		}
+		if lesson.GetStatus() != "cancelled" && lesson.GetStudentId() != "" {
+			activeStudents[lesson.GetStudentId()] = struct{}{}
+		}
+	}
+	analytics.ActiveStudentsCount = int64(len(activeStudents))
+
+	return analytics, nil
 }
 
 func ctxWithMetadata(ctx context.Context) context.Context {

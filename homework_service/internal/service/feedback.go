@@ -57,6 +57,9 @@ func (s *feedbackService) CreateFeedback(ctx context.Context, feedback *domain.F
 	if !ok || userRole != "tutor" {
 		return nil, ErrPermissionDenied
 	}
+	if !validGrade(feedback.Grade) {
+		return nil, ErrInvalidFeedbackData
+	}
 
 	submission, err := s.submissionRepo.GetByID(ctx, feedback.SubmissionID)
 	if err != nil {
@@ -90,6 +93,7 @@ func (s *feedbackService) CreateFeedback(ctx context.Context, feedback *domain.F
 		SubmissionID: feedback.SubmissionID,
 		FileID:       feedback.FileID,
 		Comment:      feedback.Comment,
+		Grade:        feedback.Grade,
 		CreatedAt:    now,
 		EditedAt:     now,
 	}
@@ -105,6 +109,9 @@ func (s *feedbackService) UpdateFeedback(ctx context.Context, feedback *domain.F
 	userRole, ok := ctxdata.GetUserRole(ctx)
 	if !ok || userRole != "tutor" {
 		return nil, ErrPermissionDenied
+	}
+	if !validGrade(feedback.Grade) {
+		return nil, ErrInvalidFeedbackData
 	}
 
 	existingFeedback, err := s.feedbackRepo.GetByID(ctx, feedback.ID)
@@ -133,6 +140,9 @@ func (s *feedbackService) UpdateFeedback(ctx context.Context, feedback *domain.F
 	if feedback.Comment != nil {
 		existingFeedback.Comment = feedback.Comment
 	}
+	if feedback.Grade != nil {
+		existingFeedback.Grade = feedback.Grade
+	}
 
 	if feedback.FileID != nil {
 		if *feedback.FileID != uuid.Nil {
@@ -150,6 +160,10 @@ func (s *feedbackService) UpdateFeedback(ctx context.Context, feedback *domain.F
 	}
 
 	return existingFeedback, nil
+}
+
+func validGrade(grade *int32) bool {
+	return grade == nil || (*grade >= 1 && *grade <= 5)
 }
 
 func (s *feedbackService) GetFeedback(ctx context.Context, id uuid.UUID) (*domain.Feedback, error) {

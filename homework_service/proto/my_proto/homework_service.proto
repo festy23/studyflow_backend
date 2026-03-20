@@ -107,12 +107,14 @@ message CreateFeedbackRequest {
   string submission_id = 1;
   optional string file_id = 2;
   optional string comment = 3;
+  optional int32 grade = 4;
 }
 
 message UpdateFeedbackRequest {
   string id = 1;
   optional string file_id = 2;
   optional string comment = 3;
+  optional int32 grade = 4;
 }
 
 message ListFeedbacksByAssignmentRequest {
@@ -169,4 +171,5 @@ message Feedback {
   optional string comment = 4;
   google.protobuf.Timestamp created_at = 5;
   google.protobuf.Timestamp edited_at = 6;
+  optional int32 grade = 7;
 }

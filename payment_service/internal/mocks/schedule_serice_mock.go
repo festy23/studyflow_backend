@@ -142,6 +142,26 @@ func (mr *MockScheduleServiceClientMockRecorder) ListCompletedUnpaidLessons(ctx,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCompletedUnpaidLessons", reflect.TypeOf((*MockScheduleServiceClient)(nil).ListCompletedUnpaidLessons), varargs...)
 }
 
+// ListLessonsByTutor mocks base method.
+func (m *MockScheduleServiceClient) ListLessonsByTutor(ctx context.Context, req *pkg.ListLessonsByTutorRequest, opts ...grpc.CallOption) (*pkg.ListLessonsResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, req}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListLessonsByTutor", varargs...)
+	ret0, _ := ret[0].(*pkg.ListLessonsResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListLessonsByTutor indicates an expected call of ListLessonsByTutor.
+func (mr *MockScheduleServiceClientMockRecorder) ListLessonsByTutor(ctx, req any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, req}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListLessonsByTutor", reflect.TypeOf((*MockScheduleServiceClient)(nil).ListLessonsByTutor), varargs...)
+}
+
 // MarkAsPaid mocks base method.
 func (m *MockScheduleServiceClient) MarkAsPaid(ctx context.Context, req *pkg.MarkAsPaidRequest, opts ...grpc.CallOption) (*pkg.Lesson, error) {
 	m.ctrl.T.Helper()

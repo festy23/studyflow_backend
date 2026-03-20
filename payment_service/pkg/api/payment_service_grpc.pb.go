@@ -25,6 +25,7 @@ const (
 	PaymentService_VerifyReceipt_FullMethodName        = "/payment.v1.PaymentService/VerifyReceipt"
 	PaymentService_GetReceiptFile_FullMethodName       = "/payment.v1.PaymentService/GetReceiptFile"
 	PaymentService_ListReceipts_FullMethodName         = "/payment.v1.PaymentService/ListReceipts"
+	PaymentService_GetTutorAnalytics_FullMethodName    = "/payment.v1.PaymentService/GetTutorAnalytics"
 )
 
 // PaymentServiceClient is the client API for PaymentService service.
@@ -37,6 +38,7 @@ type PaymentServiceClient interface {
 	VerifyReceipt(ctx context.Context, in *VerifyReceiptRequest, opts ...grpc.CallOption) (*Receipt, error)
 	GetReceiptFile(ctx context.Context, in *GetReceiptFileRequest, opts ...grpc.CallOption) (*ReceiptFileURL, error)
 	ListReceipts(ctx context.Context, in *ListReceiptsRequest, opts ...grpc.CallOption) (*ListReceiptsResponse, error)
+	GetTutorAnalytics(ctx context.Context, in *GetTutorAnalyticsRequest, opts ...grpc.CallOption) (*TutorAnalytics, error)
 }
 
 type paymentServiceClient struct {
@@ -107,6 +109,16 @@ func (c *paymentServiceClient) ListReceipts(ctx context.Context, in *ListReceipt
 	return out, nil
 }
 
+func (c *paymentServiceClient) GetTutorAnalytics(ctx context.Context, in *GetTutorAnalyticsRequest, opts ...grpc.CallOption) (*TutorAnalytics, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TutorAnalytics)
+	err := c.cc.Invoke(ctx, PaymentService_GetTutorAnalytics_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PaymentServiceServer is the server API for PaymentService service.
 // All implementations must embed UnimplementedPaymentServiceServer
 // for forward compatibility.
@@ -117,6 +129,7 @@ type PaymentServiceServer interface {
 	VerifyReceipt(context.Context, *VerifyReceiptRequest) (*Receipt, error)
 	GetReceiptFile(context.Context, *GetReceiptFileRequest) (*ReceiptFileURL, error)
 	ListReceipts(context.Context, *ListReceiptsRequest) (*ListReceiptsResponse, error)
+	GetTutorAnalytics(context.Context, *GetTutorAnalyticsRequest) (*TutorAnalytics, error)
 	mustEmbedUnimplementedPaymentServiceServer()
 }
 
@@ -144,6 +157,9 @@ func (UnimplementedPaymentServiceServer) GetReceiptFile(context.Context, *GetRec
 }
 func (UnimplementedPaymentServiceServer) ListReceipts(context.Context, *ListReceiptsRequest) (*ListReceiptsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListReceipts not implemented")
+}
+func (UnimplementedPaymentServiceServer) GetTutorAnalytics(context.Context, *GetTutorAnalyticsRequest) (*TutorAnalytics, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTutorAnalytics not implemented")
 }
 func (UnimplementedPaymentServiceServer) mustEmbedUnimplementedPaymentServiceServer() {}
 func (UnimplementedPaymentServiceServer) testEmbeddedByValue()                        {}
@@ -274,6 +290,24 @@ func _PaymentService_ListReceipts_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PaymentService_GetTutorAnalytics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTutorAnalyticsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PaymentServiceServer).GetTutorAnalytics(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PaymentService_GetTutorAnalytics_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PaymentServiceServer).GetTutorAnalytics(ctx, req.(*GetTutorAnalyticsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PaymentService_ServiceDesc is the grpc.ServiceDesc for PaymentService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -304,6 +338,10 @@ var PaymentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListReceipts",
 			Handler:    _PaymentService_ListReceipts_Handler,
+		},
+		{
+			MethodName: "GetTutorAnalytics",
+			Handler:    _PaymentService_GetTutorAnalytics_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
