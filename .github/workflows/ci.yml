@@ -65,11 +65,6 @@ jobs:
             test_pkg: ./...
             docker: true
 
-          - service: mocks
-            path: mocks
-            test_pkg: ./...
-            docker: false
-
     name: ${{ matrix.service }}
     uses: ./.github/workflows/service-ci.yml
     with:

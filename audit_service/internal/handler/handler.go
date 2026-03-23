@@ -60,7 +60,7 @@ func (h *AuditServiceServer) RecordEvent(ctx context.Context, req *pb.RecordEven
 		if errors.Is(err, service.ErrInvalidArgument) {
 			return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 		}
-		return nil, status.Errorf(codes.Internal, "internal server error: %v", err)
+		return nil, status.Error(codes.Internal, "internal server error")
 	}
 
 	return &pb.RecordEventResponse{
@@ -96,7 +96,7 @@ func (h *AuditServiceServer) ListEvents(ctx context.Context, req *pb.ListEventsR
 		if logger, ok := logging.GetFromContext(ctx); ok {
 			logger.Error(ctx, "failed to list audit events", zap.Error(err))
 		}
-		return nil, status.Errorf(codes.Internal, "internal server error: %v", err)
+		return nil, status.Error(codes.Internal, "internal server error")
 	}
 
 	pbEvents := make([]*pb.AuditEvent, 0, len(events))

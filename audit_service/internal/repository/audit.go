@@ -36,10 +36,10 @@ const selectEvent = `SELECT id, user_id, action, resource_type, resource_id, det
 // CreateEvent inserts a new audit event and returns it.
 func (r *AuditRepo) CreateEvent(ctx context.Context, input *domain.RecordEventInput) (*domain.AuditEvent, error) {
 	query := `
-		INSERT INTO audit_log (id, user_id, action, resource_type, resource_id, details, ip_address, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, user_id, action, resource_type, resource_id, details, ip_address, created_at
-	`
+			INSERT INTO audit_log (id, user_id, action, resource_type, resource_id, details, ip_address, created_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			RETURNING id, user_id, action, resource_type, resource_id, details, ip_address, created_at
+		`
 	now := time.Now()
 	eventID := uuid.New()
 
@@ -100,7 +100,7 @@ func (r *AuditRepo) ListEvents(ctx context.Context, filter *domain.ListEventsInp
 	limit := filter.PageSize
 	if limit > 0 {
 		query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
-		args = append(args, limit, int32(filter.Page)*limit)
+		args = append(args, limit, int64(filter.Page)*int64(limit))
 	}
 
 	var events []*domain.AuditEvent

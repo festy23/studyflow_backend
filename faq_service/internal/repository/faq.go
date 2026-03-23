@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/georgysavva/scany/v2/pgxscan"
@@ -128,12 +127,3 @@ func (r *FAQRepo) ListCategories(ctx context.Context) ([]string, error) {
 	return categories, rows.Err()
 }
 
-func appendPagination(query string, args []interface{}, limit, offset int) (string, []interface{}) {
-	if limit > 0 {
-		query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", len(args)+1, len(args)+2)
-		args = append(args, limit, offset)
-	}
-	return query, args
-}
-
-var _ = strings.Join // suppress unused import warning

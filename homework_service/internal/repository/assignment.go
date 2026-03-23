@@ -108,7 +108,7 @@ func (r *AssignmentRepository) ListByFilter(ctx context.Context, filter domain.A
 
 	limit, offset := filter.Paginate()
 	if limit > 0 {
-		mainQuery += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argsCount, argsCount+1)
+		mainQuery += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argsCount, argsCount+1) //nolint:gosec // parameterized placeholders
 		args = append(args, limit, offset)
 	}
 

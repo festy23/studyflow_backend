@@ -43,7 +43,7 @@ func (s *FAQServer) CreateFAQ(ctx context.Context, req *pb.CreateFAQRequest) (*p
 func (s *FAQServer) GetFAQ(ctx context.Context, req *pb.GetFAQRequest) (*pb.FAQ, error) {
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid id")
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	faq, err := s.svc.GetFAQ(ctx, id)
 	if err != nil {
@@ -55,7 +55,7 @@ func (s *FAQServer) GetFAQ(ctx context.Context, req *pb.GetFAQRequest) (*pb.FAQ,
 func (s *FAQServer) UpdateFAQ(ctx context.Context, req *pb.UpdateFAQRequest) (*pb.FAQ, error) {
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid id")
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	faq, err := s.svc.UpdateFAQ(ctx, id, req.Question, req.Answer, req.Category, req.SortOrder)
 	if err != nil {
@@ -67,7 +67,7 @@ func (s *FAQServer) UpdateFAQ(ctx context.Context, req *pb.UpdateFAQRequest) (*p
 func (s *FAQServer) DeleteFAQ(ctx context.Context, req *pb.DeleteFAQRequest) (*pb.Empty, error) {
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid id")
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := s.svc.DeleteFAQ(ctx, id); err != nil {
 		return nil, mapError(err)
@@ -114,10 +114,10 @@ func toProtoFAQ(f *domain.FAQ) *pb.FAQ {
 func mapError(err error) error {
 	switch {
 	case errors.Is(err, errdefs.ErrNotFound):
-		return status.Error(codes.NotFound, "not found")
+		return status.Errorf(codes.NotFound, "%v", err)
 	case errors.Is(err, errdefs.ErrInvalidInput):
-		return status.Error(codes.InvalidArgument, "invalid input")
+		return status.Errorf(codes.InvalidArgument, "%v", err)
 	default:
-		return status.Error(codes.Internal, "internal error")
+		return status.Errorf(codes.Internal, "%v", err)
 	}
 }

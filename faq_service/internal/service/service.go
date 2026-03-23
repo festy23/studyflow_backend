@@ -2,12 +2,15 @@ package service
 
 import (
 	"context"
+	"strings"
 
 	"github.com/google/uuid"
 
 	"faq_service/internal/domain"
 	errdefs "faq_service/internal/errors"
 )
+
+const maxSortOrder = 10000
 
 type IFAQRepo interface {
 	Create(ctx context.Context, faq *domain.FAQ) error
@@ -28,6 +31,9 @@ func NewFAQService(repo IFAQRepo) *FAQService {
 
 func (s *FAQService) CreateFAQ(ctx context.Context, question, answer string, category *string, sortOrder int32) (*domain.FAQ, error) {
 	if question == "" || answer == "" {
+		return nil, errdefs.ErrInvalidInput
+	}
+	if sortOrder < 0 || sortOrder > maxSortOrder {
 		return nil, errdefs.ErrInvalidInput
 	}
 	faq := &domain.FAQ{
@@ -52,9 +58,15 @@ func (s *FAQService) UpdateFAQ(ctx context.Context, id uuid.UUID, question, answ
 		return nil, err
 	}
 	if question != nil {
+		if strings.TrimSpace(*question) == "" {
+			return nil, errdefs.ErrInvalidInput
+		}
 		faq.Question = *question
 	}
 	if answer != nil {
+		if strings.TrimSpace(*answer) == "" {
+			return nil, errdefs.ErrInvalidInput
+		}
 		faq.Answer = *answer
 	}
 	if category != nil {
