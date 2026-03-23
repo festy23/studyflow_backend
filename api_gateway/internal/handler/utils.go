@@ -263,6 +263,6 @@ func parseInt32Ptr(s string) *int32 {
 	if v < math.MinInt32 || v > math.MaxInt32 {
 		return nil
 	}
-	i32 := int32(v)
+	i32 := int32(v) //nolint:gosec // bounds checked above
 	return &i32
 }
