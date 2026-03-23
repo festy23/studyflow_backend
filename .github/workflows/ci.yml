@@ -83,19 +83,28 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
       - uses: actions/download-artifact@v4
         with:
           pattern: coverage-*
           merge-multiple: true
           path: coverage/
+        continue-on-error: true
 
       - name: Generate coverage summary
         run: |
           echo "## Coverage Report" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          for f in coverage/*.out; do
-            svc=$(basename "$f" .out)
-            pct=$(go tool cover -func "$f" 2>/dev/null | tail -1 | awk '{print $3}')
-            printf "%-30s %s\n" "$svc" "$pct" >> $GITHUB_STEP_SUMMARY
-          done
+          if compgen -G "coverage/*.out" > /dev/null 2>&1; then
+            for f in coverage/*.out; do
+              svc=$(basename "$f" .out)
+              pct=$(go tool cover -func "$f" 2>/dev/null | tail -1 | awk '{print $3}')
+              printf "%-30s %s\n" "$svc" "$pct" >> $GITHUB_STEP_SUMMARY
+            done
+          else
+            echo "No coverage data available" >> $GITHUB_STEP_SUMMARY
+          fi
           echo '```' >> $GITHUB_STEP_SUMMARY

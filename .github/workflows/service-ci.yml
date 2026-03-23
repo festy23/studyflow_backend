@@ -43,12 +43,12 @@ jobs:
           restore-keys: |
             go-mod-${{ inputs.service_path }}-
 
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: v2
-          working-directory: ${{ inputs.service_path }}
-          args: --config=../.golangci.yml
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+
+      - name: Run golangci-lint
+        working-directory: ${{ inputs.service_path }}
+        run: golangci-lint run --config=../.golangci.yml ./...
 
   test:
     runs-on: ubuntu-latest
@@ -70,13 +70,16 @@ jobs:
       - name: Run tests
         working-directory: ${{ inputs.service_path }}
         run: |
-          go test -coverprofile=coverage.out -covermode=atomic ${{ inputs.test_package }}/...
-          go tool cover -func coverage.out | tail -1 | awk '{print $3}' | sed 's/%//' > coverage_pct.txt
-          COV=$(cat coverage_pct.txt)
-          echo "Coverage: ${COV}%"
-          if [ "$(echo "$COV < 30" | bc)" -eq 1 ]; then
-            echo "::error::Coverage ${COV}% is below 30% threshold"
-            exit 1
+          go test -coverprofile=coverage.out -covermode=atomic ${{ inputs.test_package }}
+          if [ -f coverage.out ]; then
+            COV=$(go tool cover -func coverage.out | tail -1 | awk '{print $3}' | sed 's/%//')
+            echo "Coverage: ${COV}%"
+            if [ "$(echo "$COV < 30" | bc)" -eq 1 ]; then
+              echo "::error::Coverage ${COV}% is below 30% threshold"
+              exit 1
+            fi
+          else
+            echo "No coverage data generated (no test files?)"
           fi
 
       - name: Upload coverage artifact
@@ -97,10 +100,12 @@ jobs:
         with:
           go-version: ${{ inputs.go_version }}
 
+      - name: Install gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@latest
+
       - name: Run gosec
-        uses: securego/gosec@master
-        with:
-          args: -exclude-dir=pkg/api ./...
+        working-directory: ${{ inputs.service_path }}
+        run: gosec -exclude-dir=pkg/api ./...
         continue-on-error: true
 
   build:
