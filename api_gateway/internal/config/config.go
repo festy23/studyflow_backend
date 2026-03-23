@@ -14,6 +14,8 @@ type Config struct {
 	ScheduleServiceURL string `env:"SCHEDULE_SERVICE_URL"`
 	HomeworkServiceURL string `env:"HOMEWORK_SERVICE_URL"`
 	PaymentServiceURL  string `env:"PAYMENT_SERVICE_URL"`
+	FAQServiceURL      string `env:"FAQ_SERVICE_URL" env-default:"faq-service:50051"`
+	AuditServiceURL    string `env:"AUDIT_SERVICE_URL" env-default:"audit-service:50051"`
 	// MinioURL is the internal MinIO endpoint used for backend-to-backend
 	// proxying from this gateway (not exposed to clients).
 	MinioURL string `env:"MINIO_URL"`

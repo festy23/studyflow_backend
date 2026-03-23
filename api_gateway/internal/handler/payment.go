@@ -64,6 +64,8 @@ func parseListReceipts(ctx context.Context, r *http.Request, req *paymentpb.List
 	if studentID := r.URL.Query().Get("student_id"); studentID != "" {
 		req.StudentId = &studentID
 	}
+	req.Page = parseInt32Ptr(r.URL.Query().Get("page"))
+	req.PageSize = parseInt32Ptr(r.URL.Query().Get("page_size"))
 	return nil
 }
 

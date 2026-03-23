@@ -260,6 +260,76 @@ services:
       # If TELEGRAM_BOT_TOKEN is empty the service runs in log-only mode.
       TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-}"
 
+  faq-db:
+    image: postgres:16-alpine
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: faqdb
+    volumes:
+      - faq-db:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d faqdb" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  faq-service:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ./faq_service/Dockerfile
+    expose:
+      - "50051"
+    depends_on:
+      faq-db:
+        condition: service_healthy
+    environment:
+      FAQ_DB_HOST: faq-db
+      FAQ_DB_PORT: 5432
+      FAQ_DB_USER: postgres
+      FAQ_DB_PASSWORD: postgres
+      FAQ_DB_NAME: faqdb
+      FAQ_DB_SSLMODE: disable
+      FAQ_GRPC_PORT: 50051
+
+  audit-db:
+    image: postgres:16-alpine
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: auditdb
+    volumes:
+      - audit-db:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d auditdb" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  audit-service:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ./audit_service/Dockerfile
+    expose:
+      - "50051"
+    depends_on:
+      audit-db:
+        condition: service_healthy
+    environment:
+      AUDIT_DB_HOST: audit-db
+      AUDIT_DB_PORT: 5432
+      AUDIT_DB_USER: postgres
+      AUDIT_DB_PASSWORD: postgres
+      AUDIT_DB_NAME: auditdb
+      AUDIT_DB_SSLMODE: disable
+      AUDIT_GRPC_PORT: 50051
+
   api-gateway:
     restart: unless-stopped
     build:
@@ -273,6 +343,8 @@ services:
       - homework-service
       - payment-service
       - schedule-service
+      - faq-service
+      - audit-service
       - cache
     environment:
       HTTP_PORT: 8080
@@ -281,6 +353,8 @@ services:
       SCHEDULE_SERVICE_URL: "schedule-service:50051"
       HOMEWORK_SERVICE_URL: "homework-service:50051"
       PAYMENT_SERVICE_URL: "payment-service:50051"
+      FAQ_SERVICE_URL: "faq-service:50051"
+      AUDIT_SERVICE_URL: "audit-service:50051"
       MINIO_URL: "http://minio:9000"
       REDIS_URL: "cache:6379"
 
@@ -303,5 +377,7 @@ volumes:
   homework-db:
   payment-db:
   schedule-db:
+  faq-db:
+  audit-db:
   cache:
     driver: local

@@ -107,7 +107,7 @@ func (h *FileHandler) CleanupOrphanUploads(ctx context.Context, req *pb.CleanupO
 	if err != nil {
 		return nil, mapError(ctx, err)
 	}
-	return &pb.CleanupOrphanUploadsResponse{DeletedCount: int32(deleted)}, nil
+	return &pb.CleanupOrphanUploadsResponse{DeletedCount: int32(deleted)}, nil //nolint:gosec // CleanupOrphanUploads returns count that fits in int32
 }
 
 func toPbInitUpload(init *model.InitUpload) *pb.InitUploadResponse {

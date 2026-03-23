@@ -20,7 +20,7 @@ type fakeAssignmentRepo struct {
 	create      func(ctx context.Context, a *domain.Assignment) error
 	update      func(ctx context.Context, a *domain.Assignment) error
 	deleteFn    func(ctx context.Context, id uuid.UUID) error
-	listByFltr  func(ctx context.Context, f domain.AssignmentFilter) ([]*domain.Assignment, error)
+	listByFltr  func(ctx context.Context, f domain.AssignmentFilter) ([]*domain.Assignment, int64, error)
 	updateCalls int
 	createCalls int
 }
@@ -51,11 +51,11 @@ func (f *fakeAssignmentRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain
 	}
 	return nil, repository.ErrNotFound
 }
-func (f *fakeAssignmentRepo) ListByFilter(ctx context.Context, fltr domain.AssignmentFilter) ([]*domain.Assignment, error) {
+func (f *fakeAssignmentRepo) ListByFilter(ctx context.Context, fltr domain.AssignmentFilter) ([]*domain.Assignment, int64, error) {
 	if f.listByFltr != nil {
 		return f.listByFltr(ctx, fltr)
 	}
-	return nil, nil
+	return nil, 0, nil
 }
 
 type fakeUserClient struct {

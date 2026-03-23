@@ -1,0 +1,50 @@
+syntax = "proto3";
+package audit_service.v1;
+option go_package = "./pkg/api";
+
+import "google/protobuf/timestamp.proto";
+
+service AuditService {
+  rpc RecordEvent(RecordEventRequest) returns (RecordEventResponse);
+  rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
+}
+
+message RecordEventRequest {
+  string user_id = 1;
+  string action = 2;
+  string resource_type = 3;
+  optional string resource_id = 4;
+  optional string details = 5;
+  optional string ip_address = 6;
+}
+
+message RecordEventResponse {
+  string id = 1;
+}
+
+message ListEventsRequest {
+  optional string user_id = 1;
+  optional string resource_type = 2;
+  optional string resource_id = 3;
+  optional int32 page = 4;
+  optional int32 page_size = 5;
+}
+
+message AuditEvent {
+  string id = 1;
+  string user_id = 2;
+  string action = 3;
+  string resource_type = 4;
+  optional string resource_id = 5;
+  optional string details = 6;
+  optional string ip_address = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message ListEventsResponse {
+  repeated AuditEvent events = 1;
+  int32 page = 2;
+  int64 total_count = 3;
+}
+
+message Empty {}

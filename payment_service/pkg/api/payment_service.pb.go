@@ -255,6 +255,8 @@ type ListReceiptsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TutorId       *string                `protobuf:"bytes,1,opt,name=tutor_id,json=tutorId,proto3,oneof" json:"tutor_id,omitempty"`
 	StudentId     *string                `protobuf:"bytes,2,opt,name=student_id,json=studentId,proto3,oneof" json:"student_id,omitempty"`
+	Page          *int32                 `protobuf:"varint,3,opt,name=page,proto3,oneof" json:"page,omitempty"`
+	PageSize      *int32                 `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3,oneof" json:"page_size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -301,6 +303,20 @@ func (x *ListReceiptsRequest) GetStudentId() string {
 		return *x.StudentId
 	}
 	return ""
+}
+
+func (x *ListReceiptsRequest) GetPage() int32 {
+	if x != nil && x.Page != nil {
+		return *x.Page
+	}
+	return 0
+}
+
+func (x *ListReceiptsRequest) GetPageSize() int32 {
+	if x != nil && x.PageSize != nil {
+		return *x.PageSize
+	}
+	return 0
 }
 
 type GetTutorAnalyticsRequest struct {
@@ -562,6 +578,8 @@ func (x *ReceiptFileURL) GetUrl() string {
 type ListReceiptsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Receipts      []*Receipt             `protobuf:"bytes,1,rep,name=receipts,proto3" json:"receipts,omitempty"`
+	Page          int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
+	TotalCount    int64                  `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -601,6 +619,20 @@ func (x *ListReceiptsResponse) GetReceipts() []*Receipt {
 		return x.Receipts
 	}
 	return nil
+}
+
+func (x *ListReceiptsResponse) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListReceiptsResponse) GetTotalCount() int64 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
 }
 
 type TutorAnalytics struct {
@@ -728,13 +760,18 @@ const file_payment_service_proto_rawDesc = "" +
 	"receipt_id\x18\x01 \x01(\tR\treceiptId\"6\n" +
 	"\x15GetReceiptFileRequest\x12\x1d\n" +
 	"\n" +
-	"receipt_id\x18\x01 \x01(\tR\treceiptId\"u\n" +
+	"receipt_id\x18\x01 \x01(\tR\treceiptId\"\xc7\x01\n" +
 	"\x13ListReceiptsRequest\x12\x1e\n" +
 	"\btutor_id\x18\x01 \x01(\tH\x00R\atutorId\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"student_id\x18\x02 \x01(\tH\x01R\tstudentId\x88\x01\x01B\v\n" +
+	"student_id\x18\x02 \x01(\tH\x01R\tstudentId\x88\x01\x01\x12\x17\n" +
+	"\x04page\x18\x03 \x01(\x05H\x02R\x04page\x88\x01\x01\x12 \n" +
+	"\tpage_size\x18\x04 \x01(\x05H\x03R\bpageSize\x88\x01\x01B\v\n" +
 	"\t_tutor_idB\r\n" +
-	"\v_student_id\"\xab\x01\n" +
+	"\v_student_idB\a\n" +
+	"\x05_pageB\f\n" +
+	"\n" +
+	"_page_size\"\xab\x01\n" +
 	"\x18GetTutorAnalyticsRequest\x12\x19\n" +
 	"\btutor_id\x18\x01 \x01(\tR\atutorId\x123\n" +
 	"\x04from\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\x04from\x88\x01\x01\x12/\n" +
@@ -768,9 +805,12 @@ const file_payment_service_proto_rawDesc = "" +
 	"_price_rub\"/\n" +
 	"\x0eReceiptFileURL\x12\x15\n" +
 	"\x03url\x18\x01 \x01(\tH\x00R\x03url\x88\x01\x01B\x06\n" +
-	"\x04_url\"G\n" +
+	"\x04_url\"|\n" +
 	"\x14ListReceiptsResponse\x12/\n" +
-	"\breceipts\x18\x01 \x03(\v2\x13.payment.v1.ReceiptR\breceipts\"\xa3\x03\n" +
+	"\breceipts\x18\x01 \x03(\v2\x13.payment.v1.ReceiptR\breceipts\x12\x12\n" +
+	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1f\n" +
+	"\vtotal_count\x18\x03 \x01(\x03R\n" +
+	"totalCount\"\xa3\x03\n" +
 	"\x0eTutorAnalytics\x12\x19\n" +
 	"\btutor_id\x18\x01 \x01(\tR\atutorId\x123\n" +
 	"\x04from\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\x04from\x88\x01\x01\x12/\n" +

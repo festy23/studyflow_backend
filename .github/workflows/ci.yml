@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  # Run each service through the reusable workflow using a matrix.
+  # Using a single callable workflow avoids code duplication across 11 services.
+  service:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api_gateway
+            path: api_gateway
+            test_pkg: ./internal/handler/...
+            docker: true
+
+          - service: user_service
+            path: user_service
+            test_pkg: ./internal/service/...
+            docker: true
+
+          - service: schedule_service
+            path: schedule_service
+            test_pkg: ./internal/service/service/...
+            docker: true
+
+          - service: homework_service
+            path: homework_service
+            test_pkg: ./internal/server/homework_grpc/...
+            docker: true
+
+          - service: payment_service
+            path: payment_service
+            test_pkg: ./internal/service/...
+            docker: true
+
+          - service: file_service
+            path: file_service
+            test_pkg: ./internal/service/...
+            docker: true
+
+          - service: notification_service
+            path: notification_service
+            test_pkg: ./...
+            docker: true
+
+          - service: common_library
+            path: common_library
+            test_pkg: ./...
+            docker: false
+
+          - service: audit_service
+            path: audit_service
+            test_pkg: ./...
+            docker: true
+
+          - service: faq_service
+            path: faq_service
+            test_pkg: ./...
+            docker: true
+
+    name: ${{ matrix.service }}
+    uses: ./.github/workflows/service-ci.yml
+    with:
+      service_path: ${{ matrix.path }}
+      test_package: ${{ matrix.test_pkg }}
+      has_dockerfile: ${{ matrix.docker }}
+
+  # Collect all coverage artifacts and generate a summary comment on PRs.
+  coverage-report:
+    needs: [service]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+          path: coverage/
+        continue-on-error: true
+
+      - name: Generate coverage summary
+        run: |
+          echo "## Coverage Report" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          if compgen -G "coverage/*.out" > /dev/null 2>&1; then
+            for f in coverage/*.out; do
+              svc=$(basename "$f" .out)
+              pct=$(go tool cover -func "$f" 2>/dev/null | tail -1 | awk '{print $3}')
+              printf "%-30s %s\n" "$svc" "$pct" >> $GITHUB_STEP_SUMMARY
+            done
+          else
+            echo "No coverage data available" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo '```' >> $GITHUB_STEP_SUMMARY

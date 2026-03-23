@@ -16,6 +16,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"io"
 	"net/http"
+	"math"
+	"strconv"
 	"time"
 )
 
@@ -29,6 +31,20 @@ type Cache interface {
 	Get(ctx context.Context, key string) ([]byte, bool)
 	Set(ctx context.Context, key string, data []byte, ttl time.Duration)
 	Delete(ctx context.Context, key string)
+	DeleteByPattern(ctx context.Context, pattern string)
+}
+
+// statusRecorder wraps http.ResponseWriter to capture the HTTP status code
+// written by the handler, enabling post-call decisions (e.g. cache
+// invalidation only on success).
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *statusRecorder) WriteHeader(code int) {
+	r.status = code
+	r.ResponseWriter.WriteHeader(code)
 }
 
 func mapErr(err error) int {
@@ -234,4 +250,19 @@ func parsePathParam(r *http.Request, key string) (string, error) {
 		return "", fmt.Errorf("missing path param: %s", key)
 	}
 	return val, nil
+}
+
+func parseInt32Ptr(s string) *int32 {
+	if s == "" {
+		return nil
+	}
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		return nil
+	}
+	if v < math.MinInt32 || v > math.MaxInt32 {
+		return nil
+	}
+	i32 := int32(v) //nolint:gosec // bounds checked above
+	return &i32
 }

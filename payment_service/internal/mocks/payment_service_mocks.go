@@ -102,12 +102,13 @@ func (mr *MockPaymentServiceMockRecorder) GetTutorAnalytics(ctx, input any) *gom
 }
 
 // ListReceipts mocks base method.
-func (m *MockPaymentService) ListReceipts(ctx context.Context, input *models.ListReceiptsInput) ([]*models.PaymentReceipt, error) {
+func (m *MockPaymentService) ListReceipts(ctx context.Context, input *models.ListReceiptsInput) ([]*models.PaymentReceipt, int64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListReceipts", ctx, input)
 	ret0, _ := ret[0].([]*models.PaymentReceipt)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(int64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // ListReceipts indicates an expected call of ListReceipts.

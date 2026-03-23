@@ -72,21 +72,29 @@ message UpdateAssignmentRequest {
 message ListAssignmentsByTutorRequest {
   string tutor_id = 1;
   repeated AssignmentStatusFilter status_filter = 2;
+  optional int32 page = 3;
+  optional int32 page_size = 4;
 }
 
 message ListAssignmentsByStudentRequest {
   string student_id = 1;
   repeated AssignmentStatusFilter status_filter = 2;
+  optional int32 page = 3;
+  optional int32 page_size = 4;
 }
 
 message ListAssignmentsByPairRequest {
   string tutor_id = 1;
   string student_id = 2;
   repeated AssignmentStatusFilter status_filter = 3;
+  optional int32 page = 4;
+  optional int32 page_size = 5;
 }
 
 message ListAssignmentsResponse {
   repeated Assignment assignments = 1;
+  int32 page = 2;
+  int64 total_count = 3;
 }
 
 message CreateSubmissionRequest {
