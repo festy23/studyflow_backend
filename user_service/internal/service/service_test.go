@@ -153,6 +153,104 @@ func TestUpdateUser(t *testing.T) {
 		_, err := svc.UpdateUser(context.Background(), uuid.New(), &model.UpdateUserInput{})
 		assert.ErrorIs(t, err, errdefs.ErrAuthentication)
 	})
+
+	t.Run("Success_ChangeToTutor_CreatesProfile", func(t *testing.T) {
+		svc, mockUserRepo, _, _ := setup(t)
+		userID := uuid.New()
+		ctx := userCtx(userID, model.RoleStudent)
+		tutorRole := model.RoleTutor
+
+		input := &model.UpdateUserInput{Role: &tutorRole}
+		mockUserRepo.EXPECT().GetUser(gomock.Any(), userID).Return(&model.User{
+			Id:   userID,
+			Role: model.RoleStudent,
+		}, nil)
+		mockUserRepo.EXPECT().UpdateUser(gomock.Any(), userID, input).Return(&model.User{
+			Id:   userID,
+			Role: model.RoleTutor,
+		}, nil)
+		mockUserRepo.EXPECT().GetTutorProfile(gomock.Any(), userID).Return(nil, errdefs.ErrNotFound)
+		mockUserRepo.EXPECT().CreateTutorProfile(gomock.Any(), gomock.Any()).Return(&model.TutorProfile{UserId: userID}, nil)
+
+		result, err := svc.UpdateUser(ctx, userID, input)
+		require.NoError(t, err)
+		assert.Equal(t, model.RoleTutor, result.Role)
+	})
+
+	t.Run("Success_ChangeToTutor_ProfileAlreadyExists", func(t *testing.T) {
+		svc, mockUserRepo, _, _ := setup(t)
+		userID := uuid.New()
+		ctx := userCtx(userID, model.RoleStudent)
+		tutorRole := model.RoleTutor
+
+		input := &model.UpdateUserInput{Role: &tutorRole}
+		mockUserRepo.EXPECT().GetUser(gomock.Any(), userID).Return(&model.User{
+			Id:   userID,
+			Role: model.RoleStudent,
+		}, nil)
+		mockUserRepo.EXPECT().UpdateUser(gomock.Any(), userID, input).Return(&model.User{
+			Id:   userID,
+			Role: model.RoleTutor,
+		}, nil)
+		mockUserRepo.EXPECT().GetTutorProfile(gomock.Any(), userID).Return(&model.TutorProfile{UserId: userID}, nil)
+
+		result, err := svc.UpdateUser(ctx, userID, input)
+		require.NoError(t, err)
+		assert.Equal(t, model.RoleTutor, result.Role)
+	})
+
+	t.Run("Success_NoRoleChange_NoExtraOps", func(t *testing.T) {
+		svc, mockUserRepo, _, _ := setup(t)
+		userID := uuid.New()
+		ctx := userCtx(userID, model.RoleTutor)
+		newName := "Updated"
+
+		input := &model.UpdateUserInput{FirstName: &newName}
+		mockUserRepo.EXPECT().UpdateUser(gomock.Any(), userID, input).Return(&model.User{
+			Id:        userID,
+			FirstName: &newName,
+		}, nil)
+
+		result, err := svc.UpdateUser(ctx, userID, input)
+		require.NoError(t, err)
+		assert.Equal(t, &newName, result.FirstName)
+	})
+}
+
+// ── DeleteUser ────────────────────────────────────────────────────────
+
+func TestDeleteUser(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		svc, mockUserRepo, _, _ := setup(t)
+		userID := uuid.New()
+		ctx := userCtx(userID, model.RoleTutor)
+
+		mockUserRepo.EXPECT().DeleteUser(gomock.Any(), userID).Return(&model.User{
+			Id:     userID,
+			Status: model.UserStatusDeleted,
+		}, nil)
+
+		result, err := svc.DeleteUser(ctx, userID)
+		require.NoError(t, err)
+		assert.Equal(t, model.UserStatusDeleted, result.Status)
+	})
+
+	t.Run("PermissionDenied_DifferentUser", func(t *testing.T) {
+		svc, _, _, _ := setup(t)
+		currentUserID := uuid.New()
+		otherUserID := uuid.New()
+		ctx := userCtx(currentUserID, model.RoleTutor)
+
+		_, err := svc.DeleteUser(ctx, otherUserID)
+		assert.ErrorIs(t, err, errdefs.ErrPermissionDenied)
+	})
+
+	t.Run("Unauthenticated", func(t *testing.T) {
+		svc, _, _, _ := setup(t)
+
+		_, err := svc.DeleteUser(context.Background(), uuid.New())
+		assert.ErrorIs(t, err, errdefs.ErrAuthentication)
+	})
 }
 
 // ── GetTutorProfile ─────────────────────────────────────────────────

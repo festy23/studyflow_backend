@@ -4,6 +4,7 @@ import (
 	"common_library/ctxdata"
 	"common_library/logging"
 	"context"
+	"errors"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"slices"
@@ -18,9 +19,11 @@ type UserRepository interface {
 
 	GetUser(ctx context.Context, id uuid.UUID) (*model.User, error)
 	UpdateUser(ctx context.Context, id uuid.UUID, input *model.UpdateUserInput) (*model.User, error)
+	DeleteUser(ctx context.Context, id uuid.UUID) (*model.User, error)
 
 	GetTutorProfile(ctx context.Context, userId uuid.UUID) (*model.TutorProfile, error)
 	UpdateTutorProfile(ctx context.Context, userId uuid.UUID, input *model.UpdateTutorProfileInput) (*model.TutorProfile, error)
+	CreateTutorProfile(ctx context.Context, input *model.RepositoryCreateTutorProfileInput) (*model.TutorProfile, error)
 
 	GetTelegramAccount(ctx context.Context, userId uuid.UUID) (*model.TelegramAccount, error)
 	GetTelegramAccountByTelegramId(ctx context.Context, telegramId int64) (*model.TelegramAccount, error)
@@ -174,6 +177,10 @@ func (s *UserService) authorizeWithTelegram(ctx context.Context, header string) 
 		return nil, err
 	}
 
+	if user.Status == model.UserStatusDeleted {
+		return nil, errdefs.ErrAuthentication
+	}
+
 	return user, nil
 }
 
@@ -216,7 +223,53 @@ func (s *UserService) UpdateUser(ctx context.Context, id uuid.UUID, input *model
 		return nil, err
 	}
 
+	var oldRole model.Role
+	if input.Role != nil {
+		currentUser, err := s.userRepository.GetUser(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if currentUser.Status == model.UserStatusDeleted {
+			return nil, errdefs.ErrNotFound
+		}
+		oldRole = currentUser.Role
+	}
+
 	user, err := s.userRepository.UpdateUser(ctx, id, input)
+	if err != nil {
+		return nil, err
+	}
+
+	if input.Role != nil && *input.Role == model.RoleTutor && oldRole != model.RoleTutor {
+		_, err := s.userRepository.GetTutorProfile(ctx, id)
+		if err != nil {
+			if errors.Is(err, errdefs.ErrNotFound) {
+				profileID, err := uuid.NewV7()
+				if err != nil {
+					return nil, err
+				}
+				_, err = s.userRepository.CreateTutorProfile(ctx, &model.RepositoryCreateTutorProfileInput{
+					Id:     profileID,
+					UserId: id,
+				})
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
+		}
+	}
+
+	return user, nil
+}
+
+func (s *UserService) DeleteUser(ctx context.Context, id uuid.UUID) (*model.User, error) {
+	if err := ensureCurrentUserIs(ctx, id); err != nil {
+		return nil, err
+	}
+
+	user, err := s.userRepository.DeleteUser(ctx, id)
 	if err != nil {
 		return nil, err
 	}

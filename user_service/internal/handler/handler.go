@@ -21,6 +21,7 @@ type UserService interface {
 	GetMe(ctx context.Context) (*model.User, error)
 	GetUserPublic(ctx context.Context, id uuid.UUID) (*model.UserPublic, error)
 	UpdateUser(ctx context.Context, id uuid.UUID, input *model.UpdateUserInput) (*model.User, error)
+	DeleteUser(ctx context.Context, id uuid.UUID) (*model.User, error)
 	GetTutorProfile(ctx context.Context, userId uuid.UUID) (*model.TutorProfile, error)
 	UpdateTutorProfile(ctx context.Context, userId uuid.UUID, input *model.UpdateTutorProfileInput) (*model.TutorProfile, error)
 	CreateTutorStudent(ctx context.Context, input *model.CreateTutorStudentInput) (*model.TutorStudent, error)
@@ -125,11 +126,32 @@ func (h *UserServiceServer) UpdateUser(ctx context.Context, req *pb.UpdateUserRe
 		LastName:  req.LastName,
 		Timezone:  req.Timezone,
 	}
+	if req.Role != nil {
+		role := model.Role(*req.Role)
+		if !role.IsValid() {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid role: %s", *req.Role)
+		}
+		input.Role = &role
+	}
 
 	user, err := h.service.UpdateUser(ctx, id, input)
 
 	if err != nil {
 		return nil, mapError(err, errdefs.ErrNotFound, errdefs.ErrValidation, errdefs.ErrPermissionDenied)
+	}
+
+	return toPbUser(user), nil
+}
+
+func (h *UserServiceServer) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) (*pb.User, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	user, err := h.service.DeleteUser(ctx, id)
+	if err != nil {
+		return nil, mapError(err, errdefs.ErrNotFound, errdefs.ErrPermissionDenied)
 	}
 
 	return toPbUser(user), nil

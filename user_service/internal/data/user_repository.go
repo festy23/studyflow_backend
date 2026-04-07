@@ -64,6 +64,50 @@ func (r *UserRepository) UpdateUser(ctx context.Context, id uuid.UUID, input *mo
 	return &user, nil
 }
 
+func (r *UserRepository) DeleteUser(ctx context.Context, id uuid.UUID) (*model.User, error) {
+	query := `
+UPDATE users
+SET status = $1, edited_at = NOW()
+WHERE id = $2
+RETURNING
+    id, role, auth_provider, status,
+    first_name, last_name, timezone,
+    created_at, edited_at
+`
+	var user model.User
+	err := pgxscan.Get(ctx, r.db, &user, query, model.UserStatusDeleted, id)
+	if err != nil {
+		return nil, handleError(err)
+	}
+	return &user, nil
+}
+
+func (r *UserRepository) CreateTutorProfile(ctx context.Context, input *model.RepositoryCreateTutorProfileInput) (*model.TutorProfile, error) {
+	query := `
+INSERT INTO tutor_profiles (
+    id, user_id, payment_info,
+    lesson_price_rub, lesson_connection_link
+)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING
+    id, user_id, payment_info,
+    lesson_price_rub, lesson_connection_link,
+    created_at, edited_at
+`
+	var profile model.TutorProfile
+	err := pgxscan.Get(ctx, r.db, &profile, query,
+		input.Id,
+		input.UserId,
+		input.PaymentInfo,
+		input.LessonPriceRub,
+		input.LessonConnectionLink,
+	)
+	if err != nil {
+		return nil, handleError(err)
+	}
+	return &profile, nil
+}
+
 func (r *UserRepository) GetTutorProfile(ctx context.Context, userId uuid.UUID) (*model.TutorProfile, error) {
 	query := `
 SELECT 

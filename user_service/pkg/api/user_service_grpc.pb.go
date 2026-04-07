@@ -24,6 +24,7 @@ const (
 	UserService_GetMe_FullMethodName                      = "/user.v1.UserService/GetMe"
 	UserService_GetUser_FullMethodName                    = "/user.v1.UserService/GetUser"
 	UserService_UpdateUser_FullMethodName                 = "/user.v1.UserService/UpdateUser"
+	UserService_DeleteUser_FullMethodName                 = "/user.v1.UserService/DeleteUser"
 	UserService_UpdateTutorProfile_FullMethodName         = "/user.v1.UserService/UpdateTutorProfile"
 	UserService_GetTutorProfileByUserId_FullMethodName    = "/user.v1.UserService/GetTutorProfileByUserId"
 	UserService_GetTutorStudent_FullMethodName            = "/user.v1.UserService/GetTutorStudent"
@@ -46,6 +47,7 @@ type UserServiceClient interface {
 	GetMe(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*User, error)
 	GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*UserPublic, error)
 	UpdateUser(ctx context.Context, in *UpdateUserRequest, opts ...grpc.CallOption) (*User, error)
+	DeleteUser(ctx context.Context, in *DeleteUserRequest, opts ...grpc.CallOption) (*User, error)
 	UpdateTutorProfile(ctx context.Context, in *UpdateTutorProfileRequest, opts ...grpc.CallOption) (*TutorProfile, error)
 	GetTutorProfileByUserId(ctx context.Context, in *GetTutorProfileByUserIdRequest, opts ...grpc.CallOption) (*TutorProfile, error)
 	GetTutorStudent(ctx context.Context, in *GetTutorStudentRequest, opts ...grpc.CallOption) (*TutorStudent, error)
@@ -113,6 +115,16 @@ func (c *userServiceClient) UpdateUser(ctx context.Context, in *UpdateUserReques
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(User)
 	err := c.cc.Invoke(ctx, UserService_UpdateUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) DeleteUser(ctx context.Context, in *DeleteUserRequest, opts ...grpc.CallOption) (*User, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(User)
+	err := c.cc.Invoke(ctx, UserService_DeleteUser_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -238,6 +250,7 @@ type UserServiceServer interface {
 	GetMe(context.Context, *Empty) (*User, error)
 	GetUser(context.Context, *GetUserRequest) (*UserPublic, error)
 	UpdateUser(context.Context, *UpdateUserRequest) (*User, error)
+	DeleteUser(context.Context, *DeleteUserRequest) (*User, error)
 	UpdateTutorProfile(context.Context, *UpdateTutorProfileRequest) (*TutorProfile, error)
 	GetTutorProfileByUserId(context.Context, *GetTutorProfileByUserIdRequest) (*TutorProfile, error)
 	GetTutorStudent(context.Context, *GetTutorStudentRequest) (*TutorStudent, error)
@@ -275,6 +288,9 @@ func (UnimplementedUserServiceServer) GetUser(context.Context, *GetUserRequest) 
 }
 func (UnimplementedUserServiceServer) UpdateUser(context.Context, *UpdateUserRequest) (*User, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateUser not implemented")
+}
+func (UnimplementedUserServiceServer) DeleteUser(context.Context, *DeleteUserRequest) (*User, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteUser not implemented")
 }
 func (UnimplementedUserServiceServer) UpdateTutorProfile(context.Context, *UpdateTutorProfileRequest) (*TutorProfile, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateTutorProfile not implemented")
@@ -416,6 +432,24 @@ func _UserService_UpdateUser_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(UserServiceServer).UpdateUser(ctx, req.(*UpdateUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_DeleteUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).DeleteUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_DeleteUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).DeleteUser(ctx, req.(*DeleteUserRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -644,6 +678,10 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateUser",
 			Handler:    _UserService_UpdateUser_Handler,
+		},
+		{
+			MethodName: "DeleteUser",
+			Handler:    _UserService_DeleteUser_Handler,
 		},
 		{
 			MethodName: "UpdateTutorProfile",
