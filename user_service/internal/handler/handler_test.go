@@ -31,6 +31,9 @@ func (s *stubUserService) GetUserPublic(ctx context.Context, id uuid.UUID) (*mod
 func (s *stubUserService) UpdateUser(ctx context.Context, id uuid.UUID, input *model.UpdateUserInput) (*model.User, error) {
 	return nil, nil
 }
+func (s *stubUserService) DeleteUser(ctx context.Context, id uuid.UUID) (*model.User, error) {
+	return nil, nil
+}
 func (s *stubUserService) GetTutorProfile(ctx context.Context, userId uuid.UUID) (*model.TutorProfile, error) {
 	return nil, nil
 }
@@ -63,6 +66,18 @@ func (s *stubUserService) AcceptInvitationFromTutor(ctx context.Context, tutorId
 }
 func (s *stubUserService) GetTelegramChatId(ctx context.Context, userId uuid.UUID) (int64, error) {
 	return 0, nil
+}
+func (s *stubUserService) CreateInvitation(ctx context.Context) (*model.Invitation, error) {
+	return nil, nil
+}
+func (s *stubUserService) ListInvitations(ctx context.Context) ([]*model.Invitation, error) {
+	return nil, nil
+}
+func (s *stubUserService) RevokeInvitation(ctx context.Context, id uuid.UUID) error {
+	return nil
+}
+func (s *stubUserService) AcceptInvitation(ctx context.Context, token uuid.UUID) (*model.TutorStudent, error) {
+	return nil, nil
 }
 
 func TestUpdateTutorStudent_NotFoundIsMappedToNotFound(t *testing.T) {

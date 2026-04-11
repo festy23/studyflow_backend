@@ -25,6 +25,7 @@ func (h *UserHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		r.Get("/users/me", h.GetMe)
 		r.Get("/users/{id}", h.GetUser)
 		r.Patch("/users/{id}", h.UpdateUser)
+		r.Delete("/users/{id}", h.DeleteUser)
 		r.Get("/tutor-profiles/{id}", h.GetTutorProfile)
 		r.Patch("/tutor-profiles/{id}", h.UpdateTutorProfile)
 		r.Get("/tutor-students/by-tutor/{id}", h.ListTutorStudentByTutor)
@@ -34,6 +35,10 @@ func (h *UserHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		r.Delete("/tutor-students/{tutor_id}/{student_id}", h.DeleteTutorStudent)
 		r.Post("/tutor-students", h.CreateTutorStudent)
 		r.Post("/tutor-students/{tutor_id}/accept", h.AcceptInvitation)
+		r.Post("/users/invitations", h.CreateInvitation)
+		r.Get("/users/invitations", h.ListInvitations)
+		r.Delete("/users/invitations/{id}", h.RevokeInvitation)
+		r.Post("/users/invitations/{token}/accept", h.AcceptInvitationByToken)
 	})
 }
 
@@ -63,6 +68,24 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 
 func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	handler, err := Handle[userpb.UpdateUserRequest, userpb.User](h.c.UpdateUser, updateUserParsePath, true)
+	if err != nil {
+		panic(err)
+	}
+
+	handler(w, r)
+
+	key, err := buildUserKey(r)
+	if err == nil {
+		h.cache.Delete(r.Context(), key)
+	}
+	key, err = buildUserPublicKey(r)
+	if err == nil {
+		h.cache.Delete(r.Context(), key)
+	}
+}
+
+func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	handler, err := Handle[userpb.DeleteUserRequest, userpb.User](h.c.DeleteUser, deleteUserParsePath, false)
 	if err != nil {
 		panic(err)
 	}
@@ -218,6 +241,18 @@ func updateUserParsePath(ctx context.Context, httpReq *http.Request, grpcReq *us
 	return nil
 }
 
+func deleteUserParsePath(ctx context.Context, httpReq *http.Request, grpcReq *userpb.DeleteUserRequest) error {
+	userId := chi.URLParam(httpReq, "id")
+	if userId == "" {
+		return fmt.Errorf("%w: %s", ErrBadRequest, "userId is required")
+	}
+	grpcReq.Id = userId
+	if logger, ok := logging.GetFromContext(ctx); ok {
+		logger.Debug(ctx, "user id added to request", zap.Any("req", grpcReq))
+	}
+	return nil
+}
+
 func getTutorProfileParsePath(ctx context.Context, httpReq *http.Request, grpcReq *userpb.GetTutorProfileByUserIdRequest) error {
 	userId := chi.URLParam(httpReq, "id")
 	if userId == "" {
@@ -362,4 +397,54 @@ func buildTutorStudentKey(r *http.Request) (string, error) {
 		return "", fmt.Errorf("missing tutor_id or student_id")
 	}
 	return fmt.Sprintf("tutor-student:%s:%s", tutorID, studentID), nil
+}
+
+func (h *UserHandler) CreateInvitation(w http.ResponseWriter, r *http.Request) {
+	handler, err := Handle[userpb.CreateInvitationRequest, userpb.Invitation](h.c.CreateInvitation, nil, false)
+	if err != nil {
+		panic(err)
+	}
+	handler(w, r)
+}
+
+func (h *UserHandler) ListInvitations(w http.ResponseWriter, r *http.Request) {
+	handler, err := Handle[userpb.ListInvitationsRequest, userpb.ListInvitationsResponse](h.c.ListInvitations, nil, false)
+	if err != nil {
+		panic(err)
+	}
+	handler(w, r)
+}
+
+func revokeInvitationParsePath(_ context.Context, r *http.Request, grpcReq *userpb.RevokeInvitationRequest) error {
+	id, err := parsePathParam(r, "id")
+	if err != nil {
+		return err
+	}
+	grpcReq.Id = id
+	return nil
+}
+
+func (h *UserHandler) RevokeInvitation(w http.ResponseWriter, r *http.Request) {
+	handler, err := Handle[userpb.RevokeInvitationRequest, userpb.Empty](h.c.RevokeInvitation, revokeInvitationParsePath, false)
+	if err != nil {
+		panic(err)
+	}
+	handler(w, r)
+}
+
+func acceptInvitationByTokenParsePath(_ context.Context, r *http.Request, grpcReq *userpb.AcceptInvitationRequest) error {
+	token, err := parsePathParam(r, "token")
+	if err != nil {
+		return err
+	}
+	grpcReq.Token = token
+	return nil
+}
+
+func (h *UserHandler) AcceptInvitationByToken(w http.ResponseWriter, r *http.Request) {
+	handler, err := Handle[userpb.AcceptInvitationRequest, userpb.TutorStudent](h.c.AcceptInvitation, acceptInvitationByTokenParsePath, false)
+	if err != nil {
+		panic(err)
+	}
+	handler(w, r)
 }

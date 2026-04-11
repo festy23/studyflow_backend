@@ -2,7 +2,31 @@ openapi: 3.0.3
 info:
   title: StudyFlow API
   version: 1.0.0
+
+  security:
+    - telegramAuth: []
+
 components:
+  securitySchemes:
+    telegramAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: |
+        Two formats supported:
+
+        **1. Telegram Mini App initData (production):**
+        `tma <initData from Telegram.WebApp.initData>`
+        - initData is validated per Telegram Bot API spec (HMAC-SHA256 with bot token)
+        - No client-side secret needed
+        - TTL: 24 hours from auth_date
+
+        **2. Legacy HMAC (development only):**
+        `telegram <telegramId>:<utcTimestamp>:<hmacHex>`
+        - HMAC-SHA256 of `{telegramId}:{utcTimestamp}` with TELEGRAM_SECRET as key
+        - ±5 minute clock skew
+        - Disable in production with AUTH_DISABLE_LEGACY_HMAC=true
+
   schemas:
     UserRole:
       type: string
@@ -87,6 +111,30 @@ components:
           type: string
         status:
           $ref: '#/components/schemas/TutorStudentStatus'
+        createdAt:
+          type: string
+          format: date-time
+        editedAt:
+          type: string
+          format: date-time
+    InvitationStatus:
+      type: string
+      enum:
+        - active
+        - used
+        - revoked
+    Invitation:
+      type: object
+      properties:
+        id:
+          type: string
+        tutorId:
+          type: string
+        token:
+          type: string
+          description: One-time UUID token used to build the student-facing invite link
+        status:
+          $ref: '#/components/schemas/InvitationStatus'
         createdAt:
           type: string
           format: date-time
@@ -473,6 +521,11 @@ paths:
                   type: string
                 timezone:
                   type: string
+                role:
+                  type: string
+                  enum:
+                    - tutor
+                    - student
       responses:
         '200':
           description: User updated
@@ -490,6 +543,162 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Soft-delete user account
+      operationId: deleteUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User deleted (status set to "deleted")
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /users/users/invitations:
+    post:
+      summary: Create an invitation
+      description: >
+        Creates a one-time invitation for the current tutor. The returned
+        `token` is used by the frontend to build a student-facing invite link.
+        Requires the tutor role.
+      operationId: createInvitation
+      responses:
+        '200':
+          description: Invitation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invitation'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission denied (caller is not a tutor)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: List the current tutor's invitations
+      description: Returns all invitations created by the current tutor, newest first. Requires the tutor role.
+      operationId: listInvitations
+      responses:
+        '200':
+          description: List of invitations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invitations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Invitation'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission denied (caller is not a tutor)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /users/users/invitations/{id}:
+    delete:
+      summary: Revoke an invitation
+      description: Revokes an invitation owned by the current tutor (sets status to "revoked"). Requires the tutor role.
+      operationId: revokeInvitation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Invitation id
+      responses:
+        '200':
+          description: Invitation revoked
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission denied (invitation belongs to another tutor)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Invitation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /users/users/invitations/{token}/accept:
+    post:
+      summary: Accept an invitation by token
+      description: >
+        A student accepts a tutor's invitation using its token. On success a
+        tutor-student relationship is created with status "active" and the
+        invitation is marked "used". Requires the student role.
+      operationId: acceptInvitation
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Invitation token (UUID)
+      responses:
+        '200':
+          description: Invitation accepted; tutor-student relationship created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TutorStudent'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission denied (caller is not a student)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Token not found or invitation no longer active
           content:
             application/json:
               schema:

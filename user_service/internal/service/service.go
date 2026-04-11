@@ -4,6 +4,7 @@ import (
 	"common_library/ctxdata"
 	"common_library/logging"
 	"context"
+	"errors"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"slices"
@@ -18,9 +19,11 @@ type UserRepository interface {
 
 	GetUser(ctx context.Context, id uuid.UUID) (*model.User, error)
 	UpdateUser(ctx context.Context, id uuid.UUID, input *model.UpdateUserInput) (*model.User, error)
+	DeleteUser(ctx context.Context, id uuid.UUID) (*model.User, error)
 
 	GetTutorProfile(ctx context.Context, userId uuid.UUID) (*model.TutorProfile, error)
 	UpdateTutorProfile(ctx context.Context, userId uuid.UUID, input *model.UpdateTutorProfileInput) (*model.TutorProfile, error)
+	CreateTutorProfile(ctx context.Context, input *model.RepositoryCreateTutorProfileInput) (*model.TutorProfile, error)
 
 	GetTelegramAccount(ctx context.Context, userId uuid.UUID) (*model.TelegramAccount, error)
 	GetTelegramAccountByTelegramId(ctx context.Context, telegramId int64) (*model.TelegramAccount, error)
@@ -43,18 +46,31 @@ type TutorStudentsRepository interface {
 	ListTutorStudents(ctx context.Context, tutorId uuid.UUID, studentId uuid.UUID) ([]*model.TutorStudent, error)
 }
 
+type InvitationRepository interface {
+	CreateInvitation(ctx context.Context, inv *model.Invitation) (*model.Invitation, error)
+	GetInvitationByToken(ctx context.Context, token uuid.UUID) (*model.Invitation, error)
+	GetInvitationByID(ctx context.Context, id uuid.UUID) (*model.Invitation, error)
+	ListInvitationsByTutor(ctx context.Context, tutorId uuid.UUID) ([]*model.Invitation, error)
+	UpdateInvitationStatus(ctx context.Context, id uuid.UUID, status model.InvitationStatus) error
+	MarkInvitationUsedIfActive(ctx context.Context, id uuid.UUID) (bool, error)
+}
+
 type UserService struct {
-	userRepository     UserRepository
-	tsRepository       TutorStudentsRepository
-	telegramAuthSecret string
+	userRepository         UserRepository
+	tsRepository           TutorStudentsRepository
+	invitationRepository   InvitationRepository
+	telegramAuthSecret     string
+	authDisableLegacyHMAC  bool
 }
 
 func NewUserService(
 	userRepository UserRepository,
 	tutorStudentsRepository TutorStudentsRepository,
+	invitationRepository InvitationRepository,
 	telegramAuthSecret string,
+	authDisableLegacyHMAC bool,
 ) *UserService {
-	return &UserService{userRepository, tutorStudentsRepository, telegramAuthSecret}
+	return &UserService{userRepository, tutorStudentsRepository, invitationRepository, telegramAuthSecret, authDisableLegacyHMAC}
 }
 
 func (s *UserService) RegisterViaTelegram(ctx context.Context, input *model.RegisterViaTelegramInput) (*model.User, error) {
@@ -62,6 +78,30 @@ func (s *UserService) RegisterViaTelegram(ctx context.Context, input *model.Regi
 		return nil, errdefs.ErrValidation
 	}
 
+	// Check if this telegram account already exists
+	tgAccount, err := s.userRepository.GetTelegramAccountByTelegramId(ctx, input.TelegramId)
+	if err != nil && !errors.Is(err, errdefs.ErrNotFound) {
+		return nil, err
+	}
+
+	if err == nil {
+		// Telegram account exists — check the associated user
+		user, err := s.userRepository.GetUser(ctx, tgAccount.UserId)
+		if err != nil {
+			return nil, err
+		}
+
+		switch user.Status {
+		case model.UserStatusDeleted:
+			return s.reactivateDeletedUser(ctx, user, input)
+		case model.UserStatusActive:
+			return nil, errdefs.ErrAlreadyExists
+		default:
+			return nil, errdefs.ErrAlreadyExists
+		}
+	}
+
+	// No existing telegram account — normal registration flow
 	repo, err := s.userRepository.NewUserCreationRepositoryTx(ctx)
 	if err != nil {
 		return nil, err
@@ -138,10 +178,56 @@ func (s *UserService) RegisterViaTelegram(ctx context.Context, input *model.Regi
 	return user, nil
 }
 
+func (s *UserService) reactivateDeletedUser(ctx context.Context, user *model.User, input *model.RegisterViaTelegramInput) (*model.User, error) {
+	activeStatus := model.UserStatusActive
+	updateInput := &model.UpdateUserInput{
+		FirstName: input.FirstName,
+		LastName:  input.LastName,
+		Timezone:  input.Timezone,
+		Role:      &input.Role,
+		Status:    &activeStatus,
+	}
+
+	oldRole := user.Role
+
+	// Ensure the tutor profile exists before committing the role change, so a
+	// failure creating the profile can't leave the user in tutor role without one.
+	if input.Role == model.RoleTutor && oldRole != model.RoleTutor {
+		_, err := s.userRepository.GetTutorProfile(ctx, user.Id)
+		if err != nil {
+			if errors.Is(err, errdefs.ErrNotFound) {
+				profileID, err := uuid.NewV7()
+				if err != nil {
+					return nil, err
+				}
+				_, err = s.userRepository.CreateTutorProfile(ctx, &model.RepositoryCreateTutorProfileInput{
+					Id:     profileID,
+					UserId: user.Id,
+				})
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
+		}
+	}
+
+	updatedUser, err := s.userRepository.UpdateUser(ctx, user.Id, updateInput)
+	if err != nil {
+		return nil, err
+	}
+
+	return updatedUser, nil
+}
+
 func (s *UserService) Authorize(ctx context.Context, input *model.AuthorizeInput) (*model.User, error) {
 	header := strings.TrimSpace(input.AuthorizationHeader)
-	if strings.HasPrefix(header, "telegram") {
-		return s.authorizeWithTelegram(ctx, strings.Trim(strings.TrimPrefix(header, "telegram"), " "))
+	if strings.HasPrefix(header, "telegram ") {
+		if s.authDisableLegacyHMAC {
+			return nil, errdefs.ErrAuthentication
+		}
+		return s.authorizeWithTelegram(ctx, strings.TrimSpace(strings.TrimPrefix(header, "telegram ")))
 	}
 	if strings.HasPrefix(header, "tma ") {
 		return s.authorizeWithTelegram(ctx, strings.TrimSpace(strings.TrimPrefix(header, "tma ")))
@@ -167,6 +253,10 @@ func (s *UserService) authorizeWithTelegram(ctx context.Context, header string) 
 	user, err := s.userRepository.GetUser(ctx, tgAccount.UserId)
 	if err != nil {
 		return nil, err
+	}
+
+	if user.Status == model.UserStatusDeleted {
+		return nil, errdefs.ErrUserDeleted
 	}
 
 	return user, nil
@@ -211,7 +301,53 @@ func (s *UserService) UpdateUser(ctx context.Context, id uuid.UUID, input *model
 		return nil, err
 	}
 
+	var oldRole model.Role
+	if input.Role != nil {
+		currentUser, err := s.userRepository.GetUser(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if currentUser.Status == model.UserStatusDeleted {
+			return nil, errdefs.ErrNotFound
+		}
+		oldRole = currentUser.Role
+	}
+
 	user, err := s.userRepository.UpdateUser(ctx, id, input)
+	if err != nil {
+		return nil, err
+	}
+
+	if input.Role != nil && *input.Role == model.RoleTutor && oldRole != model.RoleTutor {
+		_, err := s.userRepository.GetTutorProfile(ctx, id)
+		if err != nil {
+			if errors.Is(err, errdefs.ErrNotFound) {
+				profileID, err := uuid.NewV7()
+				if err != nil {
+					return nil, err
+				}
+				_, err = s.userRepository.CreateTutorProfile(ctx, &model.RepositoryCreateTutorProfileInput{
+					Id:     profileID,
+					UserId: id,
+				})
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
+		}
+	}
+
+	return user, nil
+}
+
+func (s *UserService) DeleteUser(ctx context.Context, id uuid.UUID) (*model.User, error) {
+	if err := ensureCurrentUserIs(ctx, id); err != nil {
+		return nil, err
+	}
+
+	user, err := s.userRepository.DeleteUser(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -447,4 +583,111 @@ func ensureCurrentUserRole(ctx context.Context, role model.Role) error {
 		return errdefs.ErrPermissionDenied
 	}
 	return nil
+}
+
+func (s *UserService) CreateInvitation(ctx context.Context) (*model.Invitation, error) {
+	if err := ensureCurrentUserRole(ctx, model.RoleTutor); err != nil {
+		return nil, err
+	}
+
+	tutorId, err := getUserId(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := uuid.NewV7()
+	if err != nil {
+		return nil, err
+	}
+	token, err := uuid.NewV7()
+	if err != nil {
+		return nil, err
+	}
+
+	inv := &model.Invitation{
+		Id:      id,
+		TutorId: tutorId,
+		Token:   token,
+		Status:  model.InvitationStatusActive,
+	}
+
+	return s.invitationRepository.CreateInvitation(ctx, inv)
+}
+
+func (s *UserService) ListInvitations(ctx context.Context) ([]*model.Invitation, error) {
+	if err := ensureCurrentUserRole(ctx, model.RoleTutor); err != nil {
+		return nil, err
+	}
+
+	tutorId, err := getUserId(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.invitationRepository.ListInvitationsByTutor(ctx, tutorId)
+}
+
+func (s *UserService) RevokeInvitation(ctx context.Context, id uuid.UUID) error {
+	if err := ensureCurrentUserRole(ctx, model.RoleTutor); err != nil {
+		return err
+	}
+
+	inv, err := s.invitationRepository.GetInvitationByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	tutorId, err := getUserId(ctx)
+	if err != nil {
+		return err
+	}
+	if inv.TutorId != tutorId {
+		return errdefs.ErrPermissionDenied
+	}
+
+	return s.invitationRepository.UpdateInvitationStatus(ctx, id, model.InvitationStatusRevoked)
+}
+
+func (s *UserService) AcceptInvitation(ctx context.Context, token uuid.UUID) (*model.TutorStudent, error) {
+	if err := ensureCurrentUserRole(ctx, model.RoleStudent); err != nil {
+		return nil, err
+	}
+
+	studentId, err := getUserId(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	inv, err := s.invitationRepository.GetInvitationByToken(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+
+	// Atomically claim the invitation (active -> used) before creating the
+	// relationship. If another request already used it, the claim affects no
+	// rows and we reject this accept, preventing double-accepts.
+	claimed, err := s.invitationRepository.MarkInvitationUsedIfActive(ctx, inv.Id)
+	if err != nil {
+		return nil, err
+	}
+	if !claimed {
+		return nil, errdefs.ErrNotFound
+	}
+
+	tsID, err := uuid.NewV7()
+	if err != nil {
+		return nil, err
+	}
+
+	ts, err := s.tsRepository.CreateTutorStudent(ctx, &model.RepositoryCreateTutorStudentInput{
+		Id:        tsID,
+		TutorId:   inv.TutorId,
+		StudentId: studentId,
+		Status:    model.TutorStudentStatusActive,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return ts, nil
 }

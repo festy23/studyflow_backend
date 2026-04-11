@@ -13,6 +13,7 @@ service UserService {
 	rpc GetMe(Empty) returns (User);
 	rpc GetUser(GetUserRequest) returns (UserPublic);
 	rpc UpdateUser(UpdateUserRequest) returns (User);
+	rpc DeleteUser(DeleteUserRequest) returns (User);
 
 	rpc UpdateTutorProfile(UpdateTutorProfileRequest) returns (TutorProfile);
 	rpc GetTutorProfileByUserId(GetTutorProfileByUserIdRequest) returns (TutorProfile);
@@ -27,6 +28,12 @@ service UserService {
 
 	rpc ResolveTutorStudentContext(ResolveTutorStudentContextRequest) returns (ResolvedTutorStudentContext);
 	rpc AcceptInvitationFromTutor(AcceptInvitationFromTutorRequest) returns (Empty);
+
+	// Invitations (token-based, anonymous, one-time use).
+	rpc CreateInvitation(CreateInvitationRequest) returns (Invitation);
+	rpc ListInvitations(ListInvitationsRequest) returns (ListInvitationsResponse);
+	rpc RevokeInvitation(RevokeInvitationRequest) returns (Empty);
+	rpc AcceptInvitation(AcceptInvitationRequest) returns (TutorStudent);
 
 	// Internal: resolve Telegram chat_id (== telegram_id) for a user.
 	// Used by notification_service to deliver Telegram messages.
@@ -57,6 +64,11 @@ message UpdateUserRequest {
 	optional string first_name = 2;
 	optional string last_name = 3;
 	optional string timezone = 4;
+	optional string role = 5;
+}
+
+message DeleteUserRequest {
+	string id = 1;
 }
 
 message GetTutorProfileByUserIdRequest {
@@ -136,6 +148,22 @@ message GetTelegramChatIdResponse {
 	int64 telegram_id = 1;
 }
 
+message CreateInvitationRequest {} // tutor_id from auth context
+
+message ListInvitationsRequest {} // tutor_id from auth context
+
+message ListInvitationsResponse {
+	repeated Invitation invitations = 1;
+}
+
+message RevokeInvitationRequest {
+	string id = 1;
+}
+
+message AcceptInvitationRequest {
+	string token = 1;
+}
+
 message Empty {}
 
 // ==== MODELS ====
@@ -178,4 +206,13 @@ message TutorStudent {
 	string status = 6; // invited / active / blocked / removed
 	google.protobuf.Timestamp created_at = 7;
 	google.protobuf.Timestamp edited_at = 8;
+}
+
+message Invitation {
+	string id = 1;
+	string tutor_id = 2;
+	string token = 3;
+	string status = 4; // active / used / revoked
+	google.protobuf.Timestamp created_at = 5;
+	google.protobuf.Timestamp edited_at = 6;
 }

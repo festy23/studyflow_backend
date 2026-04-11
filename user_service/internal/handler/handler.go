@@ -21,6 +21,7 @@ type UserService interface {
 	GetMe(ctx context.Context) (*model.User, error)
 	GetUserPublic(ctx context.Context, id uuid.UUID) (*model.UserPublic, error)
 	UpdateUser(ctx context.Context, id uuid.UUID, input *model.UpdateUserInput) (*model.User, error)
+	DeleteUser(ctx context.Context, id uuid.UUID) (*model.User, error)
 	GetTutorProfile(ctx context.Context, userId uuid.UUID) (*model.TutorProfile, error)
 	UpdateTutorProfile(ctx context.Context, userId uuid.UUID, input *model.UpdateTutorProfileInput) (*model.TutorProfile, error)
 	CreateTutorStudent(ctx context.Context, input *model.CreateTutorStudentInput) (*model.TutorStudent, error)
@@ -32,6 +33,11 @@ type UserService interface {
 	ListTutorStudentsForStudent(ctx context.Context, studentId uuid.UUID) ([]*model.TutorStudent, error)
 	ResolveTutorStudentContext(ctx context.Context, tutorId uuid.UUID, studentId uuid.UUID) (*model.TutorStudentContext, error)
 	AcceptInvitationFromTutor(ctx context.Context, tutorId uuid.UUID) error
+
+	CreateInvitation(ctx context.Context) (*model.Invitation, error)
+	ListInvitations(ctx context.Context) ([]*model.Invitation, error)
+	RevokeInvitation(ctx context.Context, id uuid.UUID) error
+	AcceptInvitation(ctx context.Context, token uuid.UUID) (*model.TutorStudent, error)
 }
 
 type UserServiceServer struct {
@@ -77,7 +83,7 @@ func (h *UserServiceServer) AuthorizeByAuthHeader(ctx context.Context, req *pb.A
 
 	user, err := h.service.Authorize(ctx, input)
 	if err != nil {
-		return nil, mapError(err, errdefs.ErrValidation, errdefs.ErrAuthentication)
+		return nil, mapError(err, errdefs.ErrValidation, errdefs.ErrAuthentication, errdefs.ErrUserDeleted)
 	}
 
 	return toPbUser(user), nil
@@ -125,11 +131,32 @@ func (h *UserServiceServer) UpdateUser(ctx context.Context, req *pb.UpdateUserRe
 		LastName:  req.LastName,
 		Timezone:  req.Timezone,
 	}
+	if req.Role != nil {
+		role := model.Role(*req.Role)
+		if !role.IsValid() {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid role: %s", *req.Role)
+		}
+		input.Role = &role
+	}
 
 	user, err := h.service.UpdateUser(ctx, id, input)
 
 	if err != nil {
 		return nil, mapError(err, errdefs.ErrNotFound, errdefs.ErrValidation, errdefs.ErrPermissionDenied)
+	}
+
+	return toPbUser(user), nil
+}
+
+func (h *UserServiceServer) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) (*pb.User, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	user, err := h.service.DeleteUser(ctx, id)
+	if err != nil {
+		return nil, mapError(err, errdefs.ErrNotFound, errdefs.ErrPermissionDenied)
 	}
 
 	return toPbUser(user), nil
@@ -351,6 +378,49 @@ func (h *UserServiceServer) AcceptInvitationFromTutor(ctx context.Context, req *
 	return &pb.Empty{}, nil
 }
 
+func (h *UserServiceServer) CreateInvitation(ctx context.Context, _ *pb.CreateInvitationRequest) (*pb.Invitation, error) {
+	inv, err := h.service.CreateInvitation(ctx)
+	if err != nil {
+		return nil, mapError(err, errdefs.ErrPermissionDenied, errdefs.ErrAuthentication)
+	}
+	return toPbInvitation(inv), nil
+}
+
+func (h *UserServiceServer) ListInvitations(ctx context.Context, _ *pb.ListInvitationsRequest) (*pb.ListInvitationsResponse, error) {
+	invs, err := h.service.ListInvitations(ctx)
+	if err != nil {
+		return nil, mapError(err, errdefs.ErrPermissionDenied, errdefs.ErrAuthentication)
+	}
+	resp := make([]*pb.Invitation, len(invs))
+	for i, inv := range invs {
+		resp[i] = toPbInvitation(inv)
+	}
+	return &pb.ListInvitationsResponse{Invitations: resp}, nil
+}
+
+func (h *UserServiceServer) RevokeInvitation(ctx context.Context, req *pb.RevokeInvitationRequest) (*pb.Empty, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := h.service.RevokeInvitation(ctx, id); err != nil {
+		return nil, mapError(err, errdefs.ErrNotFound, errdefs.ErrPermissionDenied, errdefs.ErrAuthentication)
+	}
+	return &pb.Empty{}, nil
+}
+
+func (h *UserServiceServer) AcceptInvitation(ctx context.Context, req *pb.AcceptInvitationRequest) (*pb.TutorStudent, error) {
+	token, err := uuid.Parse(req.Token)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	ts, err := h.service.AcceptInvitation(ctx, token)
+	if err != nil {
+		return nil, mapError(err, errdefs.ErrNotFound, errdefs.ErrAlreadyExists, errdefs.ErrPermissionDenied, errdefs.ErrAuthentication)
+	}
+	return toPbTutorStudent(ts), nil
+}
+
 func toPbUser(user *model.User) *pb.User {
 	userPb := pb.User{
 		Id:           user.Id.String(),
@@ -392,6 +462,17 @@ func toPbTutorStudent(userStudent *model.TutorStudent) *pb.TutorStudent {
 	}
 }
 
+func toPbInvitation(inv *model.Invitation) *pb.Invitation {
+	return &pb.Invitation{
+		Id:        inv.Id.String(),
+		TutorId:   inv.TutorId.String(),
+		Token:     inv.Token.String(),
+		Status:    inv.Status.String(),
+		CreatedAt: timestamppb.New(inv.CreatedAt),
+		EditedAt:  timestamppb.New(inv.EditedAt),
+	}
+}
+
 func mapError(err error, possibleErrors ...error) error {
 	switch {
 	case err == nil:
@@ -407,6 +488,9 @@ func mapError(err error, possibleErrors ...error) error {
 		return status.Errorf(codes.Unauthenticated, "%v", err)
 
 	case errors.Is(err, errdefs.ErrNotFound) && slices.Contains(possibleErrors, errdefs.ErrNotFound):
+		return status.Errorf(codes.NotFound, "%v", err)
+
+	case errors.Is(err, errdefs.ErrUserDeleted) && slices.Contains(possibleErrors, errdefs.ErrUserDeleted):
 		return status.Errorf(codes.NotFound, "%v", err)
 
 	case errors.Is(err, errdefs.ErrPermissionDenied) && slices.Contains(possibleErrors, errdefs.ErrPermissionDenied):
