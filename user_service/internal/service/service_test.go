@@ -20,6 +20,7 @@ func setup(t *testing.T) (
 	*service.UserService,
 	*mocks.MockUserRepository,
 	*mocks.MockTutorStudentsRepository,
+	*mocks.MockInvitationRepository,
 	*gomock.Controller,
 ) {
 	ctrl := gomock.NewController(t)
@@ -27,9 +28,10 @@ func setup(t *testing.T) (
 
 	mockUserRepo := mocks.NewMockUserRepository(ctrl)
 	mockTSRepo := mocks.NewMockTutorStudentsRepository(ctrl)
-	svc := service.NewUserService(mockUserRepo, mockTSRepo, "test-secret", false)
+	mockInviteRepo := mocks.NewMockInvitationRepository(ctrl)
+	svc := service.NewUserService(mockUserRepo, mockTSRepo, mockInviteRepo, "test-secret", false)
 
-	return svc, mockUserRepo, mockTSRepo, ctrl
+	return svc, mockUserRepo, mockTSRepo, mockInviteRepo, ctrl
 }
 
 func userCtx(userID uuid.UUID, role model.Role) context.Context {
@@ -43,7 +45,7 @@ func userCtx(userID uuid.UUID, role model.Role) context.Context {
 
 func TestGetMe(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		svc, mockUserRepo, _, _ := setup(t)
+		svc, mockUserRepo, _, _, _ := setup(t)
 		userID := uuid.New()
 		ctx := userCtx(userID, model.RoleTutor)
 
@@ -59,14 +61,14 @@ func TestGetMe(t *testing.T) {
 	})
 
 	t.Run("NoUserIDInContext", func(t *testing.T) {
-		svc, _, _, _ := setup(t)
+		svc, _, _, _, _ := setup(t)
 
 		_, err := svc.GetMe(context.Background())
 		assert.ErrorIs(t, err, errdefs.ErrNotFound)
 	})
 
 	t.Run("InvalidUUIDInContext", func(t *testing.T) {
-		svc, _, _, _ := setup(t)
+		svc, _, _, _, _ := setup(t)
 		ctx := ctxdata.WithUserID(context.Background(), "not-a-uuid")
 
 		_, err := svc.GetMe(ctx)
@@ -74,7 +76,7 @@ func TestGetMe(t *testing.T) {
 	})
 
 	t.Run("UserNotFoundInRepo", func(t *testing.T) {
-		svc, mockUserRepo, _, _ := setup(t)
+		svc, mockUserRepo, _, _, _ := setup(t)
 		userID := uuid.New()
 		ctx := userCtx(userID, model.RoleTutor)
 
@@ -89,7 +91,7 @@ func TestGetMe(t *testing.T) {
 
 func TestGetUserPublic(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		svc, mockUserRepo, _, _ := setup(t)
+		svc, mockUserRepo, _, _, _ := setup(t)
 		userID := uuid.New()
 		firstName := "John"
 
@@ -107,7 +109,7 @@ func TestGetUserPublic(t *testing.T) {
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
-		svc, mockUserRepo, _, _ := setup(t)
+		svc, mockUserRepo, _, _, _ := setup(t)
 		userID := uuid.New()
 
 		mockUserRepo.EXPECT().GetUser(gomock.Any(), userID).Return(nil, errdefs.ErrNotFound)
@@ -121,7 +123,7 @@ func TestGetUserPublic(t *testing.T) {
 
 func TestUpdateUser(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		svc, mockUserRepo, _, _ := setup(t)
+		svc, mockUserRepo, _, _, _ := setup(t)
 		userID := uuid.New()
 		ctx := userCtx(userID, model.RoleTutor)
 		newName := "Updated"
@@ -138,7 +140,7 @@ func TestUpdateUser(t *testing.T) {
 	})
 
 	t.Run("PermissionDenied_DifferentUser", func(t *testing.T) {
-		svc, _, _, _ := setup(t)
+		svc, _, _, _, _ := setup(t)
 		currentUserID := uuid.New()
 		otherUserID := uuid.New()
 		ctx := userCtx(currentUserID, model.RoleTutor)
@@ -148,14 +150,14 @@ func TestUpdateUser(t *testing.T) {
 	})
 
 	t.Run("Unauthenticated", func(t *testing.T) {
-		svc, _, _, _ := setup(t)
+		svc, _, _, _, _ := setup(t)
 
 		_, err := svc.UpdateUser(context.Background(), uuid.New(), &model.UpdateUserInput{})
 		assert.ErrorIs(t, err, errdefs.ErrAuthentication)
 	})
 
 	t.Run("Success_ChangeToTutor_CreatesProfile", func(t *testing.T) {
-		svc, mockUserRepo, _, _ := setup(t)
+		svc, mockUserRepo, _, _, _ := setup(t)
 		userID := uuid.New()
 		ctx := userCtx(userID, model.RoleStudent)
 		tutorRole := model.RoleTutor
@@ -178,7 +180,7 @@ func TestUpdateUser(t *testing.T) {
 	})
 
 	t.Run("Success_ChangeToTutor_ProfileAlreadyExists", func(t *testing.T) {
-		svc, mockUserRepo, _, _ := setup(t)
+		svc, mockUserRepo, _, _, _ := setup(t)
 		userID := uuid.New()
 		ctx := userCtx(userID, model.RoleStudent)
 		tutorRole := model.RoleTutor
@@ -200,7 +202,7 @@ func TestUpdateUser(t *testing.T) {
 	})
 
 	t.Run("Success_NoRoleChange_NoExtraOps", func(t *testing.T) {
-		svc, mockUserRepo, _, _ := setup(t)
+		svc, mockUserRepo, _, _, _ := setup(t)
 		userID := uuid.New()
 		ctx := userCtx(userID, model.RoleTutor)
 		newName := "Updated"
@@ -221,7 +223,7 @@ func TestUpdateUser(t *testing.T) {
 
 func TestDeleteUser(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		svc, mockUserRepo, _, _ := setup(t)
+		svc, mockUserRepo, _, _, _ := setup(t)
 		userID := uuid.New()
 		ctx := userCtx(userID, model.RoleTutor)
 
@@ -236,7 +238,7 @@ func TestDeleteUser(t *testing.T) {
 	})
 
 	t.Run("PermissionDenied_DifferentUser", func(t *testing.T) {
-		svc, _, _, _ := setup(t)
+		svc, _, _, _, _ := setup(t)
 		currentUserID := uuid.New()
 		otherUserID := uuid.New()
 		ctx := userCtx(currentUserID, model.RoleTutor)
@@ -246,7 +248,7 @@ func TestDeleteUser(t *testing.T) {
 	})
 
 	t.Run("Unauthenticated", func(t *testing.T) {
-		svc, _, _, _ := setup(t)
+		svc, _, _, _, _ := setup(t)
 
 		_, err := svc.DeleteUser(context.Background(), uuid.New())
 		assert.ErrorIs(t, err, errdefs.ErrAuthentication)
@@ -257,7 +259,7 @@ func TestDeleteUser(t *testing.T) {
 
 func TestGetTutorProfile(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		svc, mockUserRepo, _, _ := setup(t)
+		svc, mockUserRepo, _, _, _ := setup(t)
 		userID := uuid.New()
 		ctx := userCtx(userID, model.RoleTutor)
 
@@ -270,7 +272,7 @@ func TestGetTutorProfile(t *testing.T) {
 	})
 
 	t.Run("PermissionDenied", func(t *testing.T) {
-		svc, _, _, _ := setup(t)
+		svc, _, _, _, _ := setup(t)
 		currentUserID := uuid.New()
 		otherUserID := uuid.New()
 		ctx := userCtx(currentUserID, model.RoleTutor)
@@ -284,7 +286,7 @@ func TestGetTutorProfile(t *testing.T) {
 
 func TestUpdateTutorProfile(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		svc, mockUserRepo, _, _ := setup(t)
+		svc, mockUserRepo, _, _, _ := setup(t)
 		userID := uuid.New()
 		ctx := userCtx(userID, model.RoleTutor)
 		price := int32(1500)
@@ -301,7 +303,7 @@ func TestUpdateTutorProfile(t *testing.T) {
 	})
 
 	t.Run("PermissionDenied", func(t *testing.T) {
-		svc, _, _, _ := setup(t)
+		svc, _, _, _, _ := setup(t)
 		currentUserID := uuid.New()
 		otherUserID := uuid.New()
 		ctx := userCtx(currentUserID, model.RoleTutor)
@@ -315,7 +317,7 @@ func TestUpdateTutorProfile(t *testing.T) {
 
 func TestCreateTutorStudent(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		svc, _, mockTSRepo, _ := setup(t)
+		svc, _, mockTSRepo, _, _ := setup(t)
 		tutorID := uuid.New()
 		studentID := uuid.New()
 		ctx := userCtx(tutorID, model.RoleTutor)
@@ -335,7 +337,7 @@ func TestCreateTutorStudent(t *testing.T) {
 	})
 
 	t.Run("PermissionDenied_NotTheTutor", func(t *testing.T) {
-		svc, _, _, _ := setup(t)
+		svc, _, _, _, _ := setup(t)
 		currentUserID := uuid.New()
 		otherTutorID := uuid.New()
 		ctx := userCtx(currentUserID, model.RoleTutor)
@@ -348,7 +350,7 @@ func TestCreateTutorStudent(t *testing.T) {
 	})
 
 	t.Run("PermissionDenied_StudentRole", func(t *testing.T) {
-		svc, _, _, _ := setup(t)
+		svc, _, _, _, _ := setup(t)
 		userID := uuid.New()
 		ctx := userCtx(userID, model.RoleStudent)
 
@@ -364,7 +366,7 @@ func TestCreateTutorStudent(t *testing.T) {
 
 func TestGetTutorStudent(t *testing.T) {
 	t.Run("Success_AsTutor", func(t *testing.T) {
-		svc, _, mockTSRepo, _ := setup(t)
+		svc, _, mockTSRepo, _, _ := setup(t)
 		tutorID := uuid.New()
 		studentID := uuid.New()
 		ctx := userCtx(tutorID, model.RoleTutor)
@@ -380,7 +382,7 @@ func TestGetTutorStudent(t *testing.T) {
 	})
 
 	t.Run("Success_AsStudent", func(t *testing.T) {
-		svc, _, mockTSRepo, _ := setup(t)
+		svc, _, mockTSRepo, _, _ := setup(t)
 		tutorID := uuid.New()
 		studentID := uuid.New()
 		ctx := userCtx(studentID, model.RoleStudent)
@@ -396,7 +398,7 @@ func TestGetTutorStudent(t *testing.T) {
 	})
 
 	t.Run("PermissionDenied_UnrelatedUser", func(t *testing.T) {
-		svc, _, _, _ := setup(t)
+		svc, _, _, _, _ := setup(t)
 		unrelatedID := uuid.New()
 		ctx := userCtx(unrelatedID, model.RoleTutor)
 
@@ -409,7 +411,7 @@ func TestGetTutorStudent(t *testing.T) {
 
 func TestDeleteTutorStudent(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		svc, _, mockTSRepo, _ := setup(t)
+		svc, _, mockTSRepo, _, _ := setup(t)
 		tutorID := uuid.New()
 		studentID := uuid.New()
 		ctx := userCtx(tutorID, model.RoleTutor)
@@ -421,7 +423,7 @@ func TestDeleteTutorStudent(t *testing.T) {
 	})
 
 	t.Run("PermissionDenied", func(t *testing.T) {
-		svc, _, _, _ := setup(t)
+		svc, _, _, _, _ := setup(t)
 		currentUserID := uuid.New()
 		ctx := userCtx(currentUserID, model.RoleTutor)
 
@@ -434,7 +436,7 @@ func TestDeleteTutorStudent(t *testing.T) {
 
 func TestListTutorStudents(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		svc, _, mockTSRepo, _ := setup(t)
+		svc, _, mockTSRepo, _, _ := setup(t)
 		tutorID := uuid.New()
 		ctx := userCtx(tutorID, model.RoleTutor)
 
@@ -449,7 +451,7 @@ func TestListTutorStudents(t *testing.T) {
 	})
 
 	t.Run("PermissionDenied", func(t *testing.T) {
-		svc, _, _, _ := setup(t)
+		svc, _, _, _, _ := setup(t)
 		currentUserID := uuid.New()
 		ctx := userCtx(currentUserID, model.RoleTutor)
 
@@ -462,7 +464,7 @@ func TestListTutorStudents(t *testing.T) {
 
 func TestListTutorStudentsForStudent(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		svc, _, mockTSRepo, _ := setup(t)
+		svc, _, mockTSRepo, _, _ := setup(t)
 		studentID := uuid.New()
 		ctx := userCtx(studentID, model.RoleStudent)
 
@@ -480,7 +482,7 @@ func TestListTutorStudentsForStudent(t *testing.T) {
 
 func TestAcceptInvitationFromTutor(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		svc, _, mockTSRepo, _ := setup(t)
+		svc, _, mockTSRepo, _, _ := setup(t)
 		studentID := uuid.New()
 		tutorID := uuid.New()
 		ctx := userCtx(studentID, model.RoleStudent)
@@ -495,7 +497,7 @@ func TestAcceptInvitationFromTutor(t *testing.T) {
 	})
 
 	t.Run("PermissionDenied_TutorRole", func(t *testing.T) {
-		svc, _, _, _ := setup(t)
+		svc, _, _, _, _ := setup(t)
 		userID := uuid.New()
 		ctx := userCtx(userID, model.RoleTutor)
 
@@ -504,7 +506,7 @@ func TestAcceptInvitationFromTutor(t *testing.T) {
 	})
 
 	t.Run("Unauthenticated", func(t *testing.T) {
-		svc, _, _, _ := setup(t)
+		svc, _, _, _, _ := setup(t)
 
 		err := svc.AcceptInvitationFromTutor(context.Background(), uuid.New())
 		assert.ErrorIs(t, err, errdefs.ErrAuthentication)
@@ -515,7 +517,7 @@ func TestAcceptInvitationFromTutor(t *testing.T) {
 
 func TestResolveTutorStudentContext(t *testing.T) {
 	t.Run("Success_PairOverridesTutorDefaults", func(t *testing.T) {
-		svc, mockUserRepo, mockTSRepo, _ := setup(t)
+		svc, mockUserRepo, mockTSRepo, _, _ := setup(t)
 		tutorID := uuid.New()
 		studentID := uuid.New()
 		ctx := userCtx(tutorID, model.RoleTutor)
@@ -545,7 +547,7 @@ func TestResolveTutorStudentContext(t *testing.T) {
 	})
 
 	t.Run("PermissionDenied", func(t *testing.T) {
-		svc, _, _, _ := setup(t)
+		svc, _, _, _, _ := setup(t)
 		unrelatedID := uuid.New()
 		ctx := userCtx(unrelatedID, model.RoleTutor)
 
@@ -558,7 +560,7 @@ func TestResolveTutorStudentContext(t *testing.T) {
 
 func TestRegisterViaTelegram(t *testing.T) {
 	t.Run("InvalidRole", func(t *testing.T) {
-		svc, _, _, _ := setup(t)
+		svc, _, _, _, _ := setup(t)
 
 		_, err := svc.RegisterViaTelegram(context.Background(), &model.RegisterViaTelegramInput{
 			TelegramId: 12345,
@@ -568,7 +570,7 @@ func TestRegisterViaTelegram(t *testing.T) {
 	})
 
 	t.Run("Success_Student", func(t *testing.T) {
-		svc, mockUserRepo, _, _ := setup(t)
+		svc, mockUserRepo, _, _, _ := setup(t)
 
 		mockTx := mocks.NewMockUserCreationRepositoryTx(gomock.NewController(t))
 		mockUserRepo.EXPECT().NewUserCreationRepositoryTx(gomock.Any()).Return(mockTx, nil)
@@ -592,7 +594,7 @@ func TestRegisterViaTelegram(t *testing.T) {
 	})
 
 	t.Run("Success_Tutor_CreatesTutorProfile", func(t *testing.T) {
-		svc, mockUserRepo, _, _ := setup(t)
+		svc, mockUserRepo, _, _, _ := setup(t)
 
 		mockTx := mocks.NewMockUserCreationRepositoryTx(gomock.NewController(t))
 		mockUserRepo.EXPECT().NewUserCreationRepositoryTx(gomock.Any()).Return(mockTx, nil)
@@ -616,7 +618,7 @@ func TestRegisterViaTelegram(t *testing.T) {
 	})
 
 	t.Run("Error_CreateUserFails", func(t *testing.T) {
-		svc, mockUserRepo, _, _ := setup(t)
+		svc, mockUserRepo, _, _, _ := setup(t)
 
 		mockTx := mocks.NewMockUserCreationRepositoryTx(gomock.NewController(t))
 		mockUserRepo.EXPECT().NewUserCreationRepositoryTx(gomock.Any()).Return(mockTx, nil)
@@ -635,7 +637,7 @@ func TestRegisterViaTelegram(t *testing.T) {
 
 func TestAuthorize(t *testing.T) {
 	t.Run("InvalidPrefix", func(t *testing.T) {
-		svc, _, _, _ := setup(t)
+		svc, _, _, _, _ := setup(t)
 
 		_, err := svc.Authorize(context.Background(), &model.AuthorizeInput{
 			AuthorizationHeader: "bearer some-token",
@@ -644,7 +646,7 @@ func TestAuthorize(t *testing.T) {
 	})
 
 	t.Run("EmptyHeader", func(t *testing.T) {
-		svc, _, _, _ := setup(t)
+		svc, _, _, _, _ := setup(t)
 
 		_, err := svc.Authorize(context.Background(), &model.AuthorizeInput{
 			AuthorizationHeader: "",
