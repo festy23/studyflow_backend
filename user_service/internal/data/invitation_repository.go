@@ -80,6 +80,22 @@ func (r *InvitationRepository) ListInvitationsByTutor(ctx context.Context, tutor
 	return rows, nil
 }
 
+// MarkInvitationUsedIfActive atomically transitions an invitation from
+// "active" to "used". It returns true only if this call performed the
+// transition, so concurrent accepts of the same token cannot both succeed.
+func (r *InvitationRepository) MarkInvitationUsedIfActive(ctx context.Context, id uuid.UUID) (bool, error) {
+	query := `
+	UPDATE invitations
+	SET status = $1, edited_at = NOW()
+	WHERE id = $2 AND status = $3
+	`
+	result, err := r.db.Exec(ctx, query, model.InvitationStatusUsed, id, model.InvitationStatusActive)
+	if err != nil {
+		return false, handleError(err)
+	}
+	return result.RowsAffected() > 0, nil
+}
+
 func (r *InvitationRepository) UpdateInvitationStatus(ctx context.Context, id uuid.UUID, status model.InvitationStatus) error {
 	query := `
 	UPDATE invitations

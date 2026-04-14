@@ -381,7 +381,7 @@ func (h *UserServiceServer) AcceptInvitationFromTutor(ctx context.Context, req *
 func (h *UserServiceServer) CreateInvitation(ctx context.Context, _ *pb.CreateInvitationRequest) (*pb.Invitation, error) {
 	inv, err := h.service.CreateInvitation(ctx)
 	if err != nil {
-		return nil, mapError(err, errdefs.ErrPermissionDenied)
+		return nil, mapError(err, errdefs.ErrPermissionDenied, errdefs.ErrAuthentication)
 	}
 	return toPbInvitation(inv), nil
 }
@@ -389,7 +389,7 @@ func (h *UserServiceServer) CreateInvitation(ctx context.Context, _ *pb.CreateIn
 func (h *UserServiceServer) ListInvitations(ctx context.Context, _ *pb.ListInvitationsRequest) (*pb.ListInvitationsResponse, error) {
 	invs, err := h.service.ListInvitations(ctx)
 	if err != nil {
-		return nil, mapError(err, errdefs.ErrPermissionDenied)
+		return nil, mapError(err, errdefs.ErrPermissionDenied, errdefs.ErrAuthentication)
 	}
 	resp := make([]*pb.Invitation, len(invs))
 	for i, inv := range invs {
@@ -404,7 +404,7 @@ func (h *UserServiceServer) RevokeInvitation(ctx context.Context, req *pb.Revoke
 		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := h.service.RevokeInvitation(ctx, id); err != nil {
-		return nil, mapError(err, errdefs.ErrNotFound, errdefs.ErrPermissionDenied)
+		return nil, mapError(err, errdefs.ErrNotFound, errdefs.ErrPermissionDenied, errdefs.ErrAuthentication)
 	}
 	return &pb.Empty{}, nil
 }
@@ -416,7 +416,7 @@ func (h *UserServiceServer) AcceptInvitation(ctx context.Context, req *pb.Accept
 	}
 	ts, err := h.service.AcceptInvitation(ctx, token)
 	if err != nil {
-		return nil, mapError(err, errdefs.ErrNotFound, errdefs.ErrAlreadyExists, errdefs.ErrPermissionDenied)
+		return nil, mapError(err, errdefs.ErrNotFound, errdefs.ErrAlreadyExists, errdefs.ErrPermissionDenied, errdefs.ErrAuthentication)
 	}
 	return toPbTutorStudent(ts), nil
 }

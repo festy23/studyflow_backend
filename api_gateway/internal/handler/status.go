@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"time"
 
+	"common_library/logging"
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	userpb "userservice/pkg/api"
@@ -45,26 +47,41 @@ func (h *StatusHandler) Status(w http.ResponseWriter, r *http.Request) {
 		// Only connection-level failures indicate the service is unhealthy.
 		// Application-level errors (e.g., Unauthenticated for empty header)
 		// mean the service is alive and responding.
+		unhealthy := true
 		if st, ok := status.FromError(err); ok {
 			switch st.Code() {
 			case codes.Unauthenticated, codes.InvalidArgument, codes.PermissionDenied:
 				// service is responding, just with an expected rejection
-			default:
-				checks["user_service"] = "error: " + err.Error()
-				overall = "degraded"
+				unhealthy = false
 			}
-		} else {
-			checks["user_service"] = "error: " + err.Error()
+		}
+		if unhealthy {
+			// Keep internal details in logs only; expose a sanitized status.
+			if logger, ok := logging.GetFromContext(r.Context()); ok {
+				logger.Error(r.Context(), "health check: user_service unavailable", zap.Error(err))
+			}
+			checks["user_service"] = "unavailable"
 			overall = "degraded"
 		}
 	}
 
 	// Check Redis connectivity
-	ctx2, cancel2 := context.WithTimeout(r.Context(), healthCheckTimeout)
-	defer cancel2()
-	if err := h.redisConn.Ping(ctx2).Err(); err != nil {
-		checks["redis"] = "error: " + err.Error()
+	if h.redisConn == nil {
+		if logger, ok := logging.GetFromContext(r.Context()); ok {
+			logger.Error(r.Context(), "health check: redis client is not configured")
+		}
+		checks["redis"] = "unavailable"
 		overall = "degraded"
+	} else {
+		ctx2, cancel2 := context.WithTimeout(r.Context(), healthCheckTimeout)
+		defer cancel2()
+		if err := h.redisConn.Ping(ctx2).Err(); err != nil {
+			if logger, ok := logging.GetFromContext(r.Context()); ok {
+				logger.Error(r.Context(), "health check: redis unavailable", zap.Error(err))
+			}
+			checks["redis"] = "unavailable"
+			overall = "degraded"
+		}
 	}
 
 	// If all checks failed, mark as down

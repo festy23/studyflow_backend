@@ -52,6 +52,7 @@ type InvitationRepository interface {
 	GetInvitationByID(ctx context.Context, id uuid.UUID) (*model.Invitation, error)
 	ListInvitationsByTutor(ctx context.Context, tutorId uuid.UUID) ([]*model.Invitation, error)
 	UpdateInvitationStatus(ctx context.Context, id uuid.UUID, status model.InvitationStatus) error
+	MarkInvitationUsedIfActive(ctx context.Context, id uuid.UUID) (bool, error)
 }
 
 type UserService struct {
@@ -188,11 +189,9 @@ func (s *UserService) reactivateDeletedUser(ctx context.Context, user *model.Use
 	}
 
 	oldRole := user.Role
-	updatedUser, err := s.userRepository.UpdateUser(ctx, user.Id, updateInput)
-	if err != nil {
-		return nil, err
-	}
 
+	// Ensure the tutor profile exists before committing the role change, so a
+	// failure creating the profile can't leave the user in tutor role without one.
 	if input.Role == model.RoleTutor && oldRole != model.RoleTutor {
 		_, err := s.userRepository.GetTutorProfile(ctx, user.Id)
 		if err != nil {
@@ -212,6 +211,11 @@ func (s *UserService) reactivateDeletedUser(ctx context.Context, user *model.Use
 				return nil, err
 			}
 		}
+	}
+
+	updatedUser, err := s.userRepository.UpdateUser(ctx, user.Id, updateInput)
+	if err != nil {
+		return nil, err
 	}
 
 	return updatedUser, nil
@@ -659,7 +663,14 @@ func (s *UserService) AcceptInvitation(ctx context.Context, token uuid.UUID) (*m
 		return nil, err
 	}
 
-	if inv.Status != model.InvitationStatusActive {
+	// Atomically claim the invitation (active -> used) before creating the
+	// relationship. If another request already used it, the claim affects no
+	// rows and we reject this accept, preventing double-accepts.
+	claimed, err := s.invitationRepository.MarkInvitationUsedIfActive(ctx, inv.Id)
+	if err != nil {
+		return nil, err
+	}
+	if !claimed {
 		return nil, errdefs.ErrNotFound
 	}
 
@@ -675,10 +686,6 @@ func (s *UserService) AcceptInvitation(ctx context.Context, token uuid.UUID) (*m
 		Status:    model.TutorStudentStatusActive,
 	})
 	if err != nil {
-		return nil, err
-	}
-
-	if err := s.invitationRepository.UpdateInvitationStatus(ctx, inv.Id, model.InvitationStatusUsed); err != nil {
 		return nil, err
 	}
 
