@@ -130,25 +130,21 @@ func buildMessages(topic string, payload map[string]any) ([]notification, bool) 
 		if studentID == "" || tutorID == "" {
 			return nil, false
 		}
-		startsAt := parseTime(payload["starts_at"])
-		when := ""
-		if !startsAt.IsZero() {
-			when = " at " + startsAt.UTC().Format("2006-01-02 15:04 UTC")
-		}
+		when := lessonWhenClause(parseTime(payload["starts_at"]))
 		var studentText, tutorText string
 		switch eventType {
 		case "booked":
-			studentText = "New lesson booked" + when + "."
-			tutorText = "New lesson booked" + when + "."
+			studentText = fmt.Sprintf(msgLessonBooked, when)
+			tutorText = fmt.Sprintf(msgLessonBooked, when)
 		case "cancelled":
-			studentText = "Your lesson" + when + " was cancelled."
-			tutorText = "Lesson" + when + " was cancelled by student."
+			studentText = fmt.Sprintf(msgLessonCancelledStudent, when)
+			tutorText = fmt.Sprintf(msgLessonCancelledTutor, when)
 		case "rescheduled":
-			studentText = "Your lesson was rescheduled" + when + "."
-			tutorText = "Lesson was rescheduled" + when + "."
+			studentText = fmt.Sprintf(msgLessonRescheduledStudent, when)
+			tutorText = fmt.Sprintf(msgLessonRescheduledTutor, when)
 		default:
-			studentText = "Lesson reminder" + when + "."
-			tutorText = "Lesson reminder" + when + "."
+			studentText = fmt.Sprintf(msgLessonReminder, when)
+			tutorText = fmt.Sprintf(msgLessonReminder, when)
 		}
 		return []notification{
 			{userID: studentID, text: studentText},
@@ -164,28 +160,28 @@ func buildMessages(topic string, payload map[string]any) ([]notification, bool) 
 		title, _ := payload["title"].(string)
 		due := parseTime(payload["due_date"])
 		var sb strings.Builder
-		sb.WriteString("Assignment reminder")
+		sb.WriteString(msgAssignmentStudent)
 		if title != "" {
-			sb.WriteString(": ")
+			sb.WriteString(assignmentTitleSep)
 			sb.WriteString(title)
 		}
 		if !due.IsZero() {
-			sb.WriteString(" — due ")
-			sb.WriteString(due.UTC().Format("2006-01-02 15:04 UTC"))
+			sb.WriteString(assignmentDuePrefix)
+			sb.WriteString(due.UTC().Format(dateLayoutRU))
 		}
 		studentText := sb.String()
 
 		result := []notification{{userID: studentID, text: studentText}}
 		if tutorID != "" {
 			var tb strings.Builder
-			tb.WriteString("Homework not submitted")
+			tb.WriteString(msgAssignmentTutor)
 			if title != "" {
-				tb.WriteString(": ")
+				tb.WriteString(assignmentTitleSep)
 				tb.WriteString(title)
 			}
 			if !due.IsZero() {
-				tb.WriteString(" — due ")
-				tb.WriteString(due.UTC().Format("2006-01-02 15:04 UTC"))
+				tb.WriteString(assignmentDuePrefix)
+				tb.WriteString(due.UTC().Format(dateLayoutRU))
 			}
 			result = append(result, notification{userID: tutorID, text: tb.String()})
 		}
@@ -198,12 +194,12 @@ func buildMessages(topic string, payload map[string]any) ([]notification, bool) 
 			return nil, false
 		}
 		price := ""
-		if v, ok := payload["price_rub"].(float64); ok && v > 0 {
-			price = fmt.Sprintf(" for %.0f RUB", v)
+		if v, ok := payload["price_rub"].(float64); ok {
+			price = paymentPriceClause(v)
 		}
 		return []notification{
-			{userID: studentID, text: "Payment reminder" + price + "."},
-			{userID: tutorID, text: "Payment is still pending" + price + "."},
+			{userID: studentID, text: fmt.Sprintf(msgPaymentStudent, price)},
+			{userID: tutorID, text: fmt.Sprintf(msgPaymentTutor, price)},
 		}, true
 
 	default:
