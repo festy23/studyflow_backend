@@ -1,5 +1,7 @@
 FROM golang:1.24-alpine AS builder
 WORKDIR /app
+RUN apk add --no-cache git
+ENV GOPROXY=https://goproxy.cn,direct
 
 COPY homework_service/go.mod  ./
 COPY homework_service/go.sum  ./
@@ -12,10 +14,12 @@ COPY common_library/   /common_library/
 RUN go mod download
 
 COPY homework_service/ ./
-RUN CGO_ENABLED=0 GOOS=linux go build -o /server ./cmd/service/service.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o /server ./cmd/service/
 
 FROM alpine:latest
 WORKDIR /app
+RUN apk add --no-cache git
+ENV GOPROXY=https://goproxy.cn,direct
 COPY --from=builder /server ./
 COPY --from=builder /app/config ./config/
 COPY --from=builder /app/migrations ./migrations
