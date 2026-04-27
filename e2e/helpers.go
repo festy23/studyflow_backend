@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -21,11 +22,21 @@ func apiURL(path string) string { return baseURL + path }
 
 func telegramSecret(t *testing.T) string {
 	t.Helper()
-	s := os.Getenv("TELEGRAM_SECRET")
-	if s == "" {
-		s = "123456:replace-with-telegram-bot-token"
+	if s := os.Getenv("TELEGRAM_SECRET"); s != "" {
+		return s
 	}
-	return s
+	// Read from project .env
+	data, err := os.ReadFile("../.env")
+	if err != nil {
+		return "123456:replace-with-telegram-bot-token"
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "TELEGRAM_SECRET=") {
+			return strings.TrimPrefix(line, "TELEGRAM_SECRET=")
+		}
+	}
+	return "123456:replace-with-telegram-bot-token"
 }
 
 func generateHMACHeader(t *testing.T, tgID int64) string {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 	homeworkpb "homework_service/pkg/api"
 )
 
@@ -126,8 +127,7 @@ func (h *HomeworkHandler) CreateAssignment(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *HomeworkHandler) ListAssignments(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	ctx, req, err := parseAssignmentQuery(ctx, r)
+	_, req, err := parseAssignmentQuery(r.Context(), r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -138,7 +138,7 @@ func (h *HomeworkHandler) ListAssignments(w http.ResponseWriter, r *http.Request
 		handler, herr := Handle[homeworkpb.ListAssignmentsByTutorRequest, homeworkpb.ListAssignmentsResponse](
 			h.c.ListAssignmentsByTutor,
 			func(_ context.Context, _ *http.Request, grpcReq *homeworkpb.ListAssignmentsByTutorRequest) error {
-				*grpcReq = *x
+				proto.Merge(grpcReq, x)
 				return nil
 			}, false)
 		if herr != nil {
@@ -150,7 +150,7 @@ func (h *HomeworkHandler) ListAssignments(w http.ResponseWriter, r *http.Request
 		handler, herr := Handle[homeworkpb.ListAssignmentsByStudentRequest, homeworkpb.ListAssignmentsResponse](
 			h.c.ListAssignmentsByStudent,
 			func(_ context.Context, _ *http.Request, grpcReq *homeworkpb.ListAssignmentsByStudentRequest) error {
-				*grpcReq = *x
+				proto.Merge(grpcReq, x)
 				return nil
 			}, false)
 		if herr != nil {
@@ -162,7 +162,7 @@ func (h *HomeworkHandler) ListAssignments(w http.ResponseWriter, r *http.Request
 		handler, herr := Handle[homeworkpb.ListAssignmentsByPairRequest, homeworkpb.ListAssignmentsResponse](
 			h.c.ListAssignmentsByPair,
 			func(_ context.Context, _ *http.Request, grpcReq *homeworkpb.ListAssignmentsByPairRequest) error {
-				*grpcReq = *x
+				proto.Merge(grpcReq, x)
 				return nil
 			}, false)
 		if herr != nil {
