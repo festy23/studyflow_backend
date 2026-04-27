@@ -67,6 +67,18 @@ func (s *stubUserService) AcceptInvitationFromTutor(ctx context.Context, tutorId
 func (s *stubUserService) GetTelegramChatId(ctx context.Context, userId uuid.UUID) (int64, error) {
 	return 0, nil
 }
+func (s *stubUserService) CreateInvitation(ctx context.Context) (*model.Invitation, error) {
+	return nil, nil
+}
+func (s *stubUserService) ListInvitations(ctx context.Context) ([]*model.Invitation, error) {
+	return nil, nil
+}
+func (s *stubUserService) RevokeInvitation(ctx context.Context, id uuid.UUID) error {
+	return nil
+}
+func (s *stubUserService) AcceptInvitation(ctx context.Context, token uuid.UUID) (*model.TutorStudent, error) {
+	return nil, nil
+}
 
 func TestUpdateTutorStudent_NotFoundIsMappedToNotFound(t *testing.T) {
 	svc := &stubUserService{updateTutorStudentErr: fmt.Errorf("wrap: %w", errdefs.ErrNotFound)}

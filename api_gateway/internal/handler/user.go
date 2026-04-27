@@ -35,6 +35,10 @@ func (h *UserHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		r.Delete("/tutor-students/{tutor_id}/{student_id}", h.DeleteTutorStudent)
 		r.Post("/tutor-students", h.CreateTutorStudent)
 		r.Post("/tutor-students/{tutor_id}/accept", h.AcceptInvitation)
+		r.Post("/users/invitations", h.CreateInvitation)
+		r.Get("/users/invitations", h.ListInvitations)
+		r.Delete("/users/invitations/{id}", h.RevokeInvitation)
+		r.Post("/users/invitations/{token}/accept", h.AcceptInvitationByToken)
 	})
 }
 
@@ -393,4 +397,54 @@ func buildTutorStudentKey(r *http.Request) (string, error) {
 		return "", fmt.Errorf("missing tutor_id or student_id")
 	}
 	return fmt.Sprintf("tutor-student:%s:%s", tutorID, studentID), nil
+}
+
+func (h *UserHandler) CreateInvitation(w http.ResponseWriter, r *http.Request) {
+	handler, err := Handle[userpb.CreateInvitationRequest, userpb.Invitation](h.c.CreateInvitation, nil, false)
+	if err != nil {
+		panic(err)
+	}
+	handler(w, r)
+}
+
+func (h *UserHandler) ListInvitations(w http.ResponseWriter, r *http.Request) {
+	handler, err := Handle[userpb.ListInvitationsRequest, userpb.ListInvitationsResponse](h.c.ListInvitations, nil, false)
+	if err != nil {
+		panic(err)
+	}
+	handler(w, r)
+}
+
+func revokeInvitationParsePath(_ context.Context, r *http.Request, grpcReq *userpb.RevokeInvitationRequest) error {
+	id, err := parsePathParam(r, "id")
+	if err != nil {
+		return err
+	}
+	grpcReq.Id = id
+	return nil
+}
+
+func (h *UserHandler) RevokeInvitation(w http.ResponseWriter, r *http.Request) {
+	handler, err := Handle[userpb.RevokeInvitationRequest, userpb.Empty](h.c.RevokeInvitation, revokeInvitationParsePath, false)
+	if err != nil {
+		panic(err)
+	}
+	handler(w, r)
+}
+
+func acceptInvitationByTokenParsePath(_ context.Context, r *http.Request, grpcReq *userpb.AcceptInvitationRequest) error {
+	token, err := parsePathParam(r, "token")
+	if err != nil {
+		return err
+	}
+	grpcReq.Token = token
+	return nil
+}
+
+func (h *UserHandler) AcceptInvitationByToken(w http.ResponseWriter, r *http.Request) {
+	handler, err := Handle[userpb.AcceptInvitationRequest, userpb.TutorStudent](h.c.AcceptInvitation, acceptInvitationByTokenParsePath, false)
+	if err != nil {
+		panic(err)
+	}
+	handler(w, r)
 }

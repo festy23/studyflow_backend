@@ -110,6 +110,29 @@ type TutorStudent struct {
 	EditedAt             time.Time          `db:"edited_at"`
 }
 
+type InvitationStatus string
+
+const (
+	InvitationStatusActive  InvitationStatus = "active"
+	InvitationStatusUsed    InvitationStatus = "used"
+	InvitationStatusRevoked InvitationStatus = "revoked"
+)
+
+func (s InvitationStatus) String() string { return string(s) }
+
+func (s InvitationStatus) IsValid() bool {
+	return s == InvitationStatusActive || s == InvitationStatusUsed || s == InvitationStatusRevoked
+}
+
+type Invitation struct {
+	Id        uuid.UUID        `db:"id"`
+	TutorId   uuid.UUID        `db:"tutor_id"`
+	Token     uuid.UUID        `db:"token"`
+	Status    InvitationStatus `db:"status"`
+	CreatedAt time.Time        `db:"created_at"`
+	EditedAt  time.Time        `db:"edited_at"`
+}
+
 // TutorStudentContext not from db
 type TutorStudentContext struct {
 	RelationshipStatus TutorStudentStatus

@@ -37,6 +37,15 @@ func NewAuthMiddleware(userClient userpb.UserServiceClient) func(http.Handler) h
 					w.WriteHeader(http.StatusUnauthorized)
 					return
 				}
+				if status.Code(err) == codes.NotFound {
+					if logger, ok := logging.GetFromContext(ctx); ok {
+						logger.Info(ctx, "auth failed: user deleted", zap.String("path", r.URL.Path))
+					}
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusNotFound)
+					_, _ = w.Write([]byte(`{"error":"user deleted"}`))
+					return
+				}
 				if logger, ok := logging.GetFromContext(ctx); ok {
 					logger.Error(
 						ctx, "error while sending grpc auth request",

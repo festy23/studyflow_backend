@@ -98,7 +98,7 @@ func (s *PaymentService) SubmitPaymentReceipt(ctx context.Context, input *models
 
 	// Validate file_id exists in file_service before persisting the receipt.
 	_, err = utils.RetryWithBackoff(ctx, maxRetries, retryDelay, func() (*api2.File, error) {
-		return s.fileClient.GetFileMeta(ctxWithMetadata(ctx), &api2.GetFileMetaRequest{FileId: input.FileId.String()})
+		return s.fileClient.GetFileMeta(ctxWithServiceRole(ctx), &api2.GetFileMetaRequest{FileId: input.FileId.String()})
 	})
 	if err != nil {
 		if st, ok := status.FromError(err); ok {
@@ -298,7 +298,7 @@ func (s *PaymentService) GetReceiptFile(ctx context.Context, input *models.GetRe
 		return nil, err
 	}
 	generateDownloadURLRequest := &api2.GenerateDownloadURLRequest{FileId: receipt.FileID.String()}
-	url, err := s.fileClient.GenerateDownloadURL(ctxWithMetadata(ctx), generateDownloadURLRequest)
+	url, err := s.fileClient.GenerateDownloadURL(ctxWithServiceRole(ctx), generateDownloadURLRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -435,5 +435,17 @@ func ctxWithMetadata(ctx context.Context) context.Context {
 		reqCtx = metadata.AppendToOutgoingContext(reqCtx, "x-user-role", userRole)
 	}
 
+	return reqCtx
+}
+
+// ctxWithServiceRole forwards the user identity but elevates the role to "service"
+// so that file_service bypasses the ownership check (the caller already performed
+// its own business-level authorization).
+func ctxWithServiceRole(ctx context.Context) context.Context {
+	reqCtx := metadata.NewOutgoingContext(ctx, metadata.Pairs())
+	if userId, ok := ctxdata.GetUserID(ctx); ok {
+		reqCtx = metadata.AppendToOutgoingContext(reqCtx, "x-user-id", userId)
+	}
+	reqCtx = metadata.AppendToOutgoingContext(reqCtx, "x-user-role", "service")
 	return reqCtx
 }
