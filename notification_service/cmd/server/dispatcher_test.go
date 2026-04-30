@@ -44,10 +44,10 @@ func TestBuildMessages_LessonReminders(t *testing.T) {
 		if !ok || len(ns) != 2 {
 			t.Fatalf("expected 2 notifications, got ok=%v len=%d", ok, len(ns))
 		}
-		if ns[0].userID != "stu-1" || !strings.Contains(ns[0].text, "booked") {
+		if ns[0].userID != "stu-1" || !strings.Contains(ns[0].text, "новый урок") {
 			t.Fatalf("unexpected student notification: %+v", ns[0])
 		}
-		if ns[1].userID != "tut-1" || !strings.Contains(ns[1].text, "booked") {
+		if ns[1].userID != "tut-1" || !strings.Contains(ns[1].text, "новый урок") {
 			t.Fatalf("unexpected tutor notification: %+v", ns[1])
 		}
 	})
@@ -61,11 +61,11 @@ func TestBuildMessages_LessonReminders(t *testing.T) {
 		if !ok || len(ns) != 2 {
 			t.Fatalf("expected 2 notifications, got ok=%v len=%d", ok, len(ns))
 		}
-		if !strings.Contains(ns[0].text, "cancelled") {
-			t.Fatalf("expected 'cancelled' in student text, got %q", ns[0].text)
+		if !strings.Contains(ns[0].text, "отмен") {
+			t.Fatalf("expected 'отмен' in student text, got %q", ns[0].text)
 		}
-		if !strings.Contains(ns[1].text, "cancelled") {
-			t.Fatalf("expected 'cancelled' in tutor text, got %q", ns[1].text)
+		if !strings.Contains(ns[1].text, "отмен") {
+			t.Fatalf("expected 'отмен' in tutor text, got %q", ns[1].text)
 		}
 	})
 
