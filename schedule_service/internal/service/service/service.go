@@ -492,6 +492,27 @@ func (s *ScheduleServer) CancelLesson(ctx context.Context, req *pb.CancelLessonR
 		return nil, status.Error(codes.Internal, "failed to cancel lesson")
 	}
 
+	if s.eventSender != nil {
+		reminderEvent := kafka.ReminderEvent{
+			LessonID:  lesson.ID,
+			SlotID:    lesson.SlotID,
+			TutorID:   slot.TutorID,
+			StudentID: lesson.StudentID,
+			StartsAt:  slot.StartsAt,
+			EndsAt:    slot.EndsAt,
+			EventType: "cancelled",
+		}
+		// Detach from gRPC deadline so the Kafka write is not cancelled if
+		// the client disconnects after the DB commit.
+		sendCtx := context.WithoutCancel(ctx)
+		if err := s.eventSender.SendReminderEvent(sendCtx, reminderEvent); err != nil {
+			if s.logger != nil {
+				s.logger.Error(ctx, "failed to send lesson cancellation event",
+					zap.String("lesson_id", lesson.ID), zap.Error(err))
+			}
+		}
+	}
+
 	return convertrepoLessonToProto(lesson), nil
 }
 
