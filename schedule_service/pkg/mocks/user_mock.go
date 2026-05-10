@@ -67,3 +67,18 @@ func (mr *MockIUserClientMockRecorder) GetTutorStudent(ctx, tutorID, studentID a
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTutorStudent", reflect.TypeOf((*MockIUserClient)(nil).GetTutorStudent), ctx, tutorID, studentID)
 }
+
+// ResolveTutorStudentContext mocks base method.
+func (m *MockIUserClient) ResolveTutorStudentContext(ctx context.Context, tutorID, studentID string) (*api.ResolvedTutorStudentContext, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveTutorStudentContext", ctx, tutorID, studentID)
+	ret0, _ := ret[0].(*api.ResolvedTutorStudentContext)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResolveTutorStudentContext indicates an expected call of ResolveTutorStudentContext.
+func (mr *MockIUserClientMockRecorder) ResolveTutorStudentContext(ctx, tutorID, studentID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveTutorStudentContext", reflect.TypeOf((*MockIUserClient)(nil).ResolveTutorStudentContext), ctx, tutorID, studentID)
+}

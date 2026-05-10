@@ -24,6 +24,7 @@ import (
 type IUserClient interface {
 	Close()
 	GetTutorStudent(ctx context.Context, tutorID, studentID string) (*userpb.TutorStudent, error)
+	ResolveTutorStudentContext(ctx context.Context, tutorID, studentID string) (*userpb.ResolvedTutorStudentContext, error)
 }
 
 type UserClient struct {
@@ -53,6 +54,37 @@ func (c *UserClient) GetTutorStudent(ctx context.Context, tutorID, studentID str
 			StudentId: studentID,
 		})
 	})
+}
+
+func (c *UserClient) ResolveTutorStudentContext(ctx context.Context, tutorID, studentID string) (*userpb.ResolvedTutorStudentContext, error) {
+	return utils.RetryWithBackoff(ctx, 3, 100*time.Millisecond, func() (*userpb.ResolvedTutorStudentContext, error) {
+		return c.client.ResolveTutorStudentContext(ctx, &userpb.ResolveTutorStudentContextRequest{
+			TutorId:   tutorID,
+			StudentId: studentID,
+		})
+	})
+}
+
+// applyResolvedDefaults fills nil fields on proto from the resolved context,
+// implementing the documented precedence: lesson > tutor-student pair > tutor defaults.
+// user_service already merges pair-overrides on top of tutor defaults; this function
+// only fills lesson-level nils, so lesson-specific values always win.
+func applyResolvedDefaults(proto *pb.Lesson, resolved *userpb.ResolvedTutorStudentContext) {
+	if proto == nil || resolved == nil {
+		return
+	}
+	if proto.ConnectionLink == nil && resolved.LessonConnectionLink != nil {
+		v := *resolved.LessonConnectionLink
+		proto.ConnectionLink = &v
+	}
+	if proto.PriceRub == nil && resolved.LessonPriceRub != nil {
+		v := *resolved.LessonPriceRub
+		proto.PriceRub = &v
+	}
+	if proto.PaymentInfo == nil && resolved.PaymentInfo != nil {
+		v := *resolved.PaymentInfo
+		proto.PaymentInfo = &v
+	}
 }
 
 func convertrepoLessonToProto(lesson *repo.Lesson) *pb.Lesson {
