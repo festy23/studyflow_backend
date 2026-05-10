@@ -73,7 +73,7 @@ func main() {
 	fileClient := app.NewFileClient(fileGrpc)
 
 	assignmentService := service.NewAssignmentService(
-		*assignmentRepo,
+		assignmentRepo,
 		userClient,
 		fileClient,
 	)
