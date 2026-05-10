@@ -70,6 +70,12 @@ func (s *AssignmentService) CreateAssignment(ctx context.Context, req *domain.As
 		return nil, errors.New("not a tutor-student pair")
 	}
 
+	if req.FileID != nil && *req.FileID != uuid.Nil {
+		if err := s.fileClient.EnsureFileExists(ctx, *req.FileID); err != nil {
+			return nil, err
+		}
+	}
+
 	now := time.Now()
 	assignment := &domain.Assignment{
 		TutorID:     req.TutorID,
