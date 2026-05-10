@@ -2,6 +2,8 @@ package data
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -47,6 +49,9 @@ RETURNING id, tutor_id, student_id,
 func (r *TutorStudentRepository) UpdateTutorStudent(ctx context.Context, tutorId uuid.UUID, studentId uuid.UUID, input *model.UpdateTutorStudentInput) (*model.TutorStudent, error) {
 	query, args, err := buildUpdateTutorStudentQuery(input)
 	if err != nil {
+		if errors.Is(err, ErrNoFieldsToUpdate) {
+			return nil, fmt.Errorf("%w: %v", errdefs.ErrValidation, err)
+		}
 		return nil, err
 	}
 	args = append(args, tutorId, studentId)

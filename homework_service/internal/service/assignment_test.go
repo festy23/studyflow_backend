@@ -69,10 +69,19 @@ func (f *fakeUserClient) IsPair(ctx context.Context, tutorID, studentID uuid.UUI
 	return true, nil
 }
 
-type fakeFileClient struct{}
+type fakeFileClient struct {
+	ensure func(ctx context.Context, fileID uuid.UUID) error
+}
 
 func (fakeFileClient) GetFileURL(ctx context.Context, fileID uuid.UUID) (string, error) {
 	return "", nil
+}
+
+func (f fakeFileClient) EnsureFileExists(ctx context.Context, fileID uuid.UUID) error {
+	if f.ensure != nil {
+		return f.ensure(ctx, fileID)
+	}
+	return nil
 }
 
 func tutorCtx(userID string) context.Context {

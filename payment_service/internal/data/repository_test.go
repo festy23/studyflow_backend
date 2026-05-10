@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	pgxmock "github.com/pashagolub/pgxmock/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -88,6 +89,46 @@ func TestPaymentRepo_ExistsByID(t *testing.T) {
 	exists, err := repo.ExistsByID(ctx, id)
 	assert.NoError(t, err)
 	assert.True(t, exists)
+}
+
+// BUG-008: unique-violation on receipts.lesson_id must surface as ErrAlreadyExists.
+func TestPaymentRepo_CreateReceipt_UniqueViolation(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mockPool.Close()
+
+	repo := NewPaymentRepository(mockPool)
+	ctx := context.Background()
+	id := uuid.New()
+	lessonID := uuid.New()
+	fileID := uuid.New()
+
+	mockPool.ExpectQuery("INSERT INTO receipts").
+		WithArgs(id, lessonID, fileID, false, AnyTime{}, AnyTime{}).
+		WillReturnError(&pgconn.PgError{Code: "23505", ConstraintName: "receipts_lesson_id_unique"})
+
+	_, err = repo.CreateReceipt(ctx, &models.PaymentReceiptCreateInput{
+		ID: id, LessonID: lessonID, FileID: fileID, IsVerified: false,
+	})
+	assert.ErrorIs(t, err, errdefs.ErrAlreadyExists)
+}
+
+// BUG-030: UPDATE on a missing row must return ErrNotFound, not silent success.
+func TestPaymentRepo_UpdateReceipt_NotFoundWhenNoRows(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mockPool.Close()
+
+	repo := NewPaymentRepository(mockPool)
+	ctx := context.Background()
+	id := uuid.New()
+
+	mockPool.ExpectExec("UPDATE receipts SET is_verified").
+		WithArgs(true, AnyTime{}, id).
+		WillReturnResult(pgxmock.NewResult("UPDATE", 0))
+
+	_, err = repo.UpdateReceipt(ctx, id, true)
+	assert.ErrorIs(t, err, errdefs.ErrNotFound)
 }
 
 func TestPaymentRepo_GetReceiptByLessonID_NotFound(t *testing.T) {

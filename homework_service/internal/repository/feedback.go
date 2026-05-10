@@ -103,6 +103,26 @@ func (r *FeedbackRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 	return &feedback, nil
 }
 
+// HasFeedbackForAssignmentStudent reports whether any feedback exists for
+// some submission of (assignmentID, studentID). Used by submission service to
+// enforce the REVIEWED state machine (BUG-038/036).
+func (r *FeedbackRepository) HasFeedbackForAssignmentStudent(ctx context.Context, assignmentID, studentID uuid.UUID) (bool, error) {
+	const query = `
+		SELECT EXISTS (
+			SELECT 1
+			FROM feedbacks f
+			JOIN submissions s ON s.id = f.submission_id
+			JOIN assignments a ON a.id = s.assignment_id
+			WHERE a.id = $1 AND a.student_id = $2
+		)
+	`
+	var exists bool
+	if err := r.db.QueryRowContext(ctx, query, assignmentID, studentID).Scan(&exists); err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
 func (r *FeedbackRepository) ListByAssignment(ctx context.Context, assignmentId uuid.UUID) ([]*domain.Feedback, error) {
 	baseQuery := `
 		SELECT f.id, f.submission_id, f.file_id, f.comment, f.created_at, f.edited_at

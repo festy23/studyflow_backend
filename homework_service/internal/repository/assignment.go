@@ -130,11 +130,13 @@ FROM assignment_statuses WHERE 1=1
 
 func (r *AssignmentRepository) FindAssignmentsDueSoon(ctx context.Context, duration time.Duration) ([]*domain.Assignment, error) {
 	query := statusSubQuery + `
-		SELECT id, tutor_id, student_id, title, description, file_id, due_date,
-		       created_at, edited_at
-		FROM assignment_statuses
-		WHERE due_date BETWEEN NOW() AND $1
-		AND status NOT IN ('REVIEWED', 'OVERDUE')
+		SELECT ast.id, ast.tutor_id, ast.student_id, ast.title, ast.description,
+		       ast.file_id, ast.due_date, ast.created_at, ast.edited_at
+		FROM assignment_statuses ast
+		JOIN assignments araw ON araw.id = ast.id
+		WHERE ast.due_date BETWEEN NOW() AND $1
+		AND ast.status NOT IN ('REVIEWED', 'OVERDUE')
+		AND (araw.reminder_sent_at IS NULL OR araw.reminder_sent_at < NOW() - INTERVAL '1 day')
 	`
 
 	deadline := time.Now().Add(duration)
@@ -263,6 +265,18 @@ func (r *AssignmentRepository) GetByID(ctx context.Context, id uuid.UUID) (*doma
 	}
 
 	return &assignment, nil
+}
+
+// MarkReminderSent stamps the assignment with the current time so the
+// reminder worker (BUG-021) does not re-send the same notification on every
+// tick. The query is idempotent: callers may safely retry on transient errors.
+func (r *AssignmentRepository) MarkReminderSent(ctx context.Context, id uuid.UUID) error {
+	const query = `UPDATE assignments SET reminder_sent_at = NOW() WHERE id = $1`
+	_, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to mark reminder sent: %w", err)
+	}
+	return nil
 }
 
 func (r *AssignmentRepository) Delete(ctx context.Context, id uuid.UUID) error {

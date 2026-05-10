@@ -81,6 +81,7 @@ func main() {
 	submissionService := service.NewSubmissionService(
 		submissionRepo,
 		assignmentRepo,
+		feedbackRepo,
 		fileClient,
 	)
 
@@ -135,7 +136,7 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	reminderWorker := NewReminderWorker(*assignmentRepo, kafkaProducer, log)
+	reminderWorker := NewReminderWorker(assignmentRepo, kafkaProducer, log)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

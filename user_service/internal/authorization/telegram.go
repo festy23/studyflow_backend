@@ -37,7 +37,7 @@ func GetTelegramId(secret string, header string) (int64, error) {
 	}
 	now := time.Now().Unix()
 	var diffSeconds int64 = 5 * 60
-	if now-diffSeconds >= timestamp || timestamp >= now+diffSeconds {
+	if now-diffSeconds >= timestamp || timestamp > now+diffSeconds {
 		return 0, fmt.Errorf(
 			"authorization: timestamp expired %s: %w",
 			payload[1], errdefs.ErrAuthentication,

@@ -12,8 +12,10 @@ import (
 	"schedule_service/internal/database/postgres"
 	"schedule_service/internal/kafka"
 	service "schedule_service/internal/service/service"
+	"schedule_service/internal/worker"
 	pb "schedule_service/pkg/api"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -80,6 +82,17 @@ func main() {
 		}
 	}()
 
+	// Background worker: transition past 'booked' lessons to 'completed'.
+	completionInterval := cfg.LessonCompletionInterval
+	if completionInterval <= 0 {
+		completionInterval = 5 * time.Minute
+	}
+	completionWorker := worker.NewLessonCompletionWorker(database, completionInterval, logger)
+	var workerWg sync.WaitGroup
+	completionWorker.Start(ctx, &workerWg)
+	logger.Info(ctx, "lesson completion worker started",
+		zap.Duration("interval", completionInterval))
+
 	<-ctx.Done()
 
 	shutdownDone := make(chan struct{})
@@ -93,6 +106,9 @@ func main() {
 		logger.Info(ctx, "GracefulStop timed out, forcing Stop")
 		server.Stop()
 	}
+
+	// Wait for background worker to finish before closing resources it uses.
+	workerWg.Wait()
 
 	if err := eventSender.Close(); err != nil {
 		logger.Error(ctx, "failed to close event sender", zap.Error(err))

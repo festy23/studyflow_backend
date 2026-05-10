@@ -2,10 +2,13 @@ package data
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"userservice/internal/errdefs"
 	"userservice/internal/model"
 	"userservice/internal/service"
 )
@@ -47,6 +50,9 @@ WHERE id = $1
 func (r *UserRepository) UpdateUser(ctx context.Context, id uuid.UUID, input *model.UpdateUserInput) (*model.User, error) {
 	query, args, err := buildUserUpdateQuery(input)
 	if err != nil {
+		if errors.Is(err, ErrNoFieldsToUpdate) {
+			return nil, fmt.Errorf("%w: %v", errdefs.ErrValidation, err)
+		}
 		return nil, err
 	}
 	args = append(args, id)
@@ -80,6 +86,9 @@ WHERE user_id = $1
 func (r *UserRepository) UpdateTutorProfile(ctx context.Context, userId uuid.UUID, input *model.UpdateTutorProfileInput) (*model.TutorProfile, error) {
 	query, args, err := buildTutorProfileUpdateQuery(input)
 	if err != nil {
+		if errors.Is(err, ErrNoFieldsToUpdate) {
+			return nil, fmt.Errorf("%w: %v", errdefs.ErrValidation, err)
+		}
 		return nil, err
 	}
 	args = append(args, userId)
