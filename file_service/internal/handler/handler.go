@@ -1,16 +1,19 @@
 package handler
 
 import (
+	"common_library/logging"
 	"context"
 	"errors"
 	"fileservice/internal/errdefs"
 	"fileservice/internal/model"
 	pb "fileservice/pkg/api"
+	"slices"
+
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"slices"
 )
 
 type FileService interface {
@@ -31,7 +34,7 @@ func NewFileHandler(fileService FileService) *FileHandler {
 func (h *FileHandler) InitUpload(ctx context.Context, req *pb.InitUploadRequest) (*pb.InitUploadResponse, error) {
 	userId, err := uuid.Parse(req.UploadedBy)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	input := &model.InitUploadInput{
@@ -41,7 +44,7 @@ func (h *FileHandler) InitUpload(ctx context.Context, req *pb.InitUploadRequest)
 
 	resp, err := h.fileService.InitUpload(ctx, input)
 	if err != nil {
-		return nil, mapError(err, errdefs.ErrValidation)
+		return nil, mapError(ctx, err, errdefs.ErrValidation)
 	}
 
 	return toPbInitUpload(resp), nil
@@ -50,12 +53,12 @@ func (h *FileHandler) InitUpload(ctx context.Context, req *pb.InitUploadRequest)
 func (h *FileHandler) GenerateDownloadURL(ctx context.Context, req *pb.GenerateDownloadURLRequest) (*pb.DownloadURL, error) {
 	id, err := uuid.Parse(req.FileId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	resp, err := h.fileService.GenerateDownloadURL(ctx, id)
 	if err != nil {
-		return nil, mapError(err, errdefs.ErrNotFound)
+		return nil, mapError(ctx, err, errdefs.ErrNotFound, errdefs.ErrPermissionDenied)
 	}
 
 	return &pb.DownloadURL{Url: resp}, nil
@@ -64,12 +67,12 @@ func (h *FileHandler) GenerateDownloadURL(ctx context.Context, req *pb.GenerateD
 func (h *FileHandler) GetFileMeta(ctx context.Context, req *pb.GetFileMetaRequest) (*pb.File, error) {
 	id, err := uuid.Parse(req.FileId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	resp, err := h.fileService.GetFileMeta(ctx, id)
 	if err != nil {
-		return nil, mapError(err, errdefs.ErrNotFound)
+		return nil, mapError(ctx, err, errdefs.ErrNotFound, errdefs.ErrPermissionDenied)
 	}
 
 	return toPbFile(resp), nil
@@ -93,27 +96,33 @@ func toPbFile(file *model.File) *pb.File {
 	}
 }
 
-func mapError(err error, possibleErrors ...error) error {
+func mapError(ctx context.Context, err error, possibleErrors ...error) error {
 	switch {
 	case err == nil:
 		return nil
 
 	case errors.Is(err, errdefs.ErrAlreadyExists) && slices.Contains(possibleErrors, errdefs.ErrAlreadyExists):
-		return status.Error(codes.AlreadyExists, err.Error())
+		return status.Errorf(codes.AlreadyExists, "%v", err)
 
 	case errors.Is(err, errdefs.ErrValidation) && slices.Contains(possibleErrors, errdefs.ErrValidation):
-		return status.Error(codes.InvalidArgument, err.Error())
+		return status.Errorf(codes.InvalidArgument, "%v", err)
 
 	case errors.Is(err, errdefs.ErrAuthentication) && slices.Contains(possibleErrors, errdefs.ErrAuthentication):
-		return status.Error(codes.Unauthenticated, err.Error())
+		return status.Errorf(codes.Unauthenticated, "%v", err)
 
 	case errors.Is(err, errdefs.ErrNotFound) && slices.Contains(possibleErrors, errdefs.ErrNotFound):
-		return status.Error(codes.NotFound, err.Error())
+		return status.Errorf(codes.NotFound, "%v", err)
 
 	case errors.Is(err, errdefs.ErrPermissionDenied) && slices.Contains(possibleErrors, errdefs.ErrPermissionDenied):
-		return status.Error(codes.PermissionDenied, err.Error())
+		return status.Errorf(codes.PermissionDenied, "%v", err)
 
 	default:
-		return status.Error(codes.Internal, err.Error())
+		// Do not leak internal/AWS/S3 error strings to the client.
+		// Log the underlying error for operators and return a
+		// generic message on the wire.
+		if logger, ok := logging.GetFromContext(ctx); ok {
+			logger.Error(ctx, "internal error", zap.Error(err))
+		}
+		return status.Errorf(codes.Internal, "internal error")
 	}
 }
