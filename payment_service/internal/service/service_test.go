@@ -63,7 +63,7 @@ func studentCtxWithID(id string) context.Context {
 
 func TestSubmitPaymentReceipt(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		ctrl, svc, mockRepo, _, _, mockSchedule := setup(t)
+		ctrl, svc, mockRepo, _, mockFileClient, mockSchedule := setup(t)
 		defer ctrl.Finish()
 
 		lessonID := uuid.New()
@@ -78,6 +78,10 @@ func TestSubmitPaymentReceipt(t *testing.T) {
 				PriceRub:       proto.Int32(100),
 				PaymentInfo:    proto.String("info"),
 			}, nil)
+
+		// Validate file exists in file_service.
+		mockFileClient.EXPECT().GetFileMeta(gomock.Any(), &api2.GetFileMetaRequest{FileId: fileID.String()}).
+			Return(&api2.File{}, nil)
 
 		// Create receipt (now happens BEFORE marking as paid)
 		mockRepo.EXPECT().CreateReceipt(gomock.Any(), gomock.AssignableToTypeOf(&models.PaymentReceiptCreateInput{})).
@@ -128,11 +132,12 @@ func TestSubmitPaymentReceipt(t *testing.T) {
 	})
 
 	t.Run("Error_MarkAsPaid", func(t *testing.T) {
-		ctrl, svc, mockRepo, _, _, mockSchedule := setup(t)
+		ctrl, svc, mockRepo, _, mockFileClient, mockSchedule := setup(t)
 		defer ctrl.Finish()
 
 		// Get lesson unpaid
 		mockSchedule.EXPECT().GetLesson(gomock.Any(), gomock.Any()).Return(&api.Lesson{IsPaid: false}, nil)
+		mockFileClient.EXPECT().GetFileMeta(gomock.Any(), gomock.Any()).Return(&api2.File{}, nil)
 		// Create receipt succeeds
 		mockRepo.EXPECT().CreateReceipt(gomock.Any(), gomock.Any()).Return(&models.PaymentReceipt{}, nil)
 		// Fail to mark paid
@@ -144,11 +149,12 @@ func TestSubmitPaymentReceipt(t *testing.T) {
 	})
 
 	t.Run("Error_CreateReceipt", func(t *testing.T) {
-		ctrl, svc, mockRepo, _, _, mockSchedule := setup(t)
+		ctrl, svc, mockRepo, _, mockFileClient, mockSchedule := setup(t)
 		defer ctrl.Finish()
 
 		// Get lesson unpaid
 		mockSchedule.EXPECT().GetLesson(gomock.Any(), gomock.Any()).Return(&api.Lesson{IsPaid: false}, nil)
+		mockFileClient.EXPECT().GetFileMeta(gomock.Any(), gomock.Any()).Return(&api2.File{}, nil)
 		// DB error on create (non-retriable, returned as-is)
 		mockRepo.EXPECT().CreateReceipt(gomock.Any(), gomock.Any()).Return(nil, errors.New("db error"))
 
@@ -174,12 +180,13 @@ func TestSubmitPaymentReceipt(t *testing.T) {
 	})
 
 	t.Run("RetryLogic_SucceedsAfterRetries", func(t *testing.T) {
-		ctrl, svc, mockRepo, _, _, mockSchedule := setup(t)
+		ctrl, svc, mockRepo, _, mockFileClient, mockSchedule := setup(t)
 		defer ctrl.Finish()
 
 		lessonID := uuid.New()
 		// Get lesson unpaid
 		mockSchedule.EXPECT().GetLesson(gomock.Any(), gomock.Any()).Return(&api.Lesson{Id: lessonID.String(), IsPaid: false}, nil)
+		mockFileClient.EXPECT().GetFileMeta(gomock.Any(), gomock.Any()).Return(&api2.File{}, nil)
 
 		retriable := status.Error(codes.Unavailable, "unavailable")
 		mockRepo.EXPECT().CreateReceipt(gomock.Any(), gomock.Any()).Return(nil, retriable).Times(4)
@@ -191,6 +198,65 @@ func TestSubmitPaymentReceipt(t *testing.T) {
 		ctx := studentCtx()
 		_, err := svc.SubmitPaymentReceipt(ctx, &models.SubmitPaymentReceiptInput{LessonId: lessonID, FileId: uuid.New()})
 		assert.NoError(t, err)
+	})
+
+	// BUG-017: file_id must be validated against file_service before persisting.
+	t.Run("Error_UnknownFileID_InvalidArgument", func(t *testing.T) {
+		ctrl, svc, mockRepo, _, mockFileClient, mockSchedule := setup(t)
+		defer ctrl.Finish()
+
+		mockSchedule.EXPECT().GetLesson(gomock.Any(), gomock.Any()).Return(&api.Lesson{IsPaid: false}, nil)
+		mockFileClient.EXPECT().GetFileMeta(gomock.Any(), gomock.Any()).
+			Return(nil, status.Error(codes.NotFound, "file not found"))
+		// repo.CreateReceipt MUST NOT be called.
+		_ = mockRepo
+
+		ctx := studentCtx()
+		_, err := svc.SubmitPaymentReceipt(ctx, &models.SubmitPaymentReceiptInput{LessonId: uuid.New(), FileId: uuid.New()})
+		assert.True(t, errors.Is(err, errdefs.ErrInvalidArgument))
+	})
+
+	t.Run("Error_FilePermissionDenied", func(t *testing.T) {
+		ctrl, svc, _, _, mockFileClient, mockSchedule := setup(t)
+		defer ctrl.Finish()
+
+		mockSchedule.EXPECT().GetLesson(gomock.Any(), gomock.Any()).Return(&api.Lesson{IsPaid: false}, nil)
+		mockFileClient.EXPECT().GetFileMeta(gomock.Any(), gomock.Any()).
+			Return(nil, status.Error(codes.PermissionDenied, "not the uploader"))
+
+		ctx := studentCtx()
+		_, err := svc.SubmitPaymentReceipt(ctx, &models.SubmitPaymentReceiptInput{LessonId: uuid.New(), FileId: uuid.New()})
+		assert.True(t, errors.Is(err, errdefs.ErrPermissionDenied))
+	})
+
+	// BUG-008: concurrent duplicate submissions — second insert hits the UNIQUE
+	// constraint and the repo returns ErrAlreadyExists which the service surfaces.
+	t.Run("Error_DuplicateReceipt_UniqueViolation", func(t *testing.T) {
+		ctrl, svc, mockRepo, _, mockFileClient, mockSchedule := setup(t)
+		defer ctrl.Finish()
+
+		lessonID := uuid.New()
+		fileID := uuid.New()
+
+		// First submission succeeds.
+		mockSchedule.EXPECT().GetLesson(gomock.Any(), gomock.Any()).Return(&api.Lesson{Id: lessonID.String(), IsPaid: false}, nil)
+		mockFileClient.EXPECT().GetFileMeta(gomock.Any(), gomock.Any()).Return(&api2.File{}, nil)
+		mockRepo.EXPECT().CreateReceipt(gomock.Any(), gomock.Any()).
+			Return(&models.PaymentReceipt{ID: uuid.New(), LessonID: lessonID, FileID: fileID}, nil)
+		mockSchedule.EXPECT().MarkAsPaid(gomock.Any(), gomock.Any()).Return(&api.Lesson{IsPaid: true}, nil)
+
+		// Second submission races: lesson still appears unpaid (race window),
+		// repo INSERT hits unique constraint -> ErrAlreadyExists.
+		mockSchedule.EXPECT().GetLesson(gomock.Any(), gomock.Any()).Return(&api.Lesson{Id: lessonID.String(), IsPaid: false}, nil)
+		mockFileClient.EXPECT().GetFileMeta(gomock.Any(), gomock.Any()).Return(&api2.File{}, nil)
+		mockRepo.EXPECT().CreateReceipt(gomock.Any(), gomock.Any()).Return(nil, errdefs.ErrAlreadyExists)
+
+		ctx := studentCtx()
+		_, err := svc.SubmitPaymentReceipt(ctx, &models.SubmitPaymentReceiptInput{LessonId: lessonID, FileId: fileID})
+		assert.NoError(t, err)
+
+		_, err = svc.SubmitPaymentReceipt(ctx, &models.SubmitPaymentReceiptInput{LessonId: lessonID, FileId: fileID})
+		assert.True(t, errors.Is(err, errdefs.ErrAlreadyExists))
 	})
 }
 

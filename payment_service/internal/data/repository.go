@@ -73,9 +73,12 @@ func (r *PaymentRepo) GetReceiptByID(ctx context.Context, id uuid.UUID) (*models
 func (r *PaymentRepo) UpdateReceipt(ctx context.Context, id uuid.UUID, isVerified bool) (*models.PaymentReceipt, error) {
 	query := `UPDATE receipts SET is_verified = $1, edited_at = $2 WHERE id = $3`
 	now := time.Now()
-	_, err := r.db.Exec(ctx, query, isVerified, now, id)
+	cmdTag, err := r.db.Exec(ctx, query, isVerified, now, id)
 	if err != nil {
 		return nil, handleError(err)
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return nil, errdefs.ErrNotFound
 	}
 	return r.GetReceiptByID(ctx, id)
 }

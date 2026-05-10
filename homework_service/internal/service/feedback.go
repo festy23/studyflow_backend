@@ -19,6 +19,8 @@ var (
 	ErrAssignmentNotFound  = errors.New("assignment not found")
 	ErrPermissionDenied    = errors.New("permission denied")
 	ErrInvalidArgument     = errors.New("invalid argument")
+	ErrInvalidFileID       = errors.New("unknown or inaccessible file_id")
+	ErrAssignmentReviewed  = errors.New("assignment already reviewed")
 )
 
 type FeedbackServiceInterface interface {
@@ -30,16 +32,16 @@ type FeedbackServiceInterface interface {
 }
 
 type feedbackService struct {
-	feedbackRepo   *repository.FeedbackRepository
-	submissionRepo *repository.SubmissionRepository
-	assignmentRepo *repository.AssignmentRepository
+	feedbackRepo   FeedbackRepo
+	submissionRepo SubmissionRepo
+	assignmentRepo AssignmentRepo
 	fileClient     FileClient
 }
 
 func NewFeedbackService(
-	feedbackRepo *repository.FeedbackRepository,
-	submissionRepo *repository.SubmissionRepository,
-	assignmentRepo *repository.AssignmentRepository,
+	feedbackRepo FeedbackRepo,
+	submissionRepo SubmissionRepo,
+	assignmentRepo AssignmentRepo,
 	fileClient FileClient,
 ) FeedbackServiceInterface {
 	return &feedbackService{
@@ -75,6 +77,12 @@ func (s *feedbackService) CreateFeedback(ctx context.Context, feedback *domain.F
 	userID, ok := ctxdata.GetUserID(ctx)
 	if !ok || assignment.TutorID.String() != userID {
 		return nil, ErrPermissionDenied
+	}
+
+	if feedback.FileID != nil && *feedback.FileID != uuid.Nil {
+		if err := s.fileClient.EnsureFileExists(ctx, *feedback.FileID); err != nil {
+			return nil, err
+		}
 	}
 
 	now := time.Now()
@@ -127,6 +135,11 @@ func (s *feedbackService) UpdateFeedback(ctx context.Context, feedback *domain.F
 	}
 
 	if feedback.FileID != nil {
+		if *feedback.FileID != uuid.Nil {
+			if err := s.fileClient.EnsureFileExists(ctx, *feedback.FileID); err != nil {
+				return nil, err
+			}
+		}
 		existingFeedback.FileID = feedback.FileID
 	}
 
