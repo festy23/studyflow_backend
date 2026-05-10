@@ -102,6 +102,26 @@ func (mr *MockScheduleServiceClientMockRecorder) GetLesson(ctx, req any, opts ..
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLesson", reflect.TypeOf((*MockScheduleServiceClient)(nil).GetLesson), varargs...)
 }
 
+// GetSlot mocks base method.
+func (m *MockScheduleServiceClient) GetSlot(ctx context.Context, req *pkg.GetSlotRequest, opts ...grpc.CallOption) (*pkg.Slot, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, req}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetSlot", varargs...)
+	ret0, _ := ret[0].(*pkg.Slot)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSlot indicates an expected call of GetSlot.
+func (mr *MockScheduleServiceClientMockRecorder) GetSlot(ctx, req any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, req}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSlot", reflect.TypeOf((*MockScheduleServiceClient)(nil).GetSlot), varargs...)
+}
+
 // MarkAsPaid mocks base method.
 func (m *MockScheduleServiceClient) MarkAsPaid(ctx context.Context, req *pkg.MarkAsPaidRequest, opts ...grpc.CallOption) (*pkg.Lesson, error) {
 	m.ctrl.T.Helper()

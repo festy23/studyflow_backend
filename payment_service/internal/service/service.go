@@ -149,6 +149,62 @@ func (s *PaymentService) GetPaymentInfo(ctx context.Context, input *models.GetPa
 	}
 	return paymentInfo, nil
 }
+func (s *PaymentService) lookupLessonParticipants(ctx context.Context, lessonID uuid.UUID) (tutorID string, studentID string, err error) {
+	lesson, err := utils.RetryWithBackoff(ctx, maxRetries, retryDelay, func() (*api3.Lesson, error) {
+		return s.scheduleClient.GetLesson(ctxWithMetadata(ctx), &api3.GetLessonRequest{Id: lessonID.String()})
+	})
+	if err != nil {
+		return "", "", err
+	}
+	if lesson == nil {
+		return "", "", errdefs.ErrNotFound
+	}
+	slot, err := utils.RetryWithBackoff(ctx, maxRetries, retryDelay, func() (*api3.Slot, error) {
+		return s.scheduleClient.GetSlot(ctxWithMetadata(ctx), &api3.GetSlotRequest{Id: lesson.GetSlotId()})
+	})
+	if err != nil {
+		return "", "", err
+	}
+	if slot == nil {
+		return "", "", errdefs.ErrNotFound
+	}
+	return slot.GetTutorId(), lesson.GetStudentId(), nil
+}
+
+// assertCallerOwnsReceipt verifies the caller is either the tutor or student
+// associated with the receipt's lesson. Returns ErrPermissionDenied otherwise.
+func (s *PaymentService) assertCallerOwnsReceipt(ctx context.Context, receipt *models.PaymentReceipt) error {
+	callerID, ok := ctxdata.GetUserID(ctx)
+	if !ok || callerID == "" {
+		return errdefs.ErrPermissionDenied
+	}
+	tutorID, studentID, err := s.lookupLessonParticipants(ctx, receipt.LessonID)
+	if err != nil {
+		return err
+	}
+	if callerID != tutorID && callerID != studentID {
+		return errdefs.ErrPermissionDenied
+	}
+	return nil
+}
+
+// assertCallerIsTutorOfReceipt verifies the caller is the tutor of the
+// receipt's lesson. Returns ErrPermissionDenied otherwise.
+func (s *PaymentService) assertCallerIsTutorOfReceipt(ctx context.Context, receipt *models.PaymentReceipt) error {
+	callerID, ok := ctxdata.GetUserID(ctx)
+	if !ok || callerID == "" {
+		return errdefs.ErrPermissionDenied
+	}
+	tutorID, _, err := s.lookupLessonParticipants(ctx, receipt.LessonID)
+	if err != nil {
+		return err
+	}
+	if callerID != tutorID {
+		return errdefs.ErrPermissionDenied
+	}
+	return nil
+}
+
 func (s *PaymentService) GetReceipt(ctx context.Context, input *models.GetReceiptInput) (*models.PaymentReceipt, error) {
 	if input.ReceiptId == uuid.Nil {
 		return nil, errdefs.ErrInvalidArgument
@@ -158,6 +214,9 @@ func (s *PaymentService) GetReceipt(ctx context.Context, input *models.GetReceip
 		return s.repo.GetReceiptByID(ctxWithMetadata(ctx), input.ReceiptId)
 	})
 	if err != nil {
+		return nil, err
+	}
+	if err := s.assertCallerOwnsReceipt(ctx, receipt); err != nil {
 		return nil, err
 	}
 	return receipt, nil
@@ -170,8 +229,17 @@ func (s *PaymentService) VerifyReceipt(ctx context.Context, input *models.Verify
 	if input.ReceiptId == uuid.Nil {
 		return nil, errdefs.ErrInvalidArgument
 	}
+	existing, err := utils.RetryWithBackoff(ctx, maxRetries, retryDelay, func() (*models.PaymentReceipt, error) {
+		return s.repo.GetReceiptByID(ctxWithMetadata(ctx), input.ReceiptId)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := s.assertCallerIsTutorOfReceipt(ctx, existing); err != nil {
+		return nil, err
+	}
 	receipt, err := utils.RetryWithBackoff(ctx, maxRetries, retryDelay, func() (*models.PaymentReceipt, error) {
-		return s.repo.UpdateReceipt(ctx, input.ReceiptId, true)
+		return s.repo.UpdateReceipt(ctxWithMetadata(ctx), input.ReceiptId, true)
 	})
 	if err != nil {
 		return nil, err
@@ -184,9 +252,12 @@ func (s *PaymentService) GetReceiptFile(ctx context.Context, input *models.GetRe
 		return nil, errdefs.ErrInvalidArgument
 	}
 	receipt, err := utils.RetryWithBackoff[*models.PaymentReceipt](ctx, maxRetries, retryDelay, func() (*models.PaymentReceipt, error) {
-		return s.repo.GetReceiptByID(ctx, input.ReceiptId)
+		return s.repo.GetReceiptByID(ctxWithMetadata(ctx), input.ReceiptId)
 	})
 	if err != nil {
+		return nil, err
+	}
+	if err := s.assertCallerOwnsReceipt(ctx, receipt); err != nil {
 		return nil, err
 	}
 	generateDownloadURLRequest := &api2.GenerateDownloadURLRequest{FileId: receipt.FileID.String()}

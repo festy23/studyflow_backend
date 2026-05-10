@@ -47,6 +47,20 @@ func tutorCtx() context.Context {
 	return ctx
 }
 
+func tutorCtxWithID(id string) context.Context {
+	ctx := context.Background()
+	ctx = ctxdata.WithUserRole(ctx, string(models.RoleTutor))
+	ctx = ctxdata.WithUserID(ctx, id)
+	return ctx
+}
+
+func studentCtxWithID(id string) context.Context {
+	ctx := context.Background()
+	ctx = ctxdata.WithUserRole(ctx, string(models.RoleStudent))
+	ctx = ctxdata.WithUserID(ctx, id)
+	return ctx
+}
+
 func TestSubmitPaymentReceipt(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		ctrl, svc, mockRepo, _, _, mockSchedule := setup(t)
@@ -229,16 +243,19 @@ func TestGetPaymentInfo(t *testing.T) {
 }
 
 func TestGetReceipt(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		ctrl, svc, mockRepo, _, _, _ := setup(t)
+	t.Run("Success_Tutor", func(t *testing.T) {
+		ctrl, svc, mockRepo, _, _, mockSchedule := setup(t)
 		defer ctrl.Finish()
 
+		tutorID := uuid.New().String()
 		receiptID := uuid.New()
+		lessonID := uuid.New()
+		slotID := uuid.New().String()
 		input := &models.GetReceiptInput{ReceiptId: receiptID}
 
 		receipt := &models.PaymentReceipt{
 			ID:         receiptID,
-			LessonID:   uuid.New(),
+			LessonID:   lessonID,
 			FileID:     uuid.New(),
 			IsVerified: true,
 			CreatedAt:  time.Now(),
@@ -246,8 +263,12 @@ func TestGetReceipt(t *testing.T) {
 		}
 
 		mockRepo.EXPECT().GetReceiptByID(gomock.Any(), receiptID).Return(receipt, nil)
+		mockSchedule.EXPECT().GetLesson(gomock.Any(), &api.GetLessonRequest{Id: lessonID.String()}).
+			Return(&api.Lesson{Id: lessonID.String(), SlotId: slotID, StudentId: uuid.New().String()}, nil)
+		mockSchedule.EXPECT().GetSlot(gomock.Any(), &api.GetSlotRequest{Id: slotID}).
+			Return(&api.Slot{Id: slotID, TutorId: tutorID}, nil)
 
-		result, err := svc.GetReceipt(context.Background(), input)
+		result, err := svc.GetReceipt(tutorCtxWithID(tutorID), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -259,7 +280,7 @@ func TestGetReceipt(t *testing.T) {
 	t.Run("Error_InvalidInput", func(t *testing.T) {
 		_, svc, _, _, _, _ := setup(t)
 
-		_, err := svc.GetReceipt(context.Background(), &models.GetReceiptInput{})
+		_, err := svc.GetReceipt(tutorCtx(), &models.GetReceiptInput{})
 		if err == nil {
 			t.Fatal("expected error for empty receipt ID")
 		}
@@ -272,29 +293,54 @@ func TestGetReceipt(t *testing.T) {
 		receiptID := uuid.New()
 		mockRepo.EXPECT().GetReceiptByID(gomock.Any(), receiptID).Return(nil, errors.New("not found"))
 
-		_, err := svc.GetReceipt(context.Background(), &models.GetReceiptInput{ReceiptId: receiptID})
+		_, err := svc.GetReceipt(tutorCtx(), &models.GetReceiptInput{ReceiptId: receiptID})
 		if err == nil {
 			t.Fatal("expected error when receipt not found")
 		}
+	})
+
+	t.Run("Error_UnrelatedCaller_PermissionDenied", func(t *testing.T) {
+		ctrl, svc, mockRepo, _, _, mockSchedule := setup(t)
+		defer ctrl.Finish()
+
+		receiptID := uuid.New()
+		lessonID := uuid.New()
+		slotID := uuid.New().String()
+		receipt := &models.PaymentReceipt{ID: receiptID, LessonID: lessonID, FileID: uuid.New()}
+
+		mockRepo.EXPECT().GetReceiptByID(gomock.Any(), receiptID).Return(receipt, nil)
+		mockSchedule.EXPECT().GetLesson(gomock.Any(), gomock.Any()).
+			Return(&api.Lesson{Id: lessonID.String(), SlotId: slotID, StudentId: uuid.New().String()}, nil)
+		mockSchedule.EXPECT().GetSlot(gomock.Any(), gomock.Any()).
+			Return(&api.Slot{Id: slotID, TutorId: uuid.New().String()}, nil)
+
+		_, err := svc.GetReceipt(tutorCtxWithID(uuid.New().String()), &models.GetReceiptInput{ReceiptId: receiptID})
+		assert.True(t, errors.Is(err, errdefs.ErrPermissionDenied))
 	})
 }
 
 func TestVerifyReceipt(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		ctrl, svc, mockRepo, _, _, _ := setup(t)
+		ctrl, svc, mockRepo, _, _, mockSchedule := setup(t)
 		defer ctrl.Finish()
 
+		tutorID := uuid.New().String()
 		receiptID := uuid.New()
+		lessonID := uuid.New()
+		slotID := uuid.New().String()
 		input := &models.VerifyReceiptInput{ReceiptId: receiptID}
 
-		updatedReceipt := &models.PaymentReceipt{
-			ID:         receiptID,
-			IsVerified: true,
-		}
+		existing := &models.PaymentReceipt{ID: receiptID, LessonID: lessonID}
+		updatedReceipt := &models.PaymentReceipt{ID: receiptID, LessonID: lessonID, IsVerified: true}
 
+		mockRepo.EXPECT().GetReceiptByID(gomock.Any(), receiptID).Return(existing, nil)
+		mockSchedule.EXPECT().GetLesson(gomock.Any(), gomock.Any()).
+			Return(&api.Lesson{Id: lessonID.String(), SlotId: slotID, StudentId: uuid.New().String()}, nil)
+		mockSchedule.EXPECT().GetSlot(gomock.Any(), gomock.Any()).
+			Return(&api.Slot{Id: slotID, TutorId: tutorID}, nil)
 		mockRepo.EXPECT().UpdateReceipt(gomock.Any(), receiptID, true).Return(updatedReceipt, nil)
 
-		ctx := tutorCtx()
+		ctx := tutorCtxWithID(tutorID)
 		result, err := svc.VerifyReceipt(ctx, input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -319,7 +365,7 @@ func TestVerifyReceipt(t *testing.T) {
 		defer ctrl.Finish()
 
 		receiptID := uuid.New()
-		mockRepo.EXPECT().UpdateReceipt(gomock.Any(), receiptID, true).Return(nil, errors.New("not found"))
+		mockRepo.EXPECT().GetReceiptByID(gomock.Any(), receiptID).Return(nil, errors.New("not found"))
 
 		ctx := tutorCtx()
 		_, err := svc.VerifyReceipt(ctx, &models.VerifyReceiptInput{ReceiptId: receiptID})
@@ -343,31 +389,55 @@ func TestVerifyReceipt(t *testing.T) {
 		_, err := svc.VerifyReceipt(ctx, &models.VerifyReceiptInput{ReceiptId: uuid.New()})
 		assert.True(t, errors.Is(err, errdefs.ErrPermissionDenied))
 	})
+
+	// BUG-009: IDOR — tutor B must not verify tutor A's receipt
+	t.Run("Error_IDOR_OtherTutorDenied", func(t *testing.T) {
+		ctrl, svc, mockRepo, _, _, mockSchedule := setup(t)
+		defer ctrl.Finish()
+
+		tutorA := uuid.New().String()
+		tutorB := uuid.New().String()
+		receiptID := uuid.New()
+		lessonID := uuid.New()
+		slotID := uuid.New().String()
+
+		existing := &models.PaymentReceipt{ID: receiptID, LessonID: lessonID}
+		mockRepo.EXPECT().GetReceiptByID(gomock.Any(), receiptID).Return(existing, nil)
+		mockSchedule.EXPECT().GetLesson(gomock.Any(), gomock.Any()).
+			Return(&api.Lesson{Id: lessonID.String(), SlotId: slotID, StudentId: uuid.New().String()}, nil)
+		mockSchedule.EXPECT().GetSlot(gomock.Any(), gomock.Any()).
+			Return(&api.Slot{Id: slotID, TutorId: tutorA}, nil)
+		// repo.UpdateReceipt MUST NOT be called.
+
+		_, err := svc.VerifyReceipt(tutorCtxWithID(tutorB), &models.VerifyReceiptInput{ReceiptId: receiptID})
+		assert.True(t, errors.Is(err, errdefs.ErrPermissionDenied))
+	})
 }
 
 func TestGetReceiptFile(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		ctrl, svc, mockRepo, _, mockFileClient, _ := setup(t)
+	t.Run("Success_Student", func(t *testing.T) {
+		ctrl, svc, mockRepo, _, mockFileClient, mockSchedule := setup(t)
 		defer ctrl.Finish()
 
+		studentID := uuid.New().String()
 		receiptID := uuid.New()
 		fileID := uuid.New()
+		lessonID := uuid.New()
+		slotID := uuid.New().String()
 		input := &models.GetReceiptFileInput{ReceiptId: receiptID}
 
-		receipt := &models.PaymentReceipt{
-			ID:         receiptID,
-			FileID:     fileID,
-			IsVerified: true,
-		}
+		receipt := &models.PaymentReceipt{ID: receiptID, LessonID: lessonID, FileID: fileID, IsVerified: true}
 
 		mockRepo.EXPECT().GetReceiptByID(gomock.Any(), receiptID).Return(receipt, nil)
+		mockSchedule.EXPECT().GetLesson(gomock.Any(), gomock.Any()).
+			Return(&api.Lesson{Id: lessonID.String(), SlotId: slotID, StudentId: studentID}, nil)
+		mockSchedule.EXPECT().GetSlot(gomock.Any(), gomock.Any()).
+			Return(&api.Slot{Id: slotID, TutorId: uuid.New().String()}, nil)
 		mockFileClient.EXPECT().GenerateDownloadURL(gomock.Any(), &api2.GenerateDownloadURLRequest{
 			FileId: fileID.String(),
-		}).Return(&api2.DownloadURL{
-			Url: "https://storage.example.com/file123",
-		}, nil)
+		}).Return(&api2.DownloadURL{Url: "https://storage.example.com/file123"}, nil)
 
-		result, err := svc.GetReceiptFile(context.Background(), input)
+		result, err := svc.GetReceiptFile(studentCtxWithID(studentID), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -379,7 +449,7 @@ func TestGetReceiptFile(t *testing.T) {
 	t.Run("Error_InvalidInput", func(t *testing.T) {
 		_, svc, _, _, _, _ := setup(t)
 
-		_, err := svc.GetReceiptFile(context.Background(), &models.GetReceiptFileInput{})
+		_, err := svc.GetReceiptFile(tutorCtx(), &models.GetReceiptFileInput{})
 		if err == nil {
 			t.Fatal("expected error for empty receipt ID")
 		}
@@ -393,30 +463,52 @@ func TestGetReceiptFile(t *testing.T) {
 			GetReceiptByID(gomock.Any(), gomock.Any()).
 			Return(nil, errors.New("not found"))
 
-		_, err := svc.GetReceiptFile(context.Background(), &models.GetReceiptFileInput{ReceiptId: uuid.New()})
+		_, err := svc.GetReceiptFile(tutorCtx(), &models.GetReceiptFileInput{ReceiptId: uuid.New()})
 		if err == nil {
 			t.Fatal("expected error when receipt missing")
 		}
 	})
 
 	t.Run("Error_FileServiceUnavailable", func(t *testing.T) {
-		ctrl, svc, mockRepo, _, mockFileClient, _ := setup(t)
+		ctrl, svc, mockRepo, _, mockFileClient, mockSchedule := setup(t)
 		defer ctrl.Finish()
 
+		tutorID := uuid.New().String()
 		receiptID := uuid.New()
 		fileID := uuid.New()
-		receipt := &models.PaymentReceipt{
-			ID:         receiptID,
-			FileID:     fileID,
-			IsVerified: true,
-		}
+		lessonID := uuid.New()
+		slotID := uuid.New().String()
+		receipt := &models.PaymentReceipt{ID: receiptID, LessonID: lessonID, FileID: fileID, IsVerified: true}
 
 		mockRepo.EXPECT().GetReceiptByID(gomock.Any(), receiptID).Return(receipt, nil)
+		mockSchedule.EXPECT().GetLesson(gomock.Any(), gomock.Any()).
+			Return(&api.Lesson{Id: lessonID.String(), SlotId: slotID, StudentId: uuid.New().String()}, nil)
+		mockSchedule.EXPECT().GetSlot(gomock.Any(), gomock.Any()).
+			Return(&api.Slot{Id: slotID, TutorId: tutorID}, nil)
 		mockFileClient.EXPECT().GenerateDownloadURL(gomock.Any(), gomock.Any()).Return(nil, errors.New("service unavailable"))
 
-		_, err := svc.GetReceiptFile(context.Background(), &models.GetReceiptFileInput{ReceiptId: receiptID})
+		_, err := svc.GetReceiptFile(tutorCtxWithID(tutorID), &models.GetReceiptFileInput{ReceiptId: receiptID})
 		if err == nil {
 			t.Fatal("expected error when file service unavailable")
 		}
+	})
+
+	t.Run("Error_UnrelatedCaller_PermissionDenied", func(t *testing.T) {
+		ctrl, svc, mockRepo, _, _, mockSchedule := setup(t)
+		defer ctrl.Finish()
+
+		receiptID := uuid.New()
+		lessonID := uuid.New()
+		slotID := uuid.New().String()
+		receipt := &models.PaymentReceipt{ID: receiptID, LessonID: lessonID, FileID: uuid.New()}
+
+		mockRepo.EXPECT().GetReceiptByID(gomock.Any(), receiptID).Return(receipt, nil)
+		mockSchedule.EXPECT().GetLesson(gomock.Any(), gomock.Any()).
+			Return(&api.Lesson{Id: lessonID.String(), SlotId: slotID, StudentId: uuid.New().String()}, nil)
+		mockSchedule.EXPECT().GetSlot(gomock.Any(), gomock.Any()).
+			Return(&api.Slot{Id: slotID, TutorId: uuid.New().String()}, nil)
+
+		_, err := svc.GetReceiptFile(tutorCtxWithID(uuid.New().String()), &models.GetReceiptFileInput{ReceiptId: receiptID})
+		assert.True(t, errors.Is(err, errdefs.ErrPermissionDenied))
 	})
 }
