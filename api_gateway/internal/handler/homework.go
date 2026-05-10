@@ -1,14 +1,24 @@
 package handler
 
 import (
+	"common_library/logging"
 	"context"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 	homeworkpb "homework_service/pkg/api"
 )
+
+// handlerInitError writes a 500 and logs when Handle returns nil + err.
+func handlerInitError(w http.ResponseWriter, r *http.Request, err error) {
+	if logger, ok := logging.GetFromContext(r.Context()); ok {
+		logger.Error(r.Context(), "failed to construct handler", zap.Error(err))
+	}
+	http.Error(w, "internal server error", http.StatusInternalServerError)
+}
 
 type contextKey string
 
@@ -122,13 +132,25 @@ func (h *HomeworkHandler) ListAssignments(w http.ResponseWriter, r *http.Request
 
 	switch x := req.(type) {
 	case *homeworkpb.ListAssignmentsByTutorRequest:
-		handler, _ := Handle[homeworkpb.ListAssignmentsByTutorRequest, homeworkpb.ListAssignmentsResponse](h.c.ListAssignmentsByTutor, nil, false)
+		handler, herr := Handle[homeworkpb.ListAssignmentsByTutorRequest, homeworkpb.ListAssignmentsResponse](h.c.ListAssignmentsByTutor, nil, false)
+		if herr != nil {
+			handlerInitError(w, r, herr)
+			return
+		}
 		handler(w, r.WithContext(context.WithValue(ctx, contextKey("req"), x)))
 	case *homeworkpb.ListAssignmentsByStudentRequest:
-		handler, _ := Handle[homeworkpb.ListAssignmentsByStudentRequest, homeworkpb.ListAssignmentsResponse](h.c.ListAssignmentsByStudent, nil, false)
+		handler, herr := Handle[homeworkpb.ListAssignmentsByStudentRequest, homeworkpb.ListAssignmentsResponse](h.c.ListAssignmentsByStudent, nil, false)
+		if herr != nil {
+			handlerInitError(w, r, herr)
+			return
+		}
 		handler(w, r.WithContext(context.WithValue(ctx, contextKey("req"), x)))
 	case *homeworkpb.ListAssignmentsByPairRequest:
-		handler, _ := Handle[homeworkpb.ListAssignmentsByPairRequest, homeworkpb.ListAssignmentsResponse](h.c.ListAssignmentsByPair, nil, false)
+		handler, herr := Handle[homeworkpb.ListAssignmentsByPairRequest, homeworkpb.ListAssignmentsResponse](h.c.ListAssignmentsByPair, nil, false)
+		if herr != nil {
+			handlerInitError(w, r, herr)
+			return
+		}
 		handler(w, r.WithContext(context.WithValue(ctx, contextKey("req"), x)))
 	default:
 		http.Error(w, "invalid query", http.StatusBadRequest)
@@ -136,7 +158,7 @@ func (h *HomeworkHandler) ListAssignments(w http.ResponseWriter, r *http.Request
 }
 
 func (h *HomeworkHandler) UpdateAssignment(w http.ResponseWriter, r *http.Request) {
-	handler, _ := Handle[homeworkpb.UpdateAssignmentRequest, homeworkpb.Assignment](h.c.UpdateAssignment, func(ctx context.Context, r *http.Request, req *homeworkpb.UpdateAssignmentRequest) error {
+	handler, err := Handle[homeworkpb.UpdateAssignmentRequest, homeworkpb.Assignment](h.c.UpdateAssignment, func(ctx context.Context, r *http.Request, req *homeworkpb.UpdateAssignmentRequest) error {
 		id, err := parsePathParam(r, "id")
 		if err != nil {
 			return err
@@ -144,11 +166,15 @@ func (h *HomeworkHandler) UpdateAssignment(w http.ResponseWriter, r *http.Reques
 		req.Id = id
 		return nil
 	}, true)
+	if err != nil {
+		handlerInitError(w, r, err)
+		return
+	}
 	handler(w, r)
 }
 
 func (h *HomeworkHandler) DeleteAssignment(w http.ResponseWriter, r *http.Request) {
-	handler, _ := Handle[homeworkpb.DeleteAssignmentRequest, homeworkpb.Empty](h.c.DeleteAssignment, func(ctx context.Context, r *http.Request, req *homeworkpb.DeleteAssignmentRequest) error {
+	handler, err := Handle[homeworkpb.DeleteAssignmentRequest, homeworkpb.Empty](h.c.DeleteAssignment, func(ctx context.Context, r *http.Request, req *homeworkpb.DeleteAssignmentRequest) error {
 		id, err := parsePathParam(r, "id")
 		if err != nil {
 			return err
@@ -156,16 +182,24 @@ func (h *HomeworkHandler) DeleteAssignment(w http.ResponseWriter, r *http.Reques
 		req.AssignmentId = id
 		return nil
 	}, false)
+	if err != nil {
+		handlerInitError(w, r, err)
+		return
+	}
 	handler(w, r)
 }
 
 func (h *HomeworkHandler) GetAssignmentFile(w http.ResponseWriter, r *http.Request) {
-	handler, _ := Handle[homeworkpb.GetAssignmentFileRequest, homeworkpb.HomeworkFileURL](h.c.GetAssignmentFile, parseAssignmentID, false)
+	handler, err := Handle[homeworkpb.GetAssignmentFileRequest, homeworkpb.HomeworkFileURL](h.c.GetAssignmentFile, parseAssignmentID, false)
+	if err != nil {
+		handlerInitError(w, r, err)
+		return
+	}
 	handler(w, r)
 }
 
 func (h *HomeworkHandler) ListSubmissions(w http.ResponseWriter, r *http.Request) {
-	handler, _ := Handle[homeworkpb.ListSubmissionsByAssignmentRequest, homeworkpb.ListSubmissionsResponse](h.c.ListSubmissionsByAssignment, func(ctx context.Context, r *http.Request, req *homeworkpb.ListSubmissionsByAssignmentRequest) error {
+	handler, err := Handle[homeworkpb.ListSubmissionsByAssignmentRequest, homeworkpb.ListSubmissionsResponse](h.c.ListSubmissionsByAssignment, func(ctx context.Context, r *http.Request, req *homeworkpb.ListSubmissionsByAssignmentRequest) error {
 		id, err := parsePathParam(r, "assignment_id")
 		if err != nil {
 			return err
@@ -173,26 +207,42 @@ func (h *HomeworkHandler) ListSubmissions(w http.ResponseWriter, r *http.Request
 		req.AssignmentId = id
 		return nil
 	}, false)
+	if err != nil {
+		handlerInitError(w, r, err)
+		return
+	}
 	handler(w, r)
 }
 
 func (h *HomeworkHandler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
-	handler, _ := Handle[homeworkpb.CreateSubmissionRequest, homeworkpb.Submission](h.c.CreateSubmission, nil, true)
+	handler, err := Handle[homeworkpb.CreateSubmissionRequest, homeworkpb.Submission](h.c.CreateSubmission, nil, true)
+	if err != nil {
+		handlerInitError(w, r, err)
+		return
+	}
 	handler(w, r)
 }
 
 func (h *HomeworkHandler) GetSubmissionFile(w http.ResponseWriter, r *http.Request) {
-	handler, _ := Handle[homeworkpb.GetSubmissionFileRequest, homeworkpb.HomeworkFileURL](h.c.GetSubmissionFile, parseSubmissionID, false)
+	handler, err := Handle[homeworkpb.GetSubmissionFileRequest, homeworkpb.HomeworkFileURL](h.c.GetSubmissionFile, parseSubmissionID, false)
+	if err != nil {
+		handlerInitError(w, r, err)
+		return
+	}
 	handler(w, r)
 }
 
 func (h *HomeworkHandler) CreateFeedback(w http.ResponseWriter, r *http.Request) {
-	handler, _ := Handle[homeworkpb.CreateFeedbackRequest, homeworkpb.Feedback](h.c.CreateFeedback, nil, true)
+	handler, err := Handle[homeworkpb.CreateFeedbackRequest, homeworkpb.Feedback](h.c.CreateFeedback, nil, true)
+	if err != nil {
+		handlerInitError(w, r, err)
+		return
+	}
 	handler(w, r)
 }
 
 func (h *HomeworkHandler) UpdateFeedback(w http.ResponseWriter, r *http.Request) {
-	handler, _ := Handle[homeworkpb.UpdateFeedbackRequest, homeworkpb.Feedback](h.c.UpdateFeedback, func(ctx context.Context, r *http.Request, req *homeworkpb.UpdateFeedbackRequest) error {
+	handler, err := Handle[homeworkpb.UpdateFeedbackRequest, homeworkpb.Feedback](h.c.UpdateFeedback, func(ctx context.Context, r *http.Request, req *homeworkpb.UpdateFeedbackRequest) error {
 		id, err := parsePathParam(r, "id")
 		if err != nil {
 			return err
@@ -200,11 +250,15 @@ func (h *HomeworkHandler) UpdateFeedback(w http.ResponseWriter, r *http.Request)
 		req.Id = id
 		return nil
 	}, true)
+	if err != nil {
+		handlerInitError(w, r, err)
+		return
+	}
 	handler(w, r)
 }
 
 func (h *HomeworkHandler) ListFeedbacks(w http.ResponseWriter, r *http.Request) {
-	handler, _ := Handle[homeworkpb.ListFeedbacksByAssignmentRequest, homeworkpb.ListFeedbacksResponse](h.c.ListFeedbacksByAssignment, func(ctx context.Context, r *http.Request, req *homeworkpb.ListFeedbacksByAssignmentRequest) error {
+	handler, err := Handle[homeworkpb.ListFeedbacksByAssignmentRequest, homeworkpb.ListFeedbacksResponse](h.c.ListFeedbacksByAssignment, func(ctx context.Context, r *http.Request, req *homeworkpb.ListFeedbacksByAssignmentRequest) error {
 		id, err := parsePathParam(r, "assignment_id")
 		if err != nil {
 			return err
@@ -212,10 +266,18 @@ func (h *HomeworkHandler) ListFeedbacks(w http.ResponseWriter, r *http.Request) 
 		req.AssignmentId = id
 		return nil
 	}, false)
+	if err != nil {
+		handlerInitError(w, r, err)
+		return
+	}
 	handler(w, r)
 }
 
 func (h *HomeworkHandler) GetFeedbackFile(w http.ResponseWriter, r *http.Request) {
-	handler, _ := Handle[homeworkpb.GetFeedbackFileRequest, homeworkpb.HomeworkFileURL](h.c.GetFeedbackFile, parseFeedbackID, false)
+	handler, err := Handle[homeworkpb.GetFeedbackFileRequest, homeworkpb.HomeworkFileURL](h.c.GetFeedbackFile, parseFeedbackID, false)
+	if err != nil {
+		handlerInitError(w, r, err)
+		return
+	}
 	handler(w, r)
 }
