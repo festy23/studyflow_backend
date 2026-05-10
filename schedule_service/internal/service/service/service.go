@@ -534,6 +534,10 @@ func (s *ScheduleServer) ListLessonsByStudent(ctx context.Context, req *pb.ListL
 		return nil, StatusUnauthenticated
 	}
 
+	if err := uuid.Validate(req.StudentId); err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid ID")
+	}
+
 	if req.StudentId != userID {
 		return nil, StatusPermissionDenied
 	}
@@ -549,9 +553,6 @@ func (s *ScheduleServer) ListLessonsByStudent(ctx context.Context, req *pb.ListL
 			statusFilters = append(statusFilters, "completed")
 		}
 	}
-	if err := uuid.Validate(req.StudentId); err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid ID")
-	}
 
 	lessons, err := s.db.ListLessonsByStudent(ctx, req.StudentId, statusFilters)
 	if err != nil {
@@ -565,6 +566,13 @@ func (s *ScheduleServer) ListLessonsByPair(ctx context.Context, req *pb.ListLess
 	userID, ok := ctxdata.GetUserID(ctx)
 	if !ok {
 		return nil, StatusUnauthenticated
+	}
+
+	if err := uuid.Validate(req.TutorId); err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid ID")
+	}
+	if err := uuid.Validate(req.StudentId); err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid ID")
 	}
 
 	if req.TutorId != userID && req.StudentId != userID {
@@ -589,12 +597,6 @@ func (s *ScheduleServer) ListLessonsByPair(ctx context.Context, req *pb.ListLess
 		case pb.LessonStatusFilter_COMPLETED:
 			statusFilters = append(statusFilters, "completed")
 		}
-	}
-	if err := uuid.Validate(req.TutorId); err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid ID")
-	}
-	if err := uuid.Validate(req.StudentId); err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid ID")
 	}
 
 	lessons, err := s.db.ListLessonsByPair(ctx, req.TutorId, req.StudentId, statusFilters)
@@ -625,7 +627,7 @@ func (s *ScheduleServer) ListCompletedUnpaidLessons(ctx context.Context, req *pb
 		after = &t
 	}
 
-	lessons, err := s.db.ListCompletedUnpaidLessons(ctx, after)
+	lessons, err := s.db.ListCompletedUnpaidLessons(ctx, userID, after)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list completed unpaid lessons")
 	}
@@ -634,7 +636,7 @@ func (s *ScheduleServer) ListCompletedUnpaidLessons(ctx context.Context, req *pb
 }
 
 func (s *ScheduleServer) MarkAsPaid(ctx context.Context, req *pb.MarkAsPaidRequest) (*pb.Lesson, error) {
-	_, ok := ctxdata.GetUserID(ctx)
+	userID, ok := ctxdata.GetUserID(ctx)
 	if !ok {
 		return nil, StatusUnauthenticated
 	}
@@ -649,6 +651,15 @@ func (s *ScheduleServer) MarkAsPaid(ctx context.Context, req *pb.MarkAsPaidReque
 			return nil, StatusNotFound
 		}
 		return nil, StatusInternalError
+	}
+
+	slot, err := s.db.GetSlot(ctx, lesson.SlotID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to get slot information")
+	}
+
+	if userID != slot.TutorID && userID != lesson.StudentID {
+		return nil, StatusPermissionDenied
 	}
 
 	if err := s.db.MarkAsPaid(ctx, lesson.ID); err != nil {

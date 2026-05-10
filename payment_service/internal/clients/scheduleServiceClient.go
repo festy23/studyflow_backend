@@ -10,6 +10,7 @@ import (
 
 type ScheduleServiceClient interface {
 	GetLesson(ctx context.Context, req *api3.GetLessonRequest, opts ...grpc.CallOption) (*api3.Lesson, error)
+	GetSlot(ctx context.Context, req *api3.GetSlotRequest, opts ...grpc.CallOption) (*api3.Slot, error)
 	CreateLesson(ctx context.Context, req *api3.CreateLessonRequest, opts ...grpc.CallOption) (*api3.Lesson, error)
 	UpdateLesson(ctx context.Context, req *api3.UpdateLessonRequest, opts ...grpc.CallOption) (*api3.Lesson, error)
 	CancelLesson(ctx context.Context, req *api3.CancelLessonRequest, opts ...grpc.CallOption) (*api3.Lesson, error)

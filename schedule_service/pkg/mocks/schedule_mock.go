@@ -129,18 +129,18 @@ func (mr *MockRepositoryMockRecorder) GetSlot(ctx, id any) *gomock.Call {
 }
 
 // ListCompletedUnpaidLessons mocks base method.
-func (m *MockRepository) ListCompletedUnpaidLessons(ctx context.Context, after *time.Time) ([]repo.Lesson, error) {
+func (m *MockRepository) ListCompletedUnpaidLessons(ctx context.Context, tutorID string, after *time.Time) ([]repo.Lesson, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListCompletedUnpaidLessons", ctx, after)
+	ret := m.ctrl.Call(m, "ListCompletedUnpaidLessons", ctx, tutorID, after)
 	ret0, _ := ret[0].([]repo.Lesson)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListCompletedUnpaidLessons indicates an expected call of ListCompletedUnpaidLessons.
-func (mr *MockRepositoryMockRecorder) ListCompletedUnpaidLessons(ctx, after any) *gomock.Call {
+func (mr *MockRepositoryMockRecorder) ListCompletedUnpaidLessons(ctx, tutorID, after any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCompletedUnpaidLessons", reflect.TypeOf((*MockRepository)(nil).ListCompletedUnpaidLessons), ctx, after)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCompletedUnpaidLessons", reflect.TypeOf((*MockRepository)(nil).ListCompletedUnpaidLessons), ctx, tutorID, after)
 }
 
 // ListLessonsByPair mocks base method.

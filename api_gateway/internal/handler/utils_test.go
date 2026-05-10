@@ -848,4 +848,36 @@ func TestProxyToMinio(t *testing.T) {
 		handler(w, r)
 		// The URL host check will catch redirect attempts
 	})
+
+	// BUG-004: auth headers must not leak to MinIO. Only Content-Type and
+	// Content-Length are forwarded.
+	t.Run("WhitelistsHeadersToMinio", func(t *testing.T) {
+		var gotHeaders http.Header
+		upstream := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, req *http.Request) {
+			gotHeaders = req.Header.Clone()
+		}))
+		defer upstream.Close()
+
+		fh := NewFileHandler(nil, upstream.URL)
+		handler := fh.proxyToMinio("PUT", "/files/upload")
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPut, "/files/upload/obj?x=1", strings.NewReader("payload"))
+		r.Header.Set("Authorization", "Bearer leak-me")
+		r.Header.Set("X-User-Id", "user-1")
+		r.Header.Set("X-User-Role", "tutor")
+		r.Header.Set("X-Trace-Id", "trace-1")
+		r.Header.Set("Cookie", "session=abc")
+		r.Header.Set("Content-Type", "application/octet-stream")
+		r.Header.Set("Content-Length", "7")
+
+		handler(w, r)
+
+		assert.Empty(t, gotHeaders.Get("Authorization"))
+		assert.Empty(t, gotHeaders.Get("X-User-Id"))
+		assert.Empty(t, gotHeaders.Get("X-User-Role"))
+		assert.Empty(t, gotHeaders.Get("X-Trace-Id"))
+		assert.Empty(t, gotHeaders.Get("Cookie"))
+		assert.Equal(t, "application/octet-stream", gotHeaders.Get("Content-Type"))
+	})
 }
