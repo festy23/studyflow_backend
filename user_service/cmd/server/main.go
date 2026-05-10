@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 	"userservice/internal/config"
 	"userservice/internal/data"
 	"userservice/internal/db"
@@ -55,6 +56,7 @@ func main() {
 	}
 
 	server := grpc.NewServer(
+		grpc.MaxRecvMsgSize(1<<20),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 			metadata.NewMetadataUnaryInterceptor(),
 			logging.NewUnaryLoggingInterceptor(logger),
@@ -71,6 +73,18 @@ func main() {
 	}()
 
 	<-ctx.Done()
-	server.Stop()
+
+	shutdownDone := make(chan struct{})
+	go func() {
+		server.GracefulStop()
+		close(shutdownDone)
+	}()
+	select {
+	case <-shutdownDone:
+	case <-time.After(30 * time.Second):
+		logger.Info(ctx, "GracefulStop timed out, forcing Stop")
+		server.Stop()
+	}
+
 	logger.Info(ctx, "Server Stopped")
 }
