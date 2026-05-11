@@ -19,6 +19,7 @@ func NewPaymentHandler(c paymentpb.PaymentServiceClient) *PaymentHandler {
 func (h *PaymentHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
 	r.With(authMiddleware).Group(func(r chi.Router) {
 		r.Get("/info/{lesson_id}", h.GetPaymentInfo)
+		r.Get("/receipts", h.ListReceipts)
 		r.Post("/receipts", h.SubmitReceipt)
 		r.Get("/receipts/{id}", h.GetReceipt)
 		r.Post("/receipts/{id}/verify", h.VerifyReceipt)
@@ -50,6 +51,16 @@ func parseVerifyReceipt(ctx context.Context, r *http.Request, req *paymentpb.Ver
 		return err
 	}
 	req.ReceiptId = id
+	return nil
+}
+
+func parseListReceipts(ctx context.Context, r *http.Request, req *paymentpb.ListReceiptsRequest) error {
+	if tutorID := r.URL.Query().Get("tutor_id"); tutorID != "" {
+		req.TutorId = &tutorID
+	}
+	if studentID := r.URL.Query().Get("student_id"); studentID != "" {
+		req.StudentId = &studentID
+	}
 	return nil
 }
 
@@ -96,6 +107,14 @@ func (h *PaymentHandler) VerifyReceipt(w http.ResponseWriter, r *http.Request) {
 
 func (h *PaymentHandler) GetReceiptFile(w http.ResponseWriter, r *http.Request) {
 	handler, err := Handle[paymentpb.GetReceiptFileRequest, paymentpb.ReceiptFileURL](h.c.GetReceiptFile, parseGetReceiptFile, false)
+	if err != nil {
+		panic(err)
+	}
+	handler(w, r)
+}
+
+func (h *PaymentHandler) ListReceipts(w http.ResponseWriter, r *http.Request) {
+	handler, err := Handle[paymentpb.ListReceiptsRequest, paymentpb.ListReceiptsResponse](h.c.ListReceipts, parseListReceipts, false)
 	if err != nil {
 		panic(err)
 	}
