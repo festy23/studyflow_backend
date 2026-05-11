@@ -2,7 +2,31 @@ openapi: 3.0.3
 info:
   title: StudyFlow API
   version: 1.0.0
+
+  security:
+    - telegramAuth: []
+
 components:
+  securitySchemes:
+    telegramAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: |
+        Two formats supported:
+
+        **1. Telegram Mini App initData (production):**
+        `tma <initData from Telegram.WebApp.initData>`
+        - initData is validated per Telegram Bot API spec (HMAC-SHA256 with bot token)
+        - No client-side secret needed
+        - TTL: 24 hours from auth_date
+
+        **2. Legacy HMAC (development only):**
+        `telegram <telegramId>:<utcTimestamp>:<hmacHex>`
+        - HMAC-SHA256 of `{telegramId}:{utcTimestamp}` with TELEGRAM_SECRET as key
+        - ±5 minute clock skew
+        - Disable in production with AUTH_DISABLE_LEGACY_HMAC=true
+
   schemas:
     UserRole:
       type: string
