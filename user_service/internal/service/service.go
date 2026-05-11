@@ -213,6 +213,17 @@ func (s *UserService) UpdateUser(ctx context.Context, id uuid.UUID, input *model
 	return user, nil
 }
 
+// GetTelegramChatId returns the Telegram chat_id (== telegram_id) for the given user.
+// Intended for internal service-to-service callers (notification_service).
+// Returns errdefs.ErrNotFound if the user has no linked Telegram account.
+func (s *UserService) GetTelegramChatId(ctx context.Context, userId uuid.UUID) (int64, error) {
+	acc, err := s.userRepository.GetTelegramAccount(ctx, userId)
+	if err != nil {
+		return 0, err
+	}
+	return acc.TelegramId, nil
+}
+
 func (s *UserService) GetTutorProfile(ctx context.Context, userId uuid.UUID) (*model.TutorProfile, error) {
 	if err := ensureCurrentUserIs(ctx, userId); err != nil {
 		return nil, err

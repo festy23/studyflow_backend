@@ -10,6 +10,7 @@ import (
 	"schedule_service/internal/database/repo"
 	"schedule_service/internal/kafka"
 	pb "schedule_service/pkg/api"
+	userpb "userservice/pkg/api"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -38,6 +39,52 @@ func NewScheduleServer(db repo.Repository, client IUserClient, eventSender Event
 		eventSender: eventSender,
 		logger:      logger,
 	}
+}
+
+// enrichLessonList fills nil fields on every proto in resp for the given tutor.
+// Resolutions are cached by student_id within the request to avoid duplicate user_service calls.
+// Errors are logged and skipped — enrichment is best-effort.
+func (s *ScheduleServer) enrichLessonList(ctx context.Context, resp *pb.ListLessonsResponse, tutorID string) {
+	if resp == nil || s.UserClient == nil {
+		return
+	}
+	cache := make(map[string]*userpb.ResolvedTutorStudentContext)
+	for _, lesson := range resp.Lessons {
+		resolved, ok := cache[lesson.StudentId]
+		if !ok {
+			r, err := s.UserClient.ResolveTutorStudentContext(ctx, tutorID, lesson.StudentId)
+			if err != nil {
+				if s.logger != nil {
+					s.logger.Warn(ctx, "failed to resolve tutor-student context for list",
+						zap.String("tutor_id", tutorID), zap.String("student_id", lesson.StudentId), zap.Error(err))
+				}
+				cache[lesson.StudentId] = nil
+				continue
+			}
+			cache[lesson.StudentId] = r
+			resolved = r
+		}
+		applyResolvedDefaults(lesson, resolved)
+	}
+}
+
+// enrichLesson fills nil fields on the proto lesson using the resolved tutor-student context
+// from user_service, implementing the documented precedence:
+// lesson-specific > tutor-student pair > tutor defaults.
+// Failures are logged and the unenriched proto is returned — enrichment is best-effort.
+func (s *ScheduleServer) enrichLesson(ctx context.Context, proto *pb.Lesson, tutorID, studentID string) {
+	if proto == nil || s.UserClient == nil {
+		return
+	}
+	resolved, err := s.UserClient.ResolveTutorStudentContext(ctx, tutorID, studentID)
+	if err != nil {
+		if s.logger != nil {
+			s.logger.Warn(ctx, "failed to resolve tutor-student context",
+				zap.String("tutor_id", tutorID), zap.String("student_id", studentID), zap.Error(err))
+		}
+		return
+	}
+	applyResolvedDefaults(proto, resolved)
 }
 
 func (s *ScheduleServer) GetSlot(ctx context.Context, req *pb.GetSlotRequest) (*pb.Slot, error) {
@@ -307,7 +354,9 @@ func (s *ScheduleServer) GetLesson(ctx context.Context, req *pb.GetLessonRequest
 		return nil, StatusPermissionDenied
 	}
 
-	return convertrepoLessonToProto(lesson), nil
+	proto := convertrepoLessonToProto(lesson)
+	s.enrichLesson(ctx, proto, slot.TutorID, lesson.StudentID)
+	return proto, nil
 }
 
 func (s *ScheduleServer) CreateLesson(ctx context.Context, req *pb.CreateLessonRequest) (*pb.Lesson, error) {
@@ -393,7 +442,7 @@ func (s *ScheduleServer) CreateLesson(ctx context.Context, req *pb.CreateLessonR
 		}
 	}
 
-	return &pb.Lesson{
+	proto := &pb.Lesson{
 		Id:        lessonID,
 		SlotId:    req.SlotId,
 		StudentId: studentID,
@@ -401,7 +450,9 @@ func (s *ScheduleServer) CreateLesson(ctx context.Context, req *pb.CreateLessonR
 		IsPaid:    false,
 		CreatedAt: timestamppb.New(now),
 		EditedAt:  timestamppb.New(now),
-	}, nil
+	}
+	s.enrichLesson(ctx, proto, tutorID, studentID)
+	return proto, nil
 }
 
 func (s *ScheduleServer) UpdateLesson(ctx context.Context, req *pb.UpdateLessonRequest) (*pb.Lesson, error) {
@@ -455,7 +506,9 @@ func (s *ScheduleServer) UpdateLesson(ctx context.Context, req *pb.UpdateLessonR
 		}
 	}
 
-	return convertrepoLessonToProto(lesson), nil
+	proto := convertrepoLessonToProto(lesson)
+	s.enrichLesson(ctx, proto, slot.TutorID, lesson.StudentID)
+	return proto, nil
 }
 
 func (s *ScheduleServer) CancelLesson(ctx context.Context, req *pb.CancelLessonRequest) (*pb.Lesson, error) {
@@ -513,7 +566,9 @@ func (s *ScheduleServer) CancelLesson(ctx context.Context, req *pb.CancelLessonR
 		}
 	}
 
-	return convertrepoLessonToProto(lesson), nil
+	proto := convertrepoLessonToProto(lesson)
+	s.enrichLesson(ctx, proto, slot.TutorID, lesson.StudentID)
+	return proto, nil
 }
 
 func (s *ScheduleServer) ListLessonsByTutor(ctx context.Context, req *pb.ListLessonsByTutorRequest) (*pb.ListLessonsResponse, error) {
@@ -546,7 +601,9 @@ func (s *ScheduleServer) ListLessonsByTutor(ctx context.Context, req *pb.ListLes
 		return nil, status.Error(codes.Internal, "failed to list lessons")
 	}
 
-	return createListLessonsResponse(lessons), nil
+	resp := createListLessonsResponse(lessons)
+	s.enrichLessonList(ctx, resp, req.TutorId)
+	return resp, nil
 }
 
 func (s *ScheduleServer) ListLessonsByStudent(ctx context.Context, req *pb.ListLessonsByStudentRequest) (*pb.ListLessonsResponse, error) {
@@ -625,7 +682,9 @@ func (s *ScheduleServer) ListLessonsByPair(ctx context.Context, req *pb.ListLess
 		return nil, status.Error(codes.Internal, "failed to list lessons")
 	}
 
-	return createListLessonsResponse(lessons), nil
+	resp := createListLessonsResponse(lessons)
+	s.enrichLessonList(ctx, resp, req.TutorId)
+	return resp, nil
 }
 
 func (s *ScheduleServer) ListCompletedUnpaidLessons(ctx context.Context, req *pb.ListCompletedUnpaidLessonsRequest) (*pb.ListLessonsResponse, error) {
@@ -653,7 +712,9 @@ func (s *ScheduleServer) ListCompletedUnpaidLessons(ctx context.Context, req *pb
 		return nil, status.Error(codes.Internal, "failed to list completed unpaid lessons")
 	}
 
-	return createListLessonsResponse(lessons), nil
+	resp := createListLessonsResponse(lessons)
+	s.enrichLessonList(ctx, resp, userID)
+	return resp, nil
 }
 
 func (s *ScheduleServer) MarkAsPaid(ctx context.Context, req *pb.MarkAsPaidRequest) (*pb.Lesson, error) {
@@ -688,6 +749,8 @@ func (s *ScheduleServer) MarkAsPaid(ctx context.Context, req *pb.MarkAsPaidReque
 	}
 	lesson.IsPaid = true
 
-	return convertrepoLessonToProto(lesson), nil
+	proto := convertrepoLessonToProto(lesson)
+	s.enrichLesson(ctx, proto, slot.TutorID, lesson.StudentID)
+	return proto, nil
 
 }
