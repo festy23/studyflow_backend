@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS payment_reminders (
+    lesson_id UUID PRIMARY KEY,
+    sent_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);

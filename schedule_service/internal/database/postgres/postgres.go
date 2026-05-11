@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -179,13 +180,14 @@ func (r *PostgresRepository) ListSlotsByTutor(ctx context.Context, tutorID strin
 
 func (r *PostgresRepository) GetLesson(ctx context.Context, id string) (*repo.Lesson, error) {
 	query := `
-		SELECT id, slot_id, student_id, status, is_paid, connection_link, price_rub, payment_info, created_at, edited_at
+		SELECT id, slot_id, student_id, status, is_paid, connection_link, price_rub, payment_info, created_at, edited_at, rescheduled_from_lesson_id
 		FROM lessons
 		WHERE id = $1
 	`
 
 	var lesson repo.Lesson
 	var connectionLink, paymentInfo pgtype.Text
+	var rescheduledFrom pgtype.UUID
 	var priceRub pgtype.Int4
 
 	err := r.pool.QueryRow(ctx, query, id).Scan(
@@ -199,6 +201,7 @@ func (r *PostgresRepository) GetLesson(ctx context.Context, id string) (*repo.Le
 		&paymentInfo,
 		&lesson.CreatedAt,
 		&lesson.EditedAt,
+		&rescheduledFrom,
 	)
 
 	if err != nil {
@@ -219,6 +222,11 @@ func (r *PostgresRepository) GetLesson(ctx context.Context, id string) (*repo.Le
 
 	if paymentInfo.Valid {
 		lesson.PaymentInfo = &paymentInfo.String
+	}
+
+	if rescheduledFrom.Valid {
+		v := uuid.UUID(rescheduledFrom.Bytes).String()
+		lesson.RescheduledFromLessonID = &v
 	}
 
 	return &lesson, nil
@@ -250,8 +258,8 @@ func (r *PostgresRepository) CreateLessonAndBookSlot(ctx context.Context, lesson
 	}
 
 	query := `
-		INSERT INTO lessons (id, slot_id, student_id, status, is_paid, created_at, edited_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO lessons (id, slot_id, student_id, status, is_paid, connection_link, price_rub, payment_info, created_at, edited_at, rescheduled_from_lesson_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 
 	_, err = tx.Exec(ctx, query,
@@ -260,8 +268,12 @@ func (r *PostgresRepository) CreateLessonAndBookSlot(ctx context.Context, lesson
 		lesson.StudentID,
 		lesson.Status,
 		lesson.IsPaid,
+		lesson.ConnectionLink,
+		lesson.PriceRub,
+		lesson.PaymentInfo,
 		lesson.CreatedAt,
 		lesson.EditedAt,
+		lesson.RescheduledFromLessonID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create lesson: %w", err)
@@ -331,9 +343,71 @@ func (r *PostgresRepository) CancelLessonAndFreeSlot(ctx context.Context, lesson
 	return nil
 }
 
+func (r *PostgresRepository) RescheduleLesson(ctx context.Context, cancelledLesson repo.Lesson, newLesson repo.Lesson, oldSlotID, newSlotID string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var newSlotBooked bool
+	if err := tx.QueryRow(ctx, "SELECT is_booked FROM slots WHERE id = $1 FOR UPDATE", newSlotID).Scan(&newSlotBooked); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return service.ErrSlotNotFound
+		}
+		return fmt.Errorf("failed to check new slot availability: %w", err)
+	}
+	if newSlotBooked {
+		return service.ErrSlotBooked
+	}
+
+	_, err = tx.Exec(ctx,
+		"UPDATE lessons SET status = $1, edited_at = $2 WHERE id = $3",
+		cancelledLesson.Status,
+		cancelledLesson.EditedAt,
+		cancelledLesson.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to cancel old lesson: %w", err)
+	}
+
+	if _, err = tx.Exec(ctx, "UPDATE slots SET is_booked = false WHERE id = $1", oldSlotID); err != nil {
+		return fmt.Errorf("failed to free old slot: %w", err)
+	}
+
+	if _, err = tx.Exec(ctx, "UPDATE slots SET is_booked = true WHERE id = $1", newSlotID); err != nil {
+		return fmt.Errorf("failed to book new slot: %w", err)
+	}
+
+	query := `
+		INSERT INTO lessons (id, slot_id, student_id, status, is_paid, connection_link, price_rub, payment_info, created_at, edited_at, rescheduled_from_lesson_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	`
+	if _, err = tx.Exec(ctx, query,
+		newLesson.ID,
+		newLesson.SlotID,
+		newLesson.StudentID,
+		newLesson.Status,
+		newLesson.IsPaid,
+		newLesson.ConnectionLink,
+		newLesson.PriceRub,
+		newLesson.PaymentInfo,
+		newLesson.CreatedAt,
+		newLesson.EditedAt,
+		newLesson.RescheduledFromLessonID,
+	); err != nil {
+		return fmt.Errorf("failed to create rescheduled lesson: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+	return nil
+}
+
 func (r *PostgresRepository) ListLessonsByTutor(ctx context.Context, tutorID string, statusFilter []string, from, to *time.Time) ([]repo.Lesson, error) {
 	query := `
-		SELECT l.id, l.slot_id, l.student_id, l.status, l.is_paid, l.connection_link, l.price_rub, l.payment_info, l.created_at, l.edited_at
+		SELECT l.id, l.slot_id, l.student_id, l.status, l.is_paid, l.connection_link, l.price_rub, l.payment_info, l.created_at, l.edited_at, l.rescheduled_from_lesson_id
 		FROM lessons l
 		JOIN slots s ON l.slot_id = s.id
 		WHERE s.tutor_id = $1
@@ -349,7 +423,7 @@ func (r *PostgresRepository) ListLessonsByTutor(ctx context.Context, tutorID str
 
 func (r *PostgresRepository) ListLessonsByStudent(ctx context.Context, studentID string, statusFilter []string, from, to *time.Time) ([]repo.Lesson, error) {
 	query := `
-		SELECT l.id, l.slot_id, l.student_id, l.status, l.is_paid, l.connection_link, l.price_rub, l.payment_info, l.created_at, l.edited_at
+		SELECT l.id, l.slot_id, l.student_id, l.status, l.is_paid, l.connection_link, l.price_rub, l.payment_info, l.created_at, l.edited_at, l.rescheduled_from_lesson_id
 		FROM lessons l
 		JOIN slots s ON l.slot_id = s.id
 		WHERE l.student_id = $1
@@ -365,7 +439,7 @@ func (r *PostgresRepository) ListLessonsByStudent(ctx context.Context, studentID
 
 func (r *PostgresRepository) ListLessonsByPair(ctx context.Context, tutorID, studentID string, statusFilter []string, from, to *time.Time) ([]repo.Lesson, error) {
 	query := `
-		SELECT l.id, l.slot_id, l.student_id, l.status, l.is_paid, l.connection_link, l.price_rub, l.payment_info, l.created_at, l.edited_at
+		SELECT l.id, l.slot_id, l.student_id, l.status, l.is_paid, l.connection_link, l.price_rub, l.payment_info, l.created_at, l.edited_at, l.rescheduled_from_lesson_id
 		FROM lessons l
 		JOIN slots s ON l.slot_id = s.id
 		WHERE s.tutor_id = $1 AND l.student_id = $2
@@ -405,29 +479,27 @@ func appendDateFilter(query string, args []interface{}, from, to *time.Time) (st
 	return query, args
 }
 
-func (r *PostgresRepository) ListCompletedUnpaidLessons(ctx context.Context, tutorID string, after *time.Time) ([]repo.Lesson, error) {
-	var query string
-	var args []interface{}
-
-	if after != nil {
-		query = `
-			SELECT l.id, l.slot_id, l.student_id, l.status, l.is_paid, l.connection_link, l.price_rub, l.payment_info, l.created_at, l.edited_at
-			FROM lessons l
-			JOIN slots s ON l.slot_id = s.id
-			WHERE s.tutor_id = $1 AND l.status = 'completed' AND l.is_paid = false AND s.ends_at > $2
-			ORDER BY s.ends_at ASC
-		`
-		args = []interface{}{tutorID, after}
-	} else {
-		query = `
-			SELECT l.id, l.slot_id, l.student_id, l.status, l.is_paid, l.connection_link, l.price_rub, l.payment_info, l.created_at, l.edited_at
-			FROM lessons l
-			JOIN slots s ON l.slot_id = s.id
-			WHERE s.tutor_id = $1 AND l.status = 'completed' AND l.is_paid = false
-			ORDER BY s.ends_at ASC
-		`
-		args = []interface{}{tutorID}
+func (r *PostgresRepository) ListCompletedUnpaidLessons(ctx context.Context, tutorID string, after, before *time.Time) ([]repo.Lesson, error) {
+	query := `
+		SELECT l.id, l.slot_id, l.student_id, l.status, l.is_paid, l.connection_link, l.price_rub, l.payment_info, l.created_at, l.edited_at, l.rescheduled_from_lesson_id
+		FROM lessons l
+		JOIN slots s ON l.slot_id = s.id
+		WHERE l.status = 'completed' AND l.is_paid = false
+	`
+	args := []interface{}{}
+	if tutorID != "" {
+		args = append(args, tutorID)
+		query += fmt.Sprintf(" AND s.tutor_id = $%d", len(args))
 	}
+	if after != nil {
+		args = append(args, *after)
+		query += fmt.Sprintf(" AND s.ends_at > $%d", len(args))
+	}
+	if before != nil {
+		args = append(args, *before)
+		query += fmt.Sprintf(" AND s.ends_at <= $%d", len(args))
+	}
+	query += " ORDER BY s.ends_at ASC"
 
 	return r.queryLessons(ctx, query, args...)
 }
@@ -461,6 +533,7 @@ func (r *PostgresRepository) queryLessons(ctx context.Context, query string, arg
 	for rows.Next() {
 		var lesson repo.Lesson
 		var connectionLink, paymentInfo pgtype.Text
+		var rescheduledFrom pgtype.UUID
 		var priceRub pgtype.Int4
 
 		err := rows.Scan(
@@ -474,6 +547,7 @@ func (r *PostgresRepository) queryLessons(ctx context.Context, query string, arg
 			&paymentInfo,
 			&lesson.CreatedAt,
 			&lesson.EditedAt,
+			&rescheduledFrom,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan lesson row: %w", err)
@@ -490,6 +564,11 @@ func (r *PostgresRepository) queryLessons(ctx context.Context, query string, arg
 
 		if paymentInfo.Valid {
 			lesson.PaymentInfo = &paymentInfo.String
+		}
+
+		if rescheduledFrom.Valid {
+			v := uuid.UUID(rescheduledFrom.Bytes).String()
+			lesson.RescheduledFromLessonID = &v
 		}
 
 		lessons = append(lessons, lesson)

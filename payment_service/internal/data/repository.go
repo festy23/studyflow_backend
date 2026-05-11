@@ -132,3 +132,24 @@ func (r *PaymentRepo) ListReceiptsByStudent(ctx context.Context, studentID strin
 	}
 	return receipts, nil
 }
+
+func (r *PaymentRepo) PaymentReminderSent(ctx context.Context, lessonID uuid.UUID) (bool, error) {
+	query := `SELECT EXISTS (SELECT 1 FROM payment_reminders WHERE lesson_id = $1)`
+	var exists bool
+	if err := r.db.QueryRow(ctx, query, lessonID).Scan(&exists); err != nil {
+		return false, handleError(err)
+	}
+	return exists, nil
+}
+
+func (r *PaymentRepo) MarkPaymentReminderSent(ctx context.Context, lessonID uuid.UUID) error {
+	query := `
+		INSERT INTO payment_reminders (lesson_id, sent_at)
+		VALUES ($1, NOW())
+		ON CONFLICT (lesson_id) DO UPDATE SET sent_at = EXCLUDED.sent_at
+	`
+	if _, err := r.db.Exec(ctx, query, lessonID); err != nil {
+		return handleError(err)
+	}
+	return nil
+}

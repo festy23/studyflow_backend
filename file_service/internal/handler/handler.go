@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"common_library/ctxdata"
 	"common_library/logging"
 	"context"
 	"errors"
@@ -8,6 +9,7 @@ import (
 	"fileservice/internal/model"
 	pb "fileservice/pkg/api"
 	"slices"
+	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -20,6 +22,8 @@ type FileService interface {
 	InitUpload(ctx context.Context, input *model.InitUploadInput) (*model.InitUpload, error)
 	GenerateDownloadURL(ctx context.Context, fileId uuid.UUID) (string, error)
 	GetFileMeta(ctx context.Context, fileId uuid.UUID) (*model.File, error)
+	ConfirmUpload(ctx context.Context, fileId uuid.UUID) (*model.File, error)
+	CleanupOrphanUploads(ctx context.Context, olderThan time.Time) (int, error)
 }
 
 type FileHandler struct {
@@ -78,6 +82,34 @@ func (h *FileHandler) GetFileMeta(ctx context.Context, req *pb.GetFileMetaReques
 	return toPbFile(resp), nil
 }
 
+func (h *FileHandler) ConfirmUpload(ctx context.Context, req *pb.ConfirmUploadRequest) (*pb.File, error) {
+	id, err := uuid.Parse(req.FileId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	resp, err := h.fileService.ConfirmUpload(ctx, id)
+	if err != nil {
+		return nil, mapError(ctx, err, errdefs.ErrNotFound, errdefs.ErrPermissionDenied)
+	}
+	return toPbFile(resp), nil
+}
+
+func (h *FileHandler) CleanupOrphanUploads(ctx context.Context, req *pb.CleanupOrphanUploadsRequest) (*pb.CleanupOrphanUploadsResponse, error) {
+	role, ok := ctxdata.GetUserRole(ctx)
+	if !ok || role != "service" {
+		return nil, status.Errorf(codes.PermissionDenied, "%v", errdefs.ErrPermissionDenied)
+	}
+	if req.OlderThan == nil {
+		return nil, status.Error(codes.InvalidArgument, "older_than is required")
+	}
+	deleted, err := h.fileService.CleanupOrphanUploads(ctx, req.OlderThan.AsTime())
+	if err != nil {
+		return nil, mapError(ctx, err)
+	}
+	return &pb.CleanupOrphanUploadsResponse{DeletedCount: int32(deleted)}, nil
+}
+
 func toPbInitUpload(init *model.InitUpload) *pb.InitUploadResponse {
 	return &pb.InitUploadResponse{
 		FileId:    init.FileId.String(),
@@ -93,6 +125,7 @@ func toPbFile(file *model.File) *pb.File {
 		UploadedBy: file.UploadedBy.String(),
 		Filename:   file.Filename,
 		CreatedAt:  timestamppb.New(file.CreatedAt),
+		IsUploaded: file.IsUploaded,
 	}
 }
 

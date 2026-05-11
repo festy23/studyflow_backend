@@ -17,9 +17,13 @@ import (
 	"paymentservice/internal/data"
 	"paymentservice/internal/db"
 	"paymentservice/internal/handler"
+	paymentkafka "paymentservice/internal/kafka"
 	"paymentservice/internal/service"
+	"paymentservice/internal/worker"
 	pb "paymentservice/pkg/api"
 	api3 "schedule_service/pkg/api"
+	"strings"
+	"sync"
 	"syscall"
 	"time"
 	"userservice/pkg/api"
@@ -71,6 +75,21 @@ func main() {
 
 	paymentHandler := handler.NewPaymentServiceServer(paymentService)
 
+	brokers := splitAndTrim(cfg.KafkaBrokers)
+	reminderProducer := paymentkafka.NewProducer(brokers)
+	defer func() { _ = reminderProducer.Close() }()
+	reminderWorker := worker.NewPaymentReminderWorker(
+		paymentRepo,
+		scheduleClient,
+		reminderProducer,
+		cfg.PaymentReminderTopic,
+		cfg.PaymentReminderInterval,
+		cfg.PaymentReminderAfter,
+		logger,
+	)
+	var workerWg sync.WaitGroup
+	reminderWorker.Start(ctx, &workerWg)
+
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.GRPCPort))
 	if err != nil {
 		logger.Fatal(ctx, "cannot create listener", zap.Error(err))
@@ -103,5 +122,17 @@ func main() {
 	case <-gracefulTimeout.C:
 		server.Stop()
 	}
+	workerWg.Wait()
 	logger.Info(ctx, "Server Stopped")
+}
+
+func splitAndTrim(csv string) []string {
+	raw := strings.Split(csv, ",")
+	result := make([]string, 0, len(raw))
+	for _, s := range raw {
+		if trimmed := strings.TrimSpace(s); trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }
