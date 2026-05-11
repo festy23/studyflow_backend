@@ -13,17 +13,19 @@ type PaymentReceipt struct {
 	TutorID    string    `db:"tutor_id"`
 	StudentID  string    `db:"student_id"`
 	IsVerified bool      `db:"is_verified"`
+	PriceRub   int32     `db:"price_rub"`
 	CreatedAt  time.Time `db:"created_at"`
 	EditedAt   time.Time `db:"edited_at"`
 }
 
 type PaymentReceiptCreateInput struct {
-	ID        uuid.UUID
-	LessonID  uuid.UUID
-	FileID    uuid.UUID
-	TutorID   string
-	StudentID string
+	ID         uuid.UUID
+	LessonID   uuid.UUID
+	FileID     uuid.UUID
+	TutorID    string
+	StudentID  string
 	IsVerified bool
+	PriceRub   int32
 }
 
 type PaymentReceiptUpdateInput struct {

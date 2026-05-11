@@ -371,6 +371,7 @@ type Receipt struct {
 	IsVerified    bool                   `protobuf:"varint,4,opt,name=is_verified,json=isVerified,proto3" json:"is_verified,omitempty"`
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	EditedAt      *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=edited_at,json=editedAt,proto3" json:"edited_at,omitempty"`
+	PriceRub      *int32                 `protobuf:"varint,7,opt,name=price_rub,json=priceRub,proto3,oneof" json:"price_rub,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -445,6 +446,13 @@ func (x *Receipt) GetEditedAt() *timestamppb.Timestamp {
 		return x.EditedAt
 	}
 	return nil
+}
+
+func (x *Receipt) GetPriceRub() int32 {
+	if x != nil && x.PriceRub != nil {
+		return *x.PriceRub
+	}
+	return 0
 }
 
 type ReceiptFileURL struct {
@@ -575,7 +583,7 @@ const file_payment_service_proto_rawDesc = "" +
 	"_lesson_idB\f\n" +
 	"\n" +
 	"_price_rubB\x0f\n" +
-	"\r_payment_info\"\x88\x02\n" +
+	"\r_payment_info\"\xb8\x02\n" +
 	"\aReceipt\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12 \n" +
 	"\tlesson_id\x18\x02 \x01(\tH\x00R\blessonId\x88\x01\x01\x12\x1c\n" +
@@ -584,11 +592,14 @@ const file_payment_service_proto_rawDesc = "" +
 	"isVerified\x129\n" +
 	"\n" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x127\n" +
-	"\tedited_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\beditedAtB\f\n" +
+	"\tedited_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\beditedAt\x12 \n" +
+	"\tprice_rub\x18\a \x01(\x05H\x02R\bpriceRub\x88\x01\x01B\f\n" +
 	"\n" +
 	"_lesson_idB\n" +
 	"\n" +
-	"\b_file_id\"/\n" +
+	"\b_file_idB\f\n" +
+	"\n" +
+	"_price_rub\"/\n" +
 	"\x0eReceiptFileURL\x12\x15\n" +
 	"\x03url\x18\x01 \x01(\tH\x00R\x03url\x88\x01\x01B\x06\n" +
 	"\x04_url\"G\n" +

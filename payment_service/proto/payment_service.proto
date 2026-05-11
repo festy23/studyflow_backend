@@ -60,6 +60,7 @@ message Receipt {
   bool is_verified = 4;
   google.protobuf.Timestamp created_at = 5;
   google.protobuf.Timestamp edited_at = 6;
+  optional int32 price_rub = 7;
 }
 
 message ReceiptFileURL {
