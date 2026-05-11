@@ -12,6 +12,7 @@ service PaymentService {
   rpc GetReceipt(GetReceiptRequest) returns (Receipt);
   rpc VerifyReceipt(VerifyReceiptRequest) returns (Receipt);
   rpc GetReceiptFile(GetReceiptFileRequest) returns (ReceiptFileURL);
+  rpc ListReceipts(ListReceiptsRequest) returns (ListReceiptsResponse);
 }
 
 // ==== REQUESTS ====
@@ -37,6 +38,12 @@ message GetReceiptFileRequest {
   string receipt_id = 1;
 }
 
+// Exactly one of tutor_id or student_id must be set.
+message ListReceiptsRequest {
+  optional string tutor_id   = 1;
+  optional string student_id = 2;
+}
+
 
 // ==== RESPONSES ====
 
@@ -57,4 +64,8 @@ message Receipt {
 
 message ReceiptFileURL {
   optional string url = 1; // временная ссылка на файл из file-service
+}
+
+message ListReceiptsResponse {
+  repeated Receipt receipts = 1;
 }

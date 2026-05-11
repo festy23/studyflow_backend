@@ -32,6 +32,10 @@ type IPaymentRepo interface {
 	ExistsByID(ctx context.Context, id uuid.UUID) (bool, error)
 
 	GetReceiptByLessonID(ctx context.Context, lessonID uuid.UUID) (*models.PaymentReceipt, error)
+
+	ListReceiptsByTutor(ctx context.Context, tutorID string) ([]*models.PaymentReceipt, error)
+
+	ListReceiptsByStudent(ctx context.Context, studentID string) ([]*models.PaymentReceipt, error)
 }
 
 type PaymentService struct {
@@ -106,15 +110,27 @@ func (s *PaymentService) SubmitPaymentReceipt(ctx context.Context, input *models
 		return nil, err
 	}
 
+	// Resolve tutor from the slot (lesson already fetched above).
+	slot, err := utils.RetryWithBackoff(ctx, maxRetries, retryDelay, func() (*api3.Slot, error) {
+		return s.scheduleClient.GetSlot(ctxWithMetadata(ctx), &api3.GetSlotRequest{Id: lesson.GetSlotId()})
+	})
+	if err != nil {
+		return nil, err
+	}
+	tutorID := slot.GetTutorId()
+	studentID := lesson.GetStudentId()
+
 	newReceiptID, err := uuid.NewV7()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate receipt ID: %w", err)
 	}
 
 	createReceiptInput := &models.PaymentReceiptCreateInput{
-		ID:         newReceiptID,
-		LessonID:   input.LessonId,
-		FileID:     input.FileId,
+		ID:        newReceiptID,
+		LessonID:  input.LessonId,
+		FileID:    input.FileId,
+		TutorID:   tutorID,
+		StudentID: studentID,
 		IsVerified: false,
 	}
 	receipt, err := utils.RetryWithBackoff(ctx, maxRetries, retryDelay, func() (*models.PaymentReceipt, error) {
@@ -287,6 +303,27 @@ func (s *PaymentService) GetReceiptFile(ctx context.Context, input *models.GetRe
 		URL: url.GetUrl(),
 	}
 	return receiptFileURL, nil
+}
+
+func (s *PaymentService) ListReceipts(ctx context.Context, input *models.ListReceiptsInput) ([]*models.PaymentReceipt, error) {
+	callerID, ok := ctxdata.GetUserID(ctx)
+	if !ok || callerID == "" {
+		return nil, errdefs.ErrPermissionDenied
+	}
+	switch {
+	case input.TutorID != "":
+		if callerID != input.TutorID {
+			return nil, errdefs.ErrPermissionDenied
+		}
+		return s.repo.ListReceiptsByTutor(ctx, input.TutorID)
+	case input.StudentID != "":
+		if callerID != input.StudentID {
+			return nil, errdefs.ErrPermissionDenied
+		}
+		return s.repo.ListReceiptsByStudent(ctx, input.StudentID)
+	default:
+		return nil, errdefs.ErrInvalidArgument
+	}
 }
 
 func ctxWithMetadata(ctx context.Context) context.Context {

@@ -32,12 +32,14 @@ func NewPaymentRepository(db Querier) *PaymentRepo {
 	return &PaymentRepo{db: db}
 }
 
+const selectReceipt = `SELECT id, lesson_id, file_id, tutor_id, student_id, is_verified, created_at, edited_at FROM receipts`
+
 // CreateReceipt inserts a new receipt and returns it.
 func (r *PaymentRepo) CreateReceipt(ctx context.Context, input *models.PaymentReceiptCreateInput) (*models.PaymentReceipt, error) {
 	query := `
-		INSERT INTO receipts (id, lesson_id, file_id, is_verified, created_at, edited_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, lesson_id, file_id, is_verified, created_at, edited_at
+		INSERT INTO receipts (id, lesson_id, file_id, tutor_id, student_id, is_verified, created_at, edited_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, lesson_id, file_id, tutor_id, student_id, is_verified, created_at, edited_at
 	`
 	now := time.Now()
 	pr := &models.PaymentReceipt{}
@@ -45,6 +47,8 @@ func (r *PaymentRepo) CreateReceipt(ctx context.Context, input *models.PaymentRe
 		input.ID,
 		input.LessonID,
 		input.FileID,
+		input.TutorID,
+		input.StudentID,
 		input.IsVerified,
 		now,
 		now,
@@ -57,7 +61,7 @@ func (r *PaymentRepo) CreateReceipt(ctx context.Context, input *models.PaymentRe
 
 // GetReceiptByID retrieves a receipt by ID.
 func (r *PaymentRepo) GetReceiptByID(ctx context.Context, id uuid.UUID) (*models.PaymentReceipt, error) {
-	query := `SELECT id, lesson_id, file_id, is_verified, created_at, edited_at FROM receipts WHERE id = $1`
+	query := selectReceipt + ` WHERE id = $1`
 	pr := &models.PaymentReceipt{}
 	err := pgxscan.Get(ctx, r.db, pr, query, id)
 	if err != nil {
@@ -96,7 +100,7 @@ func (r *PaymentRepo) ExistsByID(ctx context.Context, id uuid.UUID) (bool, error
 
 // GetReceiptByLessonID retrieves a receipt by lesson ID.
 func (r *PaymentRepo) GetReceiptByLessonID(ctx context.Context, lessonID uuid.UUID) (*models.PaymentReceipt, error) {
-	query := `SELECT id, lesson_id, file_id, is_verified, created_at, edited_at FROM receipts WHERE lesson_id = $1`
+	query := selectReceipt + ` WHERE lesson_id = $1`
 	pr := &models.PaymentReceipt{}
 	err := pgxscan.Get(ctx, r.db, pr, query, lessonID)
 	if err != nil {
@@ -106,4 +110,24 @@ func (r *PaymentRepo) GetReceiptByLessonID(ctx context.Context, lessonID uuid.UU
 		return nil, handleError(err)
 	}
 	return pr, nil
+}
+
+// ListReceiptsByTutor returns all receipts for a tutor ordered by created_at desc.
+func (r *PaymentRepo) ListReceiptsByTutor(ctx context.Context, tutorID string) ([]*models.PaymentReceipt, error) {
+	query := selectReceipt + ` WHERE tutor_id = $1 ORDER BY created_at DESC`
+	var receipts []*models.PaymentReceipt
+	if err := pgxscan.Select(ctx, r.db, &receipts, query, tutorID); err != nil {
+		return nil, handleError(err)
+	}
+	return receipts, nil
+}
+
+// ListReceiptsByStudent returns all receipts for a student ordered by created_at desc.
+func (r *PaymentRepo) ListReceiptsByStudent(ctx context.Context, studentID string) ([]*models.PaymentReceipt, error) {
+	query := selectReceipt + ` WHERE student_id = $1 ORDER BY created_at DESC`
+	var receipts []*models.PaymentReceipt
+	if err := pgxscan.Select(ctx, r.db, &receipts, query, studentID); err != nil {
+		return nil, handleError(err)
+	}
+	return receipts, nil
 }

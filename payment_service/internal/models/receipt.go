@@ -10,15 +10,19 @@ type PaymentReceipt struct {
 	ID         uuid.UUID `db:"id"`
 	LessonID   uuid.UUID `db:"lesson_id"`
 	FileID     uuid.UUID `db:"file_id"`
+	TutorID    string    `db:"tutor_id"`
+	StudentID  string    `db:"student_id"`
 	IsVerified bool      `db:"is_verified"`
 	CreatedAt  time.Time `db:"created_at"`
 	EditedAt   time.Time `db:"edited_at"`
 }
 
 type PaymentReceiptCreateInput struct {
-	ID         uuid.UUID
-	LessonID   uuid.UUID
-	FileID     uuid.UUID
+	ID        uuid.UUID
+	LessonID  uuid.UUID
+	FileID    uuid.UUID
+	TutorID   string
+	StudentID string
 	IsVerified bool
 }
 
