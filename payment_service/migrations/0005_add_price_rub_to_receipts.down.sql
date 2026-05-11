@@ -1,0 +1,1 @@
+ALTER TABLE receipts DROP COLUMN IF EXISTS price_rub;

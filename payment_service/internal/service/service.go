@@ -126,12 +126,13 @@ func (s *PaymentService) SubmitPaymentReceipt(ctx context.Context, input *models
 	}
 
 	createReceiptInput := &models.PaymentReceiptCreateInput{
-		ID:        newReceiptID,
-		LessonID:  input.LessonId,
-		FileID:    input.FileId,
-		TutorID:   tutorID,
-		StudentID: studentID,
+		ID:         newReceiptID,
+		LessonID:   input.LessonId,
+		FileID:     input.FileId,
+		TutorID:    tutorID,
+		StudentID:  studentID,
 		IsVerified: false,
+		PriceRub:   lesson.GetPriceRub(),
 	}
 	receipt, err := utils.RetryWithBackoff(ctx, maxRetries, retryDelay, func() (*models.PaymentReceipt, error) {
 		return s.repo.CreateReceipt(ctxWithMetadata(ctx), createReceiptInput)
