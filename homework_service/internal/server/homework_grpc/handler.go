@@ -156,13 +156,21 @@ func (h *HomeworkHandler) ListAssignmentsByTutor(ctx context.Context, req *v1.Li
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	assignments, err := h.assignmentService.ListAssignmentsByTutor(ctx, tutorId, statuses)
+
+	assignments, totalCount, err := h.assignmentService.ListAssignmentsByTutor(ctx, tutorId, statuses, req.Page, req.PageSize)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
 
+	currentPage := int32(1)
+	if req.Page != nil {
+		currentPage = *req.Page
+	}
+
 	return &v1.ListAssignmentsResponse{
 		Assignments: toProtoAssignments(assignments),
+		Page:        currentPage,
+		TotalCount:  totalCount,
 	}, nil
 }
 
@@ -178,13 +186,21 @@ func (h *HomeworkHandler) ListAssignmentsByStudent(ctx context.Context, req *v1.
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	assignments, err := h.assignmentService.ListAssignmentsByStudent(ctx, studentId, statuses)
+
+	assignments, totalCount, err := h.assignmentService.ListAssignmentsByStudent(ctx, studentId, statuses, req.Page, req.PageSize)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
 
+	currentPage := int32(1)
+	if req.Page != nil {
+		currentPage = *req.Page
+	}
+
 	return &v1.ListAssignmentsResponse{
 		Assignments: toProtoAssignments(assignments),
+		Page:        currentPage,
+		TotalCount:  totalCount,
 	}, nil
 }
 
@@ -205,13 +221,21 @@ func (h *HomeworkHandler) ListAssignmentsByPair(ctx context.Context, req *v1.Lis
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	assignments, err := h.assignmentService.ListAssignmentsByPair(ctx, tutorId, studentId, statuses)
+
+	assignments, totalCount, err := h.assignmentService.ListAssignmentsByPair(ctx, tutorId, studentId, statuses, req.Page, req.PageSize)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
 
+	currentPage := int32(1)
+	if req.Page != nil {
+		currentPage = *req.Page
+	}
+
 	return &v1.ListAssignmentsResponse{
 		Assignments: toProtoAssignments(assignments),
+		Page:        currentPage,
+		TotalCount:  totalCount,
 	}, nil
 }
 

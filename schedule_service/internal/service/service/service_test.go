@@ -827,7 +827,7 @@ func TestListLessonsByStudent(t *testing.T) {
 			},
 		}
 
-		mockRepo.EXPECT().ListLessonsByStudent(gomock.Any(), studentID, []string{"booked", "completed"}, nil, nil).Return(lessons, nil)
+		mockRepo.EXPECT().ListLessonsByStudent(gomock.Any(), studentID, []string{"booked", "completed"}, nil, nil, 0, 0).Return(lessons, int64(0), nil)
 
 		resp, err := srv.ListLessonsByStudent(ctx, &pb.ListLessonsByStudentRequest{
 			StudentId:    studentID,
@@ -873,7 +873,7 @@ func TestListLessonsByStudent(t *testing.T) {
 		ctx := ctxdata.WithUserID(context.Background(), "de305d54-75b4-431b-adb2-eb6b9e546014")
 
 		// Asserting no calls — if the service hits the repo, the test will fail.
-		mockRepo.EXPECT().ListLessonsByStudent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+		mockRepo.EXPECT().ListLessonsByStudent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 		_, err := srv.ListLessonsByStudent(ctx, &pb.ListLessonsByStudentRequest{
 			StudentId: "not-a-uuid",
@@ -888,7 +888,7 @@ func TestListLessonsByStudent(t *testing.T) {
 		studentID := "de305d54-75b4-431b-adb2-eb6b9e546015"
 		ctx := ctxdata.WithUserID(context.Background(), studentID)
 
-		mockRepo.EXPECT().ListLessonsByStudent(gomock.Any(), studentID, []string{}, nil, nil).Return([]repo.Lesson{}, nil)
+		mockRepo.EXPECT().ListLessonsByStudent(gomock.Any(), studentID, []string{}, nil, nil, 0, 0).Return([]repo.Lesson{}, int64(0), nil)
 
 		resp, err := srv.ListLessonsByStudent(ctx, &pb.ListLessonsByStudentRequest{
 			StudentId: studentID,
@@ -926,7 +926,7 @@ func TestListLessonsByTutor(t *testing.T) {
 			},
 		}
 
-		mockRepo.EXPECT().ListLessonsByTutor(gomock.Any(), tutorID, []string{"booked", "completed"}, nil, nil).Return(lessons, nil)
+		mockRepo.EXPECT().ListLessonsByTutor(gomock.Any(), tutorID, []string{"booked", "completed"}, nil, nil, 0, 0).Return(lessons, int64(0), nil)
 
 		resp, err := srv.ListLessonsByTutor(ctx, &pb.ListLessonsByTutorRequest{
 			TutorId:      tutorID,
@@ -972,7 +972,7 @@ func TestListLessonsByTutor(t *testing.T) {
 		tutorID := "de305d54-75b4-431b-adb2-eb6b9e546014"
 		ctx := ctxdata.WithUserID(context.Background(), tutorID)
 
-		mockRepo.EXPECT().ListLessonsByTutor(gomock.Any(), tutorID, []string{}, nil, nil).Return([]repo.Lesson{}, nil)
+		mockRepo.EXPECT().ListLessonsByTutor(gomock.Any(), tutorID, []string{}, nil, nil, 0, 0).Return([]repo.Lesson{}, int64(0), nil)
 
 		resp, err := srv.ListLessonsByTutor(ctx, &pb.ListLessonsByTutorRequest{
 			TutorId: tutorID,
@@ -1004,7 +1004,7 @@ func TestListLessonsByPair(t *testing.T) {
 		}
 
 		mockUserClient.EXPECT().GetTutorStudent(gomock.Any(), tutorID, studentID).Return(&userpb.TutorStudent{Status: "active"}, nil)
-		mockRepo.EXPECT().ListLessonsByPair(gomock.Any(), tutorID, studentID, []string{}, nil, nil).Return(lessons, nil)
+		mockRepo.EXPECT().ListLessonsByPair(gomock.Any(), tutorID, studentID, []string{}, nil, nil, 0, 0).Return(lessons, int64(0), nil)
 
 		resp, err := srv.ListLessonsByPair(ctx, &pb.ListLessonsByPairRequest{
 			TutorId:   tutorID,
@@ -1037,7 +1037,7 @@ func TestListLessonsByPair(t *testing.T) {
 		}
 
 		mockUserClient.EXPECT().GetTutorStudent(gomock.Any(), tutorID, studentID).Return(&userpb.TutorStudent{Status: "active"}, nil)
-		mockRepo.EXPECT().ListLessonsByPair(gomock.Any(), tutorID, studentID, []string{"completed"}, nil, nil).Return(lessons, nil)
+		mockRepo.EXPECT().ListLessonsByPair(gomock.Any(), tutorID, studentID, []string{"completed"}, nil, nil, 0, 0).Return(lessons, int64(0), nil)
 
 		resp, err := srv.ListLessonsByPair(ctx, &pb.ListLessonsByPairRequest{
 			TutorId:      tutorID,
@@ -1107,7 +1107,7 @@ func TestListLessonsDateFilter(t *testing.T) {
 		fromStr := "2025-01-01T00:00:00Z"
 		toStr := "2025-12-31T23:59:59Z"
 
-		mockRepo.EXPECT().ListLessonsByTutor(gomock.Any(), tutorID, []string{}, gomock.Not(nil), gomock.Not(nil)).Return([]repo.Lesson{}, nil)
+		mockRepo.EXPECT().ListLessonsByTutor(gomock.Any(), tutorID, []string{}, gomock.Not(nil), gomock.Not(nil), 0, 0).Return([]repo.Lesson{}, int64(0), nil)
 
 		resp, err := srv.ListLessonsByTutor(ctx, &pb.ListLessonsByTutorRequest{
 			TutorId: tutorID,
@@ -1139,7 +1139,7 @@ func TestListLessonsDateFilter(t *testing.T) {
 		ctx := ctxdata.WithUserID(context.Background(), studentID)
 
 		fromStr := "2025-01-01T00:00:00Z"
-		mockRepo.EXPECT().ListLessonsByStudent(gomock.Any(), studentID, []string{}, gomock.Not(nil), nil).Return([]repo.Lesson{}, nil)
+		mockRepo.EXPECT().ListLessonsByStudent(gomock.Any(), studentID, []string{}, gomock.Not(nil), nil, 0, 0).Return([]repo.Lesson{}, int64(0), nil)
 
 		resp, err := srv.ListLessonsByStudent(ctx, &pb.ListLessonsByStudentRequest{
 			StudentId: studentID,

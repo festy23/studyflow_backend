@@ -23,7 +23,7 @@ type PaymentService interface {
 	GetReceipt(ctx context.Context, input *models.GetReceiptInput) (*models.PaymentReceipt, error)
 	VerifyReceipt(ctx context.Context, input *models.VerifyReceiptInput) (*models.PaymentReceipt, error)
 	GetReceiptFile(ctx context.Context, input *models.GetReceiptFileInput) (*models.ReceiptFileUrl, error)
-	ListReceipts(ctx context.Context, input *models.ListReceiptsInput) ([]*models.PaymentReceipt, error)
+	ListReceipts(ctx context.Context, input *models.ListReceiptsInput) ([]*models.PaymentReceipt, int64, error)
 	GetTutorAnalytics(ctx context.Context, input *models.GetTutorAnalyticsInput) (*models.TutorAnalytics, error)
 }
 
@@ -155,8 +155,10 @@ func (h *PaymentServiceServer) ListReceipts(ctx context.Context, req *pb.ListRec
 	input := &models.ListReceiptsInput{
 		TutorID:   req.GetTutorId(),
 		StudentID: req.GetStudentId(),
+		Page:      req.Page,
+		PageSize:  req.PageSize,
 	}
-	receipts, err := h.service.ListReceipts(ctx, input)
+	receipts, totalCount, err := h.service.ListReceipts(ctx, input)
 	if err != nil {
 		return nil, mapError(err, errdefs.ErrPermissionDenied, errdefs.ErrInvalidArgument)
 	}
@@ -164,7 +166,11 @@ func (h *PaymentServiceServer) ListReceipts(ctx context.Context, req *pb.ListRec
 	for _, r := range receipts {
 		pbReceipts = append(pbReceipts, toPbReceipt(r))
 	}
-	return &pb.ListReceiptsResponse{Receipts: pbReceipts}, nil
+	page := int32(0)
+	if req.Page != nil {
+		page = *req.Page
+	}
+	return &pb.ListReceiptsResponse{Receipts: pbReceipts, Page: page, TotalCount: totalCount}, nil
 }
 
 func (h *PaymentServiceServer) GetTutorAnalytics(ctx context.Context, req *pb.GetTutorAnalyticsRequest) (*pb.TutorAnalytics, error) {

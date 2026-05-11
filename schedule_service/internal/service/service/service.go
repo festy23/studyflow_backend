@@ -702,14 +702,19 @@ func (s *ScheduleServer) ListLessonsByTutor(ctx context.Context, req *pb.ListLes
 		return nil, err
 	}
 
-	lessons, err := s.db.ListLessonsByTutor(ctx, req.TutorId, statusFilters, from, to)
+	limit, offset := paginateParams(req.Page, req.PageSize)
+	lessons, totalCount, err := s.db.ListLessonsByTutor(ctx, req.TutorId, statusFilters, from, to, limit, offset)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list lessons")
-	}
+		}
 
-	resp := createListLessonsResponse(lessons)
-	s.enrichLessonList(ctx, resp, req.TutorId)
-	return resp, nil
+		page := int32(0)
+		if req.Page != nil {
+			page = *req.Page
+		}
+		resp := createListLessonsResponse(lessons, page, totalCount)
+		s.enrichLessonList(ctx, resp, req.TutorId)
+		return resp, nil
 }
 
 func (s *ScheduleServer) ListLessonsByStudent(ctx context.Context, req *pb.ListLessonsByStudentRequest) (*pb.ListLessonsResponse, error) {
@@ -743,13 +748,20 @@ func (s *ScheduleServer) ListLessonsByStudent(ctx context.Context, req *pb.ListL
 		return nil, err
 	}
 
-	lessons, err := s.db.ListLessonsByStudent(ctx, req.StudentId, statusFilters, from, to)
+	limit, offset := paginateParams(req.Page, req.PageSize)
+	lessons, totalCount, err := s.db.ListLessonsByStudent(ctx, req.StudentId, statusFilters, from, to, limit, offset)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list lessons")
 	}
 
-	return createListLessonsResponse(lessons), nil
-}
+		page := int32(0)
+		if req.Page != nil {
+			page = *req.Page
+		}
+		resp := createListLessonsResponse(lessons, page, totalCount)
+		s.enrichLessonList(ctx, resp, req.StudentId)
+		return resp, nil
+	}
 
 func (s *ScheduleServer) ListLessonsByPair(ctx context.Context, req *pb.ListLessonsByPairRequest) (*pb.ListLessonsResponse, error) {
 	userID, ok := ctxdata.GetUserID(ctx)
@@ -793,15 +805,20 @@ func (s *ScheduleServer) ListLessonsByPair(ctx context.Context, req *pb.ListLess
 		return nil, err
 	}
 
-	lessons, err := s.db.ListLessonsByPair(ctx, req.TutorId, req.StudentId, statusFilters, from, to)
+	limit, offset := paginateParams(req.Page, req.PageSize)
+	lessons, totalCount, err := s.db.ListLessonsByPair(ctx, req.TutorId, req.StudentId, statusFilters, from, to, limit, offset)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list lessons")
 	}
 
-	resp := createListLessonsResponse(lessons)
-	s.enrichLessonList(ctx, resp, req.TutorId)
-	return resp, nil
-}
+		page := int32(0)
+		if req.Page != nil {
+			page = *req.Page
+		}
+		resp := createListLessonsResponse(lessons, page, totalCount)
+		s.enrichLessonList(ctx, resp, req.TutorId)
+		return resp, nil
+	}
 
 func (s *ScheduleServer) ListCompletedUnpaidLessons(ctx context.Context, req *pb.ListCompletedUnpaidLessonsRequest) (*pb.ListLessonsResponse, error) {
 	userID, ok := ctxdata.GetUserID(ctx)
@@ -845,12 +862,12 @@ func (s *ScheduleServer) ListCompletedUnpaidLessons(ctx context.Context, req *pb
 		return nil, status.Error(codes.Internal, "failed to list completed unpaid lessons")
 	}
 
-	resp := createListLessonsResponse(lessons)
-	if tutorID != "" {
-		s.enrichLessonList(ctx, resp, tutorID)
+		resp := createListLessonsResponse(lessons, 0, 0)
+		if tutorID != "" {
+			s.enrichLessonList(ctx, resp, tutorID)
+		}
+		return resp, nil
 	}
-	return resp, nil
-}
 
 func (s *ScheduleServer) MarkAsPaid(ctx context.Context, req *pb.MarkAsPaidRequest) (*pb.Lesson, error) {
 	userID, ok := ctxdata.GetUserID(ctx)

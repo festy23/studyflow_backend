@@ -58,30 +58,26 @@ type AssignmentRepositoryInterface interface {
 	FindAssignmentsDueSoon(ctx context.Context, duration time.Duration) ([]*domain.Assignment, error)
 	Update(ctx context.Context, assignment *domain.Assignment) error
 	Delete(ctx context.Context, id string) error
-	ListByFilter(ctx context.Context, filter *domain.AssignmentFilter) ([]*domain.Assignment, error)
+	ListByFilter(ctx context.Context, filter *domain.AssignmentFilter) ([]*domain.Assignment, int64, error)
 }
 
 func NewAssignmentRepository(db *sql.DB) *AssignmentRepository {
 	return &AssignmentRepository{db: db}
 }
 
-func (r *AssignmentRepository) ListByFilter(ctx context.Context, filter domain.AssignmentFilter) ([]*domain.Assignment, error) {
-	query := statusSubQuery + `
-SELECT id, tutor_id, student_id, title, description, 
-file_id, due_date, created_at, edited_at 
-FROM assignment_statuses WHERE 1=1
-`
+func (r *AssignmentRepository) ListByFilter(ctx context.Context, filter domain.AssignmentFilter) ([]*domain.Assignment, int64, error) {
+	whereClause := " WHERE 1=1"
 	var args []interface{}
 	argsCount := 1
 
 	if filter.TutorID != uuid.Nil {
-		query += fmt.Sprintf(" AND tutor_id = $%d", argsCount)
+		whereClause += fmt.Sprintf(" AND tutor_id = $%d", argsCount)
 		args = append(args, filter.TutorID)
 		argsCount++
 	}
 
 	if filter.StudentID != uuid.Nil {
-		query += fmt.Sprintf(" AND student_id = $%d", argsCount)
+		whereClause += fmt.Sprintf(" AND student_id = $%d", argsCount)
 		args = append(args, filter.StudentID)
 		argsCount++
 	}
@@ -93,12 +89,32 @@ FROM assignment_statuses WHERE 1=1
 			args = append(args, filter.Statuses[i])
 			argsCount++
 		}
-		query += fmt.Sprintf(" AND status IN (%s)", strings.Join(placeholders, ", ")) //nolint:gosec // placeholders are parameterized
+		whereClause += fmt.Sprintf(" AND status IN (%s)", strings.Join(placeholders, ", ")) //nolint:gosec // placeholders are parameterized
 	}
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	// Count query
+	countQuery := statusSubQuery + `SELECT COUNT(*) FROM assignment_statuses` + whereClause
+	var totalCount int64
+	if err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&totalCount); err != nil {
+		return nil, 0, fmt.Errorf("count query failed: %w", err)
+	}
+
+	// Main query
+	mainQuery := statusSubQuery + `
+	SELECT id, tutor_id, student_id, title, description,
+	file_id, due_date, created_at, edited_at
+	FROM assignment_statuses` + whereClause + `
+	ORDER BY created_at DESC`
+
+	limit, offset := filter.Paginate()
+	if limit > 0 {
+		mainQuery += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argsCount, argsCount+1)
+		args = append(args, limit, offset)
+	}
+
+	rows, err := r.db.QueryContext(ctx, mainQuery, args...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -116,16 +132,16 @@ FROM assignment_statuses WHERE 1=1
 			&a.CreatedAt,
 			&a.EditedAt,
 		); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		assignments = append(assignments, &a)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows iteration error: %w", err)
+		return nil, 0, fmt.Errorf("rows iteration error: %w", err)
 	}
 
-	return assignments, nil
+	return assignments, totalCount, nil
 }
 
 func (r *AssignmentRepository) FindAssignmentsDueSoon(ctx context.Context, duration time.Duration) ([]*domain.Assignment, error) {
@@ -175,7 +191,7 @@ func (r *AssignmentRepository) FindAssignmentsDueSoon(ctx context.Context, durat
 
 func (r *AssignmentRepository) Create(ctx context.Context, assignment *domain.Assignment) error {
 	query := `
-		INSERT INTO assignments 
+		INSERT INTO assignments
 			(id, tutor_id, student_id, title, description, file_id, due_date, created_at, edited_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
@@ -207,7 +223,7 @@ func (r *AssignmentRepository) Create(ctx context.Context, assignment *domain.As
 
 func (r *AssignmentRepository) Update(ctx context.Context, assignment *domain.Assignment) error {
 	query := `
-		UPDATE assignments 
+		UPDATE assignments
 		SET title = $1, description = $2, file_id = $3, due_date = $4, edited_at = $5
 		WHERE id = $6
 	`
@@ -238,7 +254,7 @@ func (r *AssignmentRepository) Update(ctx context.Context, assignment *domain.As
 
 func (r *AssignmentRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Assignment, error) {
 	query := `
-		SELECT id, tutor_id, student_id, title, description, file_id, due_date, 
+		SELECT id, tutor_id, student_id, title, description, file_id, due_date,
 		       created_at, edited_at
 		FROM assignments
 		WHERE id = $1
