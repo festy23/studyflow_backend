@@ -15,6 +15,12 @@ service FileService {
 
   // Получение метаданных файла
   rpc GetFileMeta(GetFileMetaRequest) returns (File);
+
+  // Подтверждение, что клиент завершил загрузку по signed URL
+  rpc ConfirmUpload(ConfirmUploadRequest) returns (File);
+
+  // Internal cleanup: удалить неподтвержденные загрузки старше cutoff
+  rpc CleanupOrphanUploads(CleanupOrphanUploadsRequest) returns (CleanupOrphanUploadsResponse);
 }
 
 // ==== INIT UPLOAD ====
@@ -46,10 +52,23 @@ message GetFileMetaRequest {
   string file_id = 1;
 }
 
+message ConfirmUploadRequest {
+  string file_id = 1;
+}
+
+message CleanupOrphanUploadsRequest {
+  google.protobuf.Timestamp older_than = 1;
+}
+
+message CleanupOrphanUploadsResponse {
+  int32 deleted_count = 1;
+}
+
 message File {
   string id = 1;
   string extension = 2;
   string uploaded_by = 3;
   optional string filename = 4;
   google.protobuf.Timestamp created_at = 5;
+  bool is_uploaded = 6;
 }

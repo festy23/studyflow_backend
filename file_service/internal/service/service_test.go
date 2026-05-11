@@ -41,6 +41,27 @@ func (m *MockFileRepository) GetFile(ctx context.Context, fileId uuid.UUID) (*mo
 	return args.Get(0).(*model.File), args.Error(1)
 }
 
+func (m *MockFileRepository) ConfirmUpload(ctx context.Context, fileId uuid.UUID) (*model.File, error) {
+	args := m.Called(ctx, fileId)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.File), args.Error(1)
+}
+
+func (m *MockFileRepository) ListOrphanUploads(ctx context.Context, olderThan time.Time) ([]*model.File, error) {
+	args := m.Called(ctx, olderThan)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*model.File), args.Error(1)
+}
+
+func (m *MockFileRepository) DeleteFile(ctx context.Context, fileId uuid.UUID) error {
+	args := m.Called(ctx, fileId)
+	return args.Error(0)
+}
+
 func newTestService(repo FileRepository) *FileService {
 	return &FileService{
 		fileRepo:         repo,

@@ -40,6 +40,7 @@ func NewFileHandler(c filepb.FileServiceClient, minioUrl string) *FileHandler {
 func (h *FileHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
 	r.With(authMiddleware).Post("/init-upload", h.InitUpload)
 	r.With(authMiddleware).Get("/{id}/meta", h.GetFileMeta)
+	r.With(authMiddleware).Post("/{id}/confirm-upload", h.ConfirmUpload)
 	r.With(authMiddleware).Put("/upload/*", h.proxyToMinio("PUT", "/files/upload"))
 	r.With(authMiddleware).Get("/download/*", h.proxyToMinio("GET", "/files/download"))
 }
@@ -60,6 +61,23 @@ func (h *FileHandler) GetFileMeta(w http.ResponseWriter, r *http.Request) {
 	}
 
 	handler(w, r)
+}
+
+func (h *FileHandler) ConfirmUpload(w http.ResponseWriter, r *http.Request) {
+	handler, err := Handle[filepb.ConfirmUploadRequest, filepb.File](h.c.ConfirmUpload, confirmUploadParsePath, false)
+	if err != nil {
+		panic(err)
+	}
+	handler(w, r)
+}
+
+func confirmUploadParsePath(ctx context.Context, httpReq *http.Request, grpcReq *filepb.ConfirmUploadRequest) error {
+	id := chi.URLParam(httpReq, "id")
+	if id == "" {
+		return fmt.Errorf("%w: %s", ErrBadRequest, "file id is required")
+	}
+	grpcReq.FileId = id
+	return nil
 }
 
 func getFileMetaParsePath(ctx context.Context, httpReq *http.Request, grpcReq *filepb.GetFileMetaRequest) error {

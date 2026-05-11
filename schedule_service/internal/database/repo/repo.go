@@ -16,16 +16,17 @@ type Slot struct {
 }
 
 type Lesson struct {
-	ID             string
-	SlotID         string
-	StudentID      string
-	Status         string // "booked", "cancelled", "completed"
-	IsPaid         bool
-	ConnectionLink *string
-	PriceRub       *int32
-	PaymentInfo    *string
-	CreatedAt      time.Time
-	EditedAt       time.Time
+	ID                      string
+	SlotID                  string
+	StudentID               string
+	Status                  string // "booked", "cancelled", "completed"
+	IsPaid                  bool
+	ConnectionLink          *string
+	PriceRub                *int32
+	PaymentInfo             *string
+	CreatedAt               time.Time
+	EditedAt                time.Time
+	RescheduledFromLessonID *string
 }
 
 type Repository interface {
@@ -41,10 +42,11 @@ type Repository interface {
 	CreateLessonAndBookSlot(ctx context.Context, lesson Lesson, slotID string) error
 	UpdateLesson(ctx context.Context, lesson Lesson) error
 	CancelLessonAndFreeSlot(ctx context.Context, lesson Lesson, slotID string) error
+	RescheduleLesson(ctx context.Context, cancelledLesson Lesson, newLesson Lesson, oldSlotID, newSlotID string) error
 	ListLessonsByTutor(ctx context.Context, tutorID string, statusFilter []string, from, to *time.Time) ([]Lesson, error)
 	ListLessonsByStudent(ctx context.Context, studentID string, statusFilter []string, from, to *time.Time) ([]Lesson, error)
 	ListLessonsByPair(ctx context.Context, tutorID, studentID string, statusFilter []string, from, to *time.Time) ([]Lesson, error)
-	ListCompletedUnpaidLessons(ctx context.Context, tutorID string, after *time.Time) ([]Lesson, error)
+	ListCompletedUnpaidLessons(ctx context.Context, tutorID string, after, before *time.Time) ([]Lesson, error)
 
 	UpdateCompletedLessons(ctx context.Context) (int, error)
 
