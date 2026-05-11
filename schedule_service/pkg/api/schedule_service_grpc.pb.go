@@ -4,7 +4,7 @@
 // - protoc             v7.34.1
 // source: schedule_service.proto
 
-package pkg
+package api
 
 import (
 	context "context"

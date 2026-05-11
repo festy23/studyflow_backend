@@ -4,7 +4,7 @@
 // 	protoc        v7.34.1
 // source: schedule_service.proto
 
-package pkg
+package api
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -777,6 +777,8 @@ type ListLessonsByTutorRequest struct {
 	StatusFilter  []LessonStatusFilter   `protobuf:"varint,2,rep,packed,name=status_filter,json=statusFilter,proto3,enum=schedule.v1.LessonStatusFilter" json:"status_filter,omitempty"`
 	From          *string                `protobuf:"bytes,3,opt,name=from,proto3,oneof" json:"from,omitempty"` // RFC3339
 	To            *string                `protobuf:"bytes,4,opt,name=to,proto3,oneof" json:"to,omitempty"`     // RFC3339
+	Page          *int32                 `protobuf:"varint,5,opt,name=page,proto3,oneof" json:"page,omitempty"`
+	PageSize      *int32                 `protobuf:"varint,6,opt,name=page_size,json=pageSize,proto3,oneof" json:"page_size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -839,12 +841,28 @@ func (x *ListLessonsByTutorRequest) GetTo() string {
 	return ""
 }
 
+func (x *ListLessonsByTutorRequest) GetPage() int32 {
+	if x != nil && x.Page != nil {
+		return *x.Page
+	}
+	return 0
+}
+
+func (x *ListLessonsByTutorRequest) GetPageSize() int32 {
+	if x != nil && x.PageSize != nil {
+		return *x.PageSize
+	}
+	return 0
+}
+
 type ListLessonsByStudentRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	StudentId     string                 `protobuf:"bytes,1,opt,name=student_id,json=studentId,proto3" json:"student_id,omitempty"`
 	StatusFilter  []LessonStatusFilter   `protobuf:"varint,2,rep,packed,name=status_filter,json=statusFilter,proto3,enum=schedule.v1.LessonStatusFilter" json:"status_filter,omitempty"`
 	From          *string                `protobuf:"bytes,3,opt,name=from,proto3,oneof" json:"from,omitempty"` // RFC3339
 	To            *string                `protobuf:"bytes,4,opt,name=to,proto3,oneof" json:"to,omitempty"`     // RFC3339
+	Page          *int32                 `protobuf:"varint,5,opt,name=page,proto3,oneof" json:"page,omitempty"`
+	PageSize      *int32                 `protobuf:"varint,6,opt,name=page_size,json=pageSize,proto3,oneof" json:"page_size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -907,6 +925,20 @@ func (x *ListLessonsByStudentRequest) GetTo() string {
 	return ""
 }
 
+func (x *ListLessonsByStudentRequest) GetPage() int32 {
+	if x != nil && x.Page != nil {
+		return *x.Page
+	}
+	return 0
+}
+
+func (x *ListLessonsByStudentRequest) GetPageSize() int32 {
+	if x != nil && x.PageSize != nil {
+		return *x.PageSize
+	}
+	return 0
+}
+
 type ListLessonsByPairRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TutorId       string                 `protobuf:"bytes,1,opt,name=tutor_id,json=tutorId,proto3" json:"tutor_id,omitempty"`
@@ -914,6 +946,8 @@ type ListLessonsByPairRequest struct {
 	StatusFilter  []LessonStatusFilter   `protobuf:"varint,3,rep,packed,name=status_filter,json=statusFilter,proto3,enum=schedule.v1.LessonStatusFilter" json:"status_filter,omitempty"`
 	From          *string                `protobuf:"bytes,4,opt,name=from,proto3,oneof" json:"from,omitempty"` // RFC3339
 	To            *string                `protobuf:"bytes,5,opt,name=to,proto3,oneof" json:"to,omitempty"`     // RFC3339
+	Page          *int32                 `protobuf:"varint,6,opt,name=page,proto3,oneof" json:"page,omitempty"`
+	PageSize      *int32                 `protobuf:"varint,7,opt,name=page_size,json=pageSize,proto3,oneof" json:"page_size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -983,6 +1017,20 @@ func (x *ListLessonsByPairRequest) GetTo() string {
 	return ""
 }
 
+func (x *ListLessonsByPairRequest) GetPage() int32 {
+	if x != nil && x.Page != nil {
+		return *x.Page
+	}
+	return 0
+}
+
+func (x *ListLessonsByPairRequest) GetPageSize() int32 {
+	if x != nil && x.PageSize != nil {
+		return *x.PageSize
+	}
+	return 0
+}
+
 type ListCompletedUnpaidLessonsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	After         *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=after,proto3,oneof" json:"after,omitempty"`                    // вернуть только после этой даты (опционально)
@@ -1046,6 +1094,8 @@ func (x *ListCompletedUnpaidLessonsRequest) GetTutorId() string {
 type ListLessonsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Lessons       []*Lesson              `protobuf:"bytes,1,rep,name=lessons,proto3" json:"lessons,omitempty"`
+	Page          int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
+	TotalCount    int64                  `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1085,6 +1135,20 @@ func (x *ListLessonsResponse) GetLessons() []*Lesson {
 		return x.Lessons
 	}
 	return nil
+}
+
+func (x *ListLessonsResponse) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListLessonsResponse) GetTotalCount() int64 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
 }
 
 type Lesson struct {
@@ -1302,40 +1366,58 @@ const file_schedule_service_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1e\n" +
 	"\vnew_slot_id\x18\x02 \x01(\tR\tnewSlotId\"#\n" +
 	"\x11MarkAsPaidRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\xba\x01\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x8c\x02\n" +
 	"\x19ListLessonsByTutorRequest\x12\x19\n" +
 	"\btutor_id\x18\x01 \x01(\tR\atutorId\x12D\n" +
 	"\rstatus_filter\x18\x02 \x03(\x0e2\x1f.schedule.v1.LessonStatusFilterR\fstatusFilter\x12\x17\n" +
 	"\x04from\x18\x03 \x01(\tH\x00R\x04from\x88\x01\x01\x12\x13\n" +
-	"\x02to\x18\x04 \x01(\tH\x01R\x02to\x88\x01\x01B\a\n" +
+	"\x02to\x18\x04 \x01(\tH\x01R\x02to\x88\x01\x01\x12\x17\n" +
+	"\x04page\x18\x05 \x01(\x05H\x02R\x04page\x88\x01\x01\x12 \n" +
+	"\tpage_size\x18\x06 \x01(\x05H\x03R\bpageSize\x88\x01\x01B\a\n" +
 	"\x05_fromB\x05\n" +
-	"\x03_to\"\xc0\x01\n" +
+	"\x03_toB\a\n" +
+	"\x05_pageB\f\n" +
+	"\n" +
+	"_page_size\"\x92\x02\n" +
 	"\x1bListLessonsByStudentRequest\x12\x1d\n" +
 	"\n" +
 	"student_id\x18\x01 \x01(\tR\tstudentId\x12D\n" +
 	"\rstatus_filter\x18\x02 \x03(\x0e2\x1f.schedule.v1.LessonStatusFilterR\fstatusFilter\x12\x17\n" +
 	"\x04from\x18\x03 \x01(\tH\x00R\x04from\x88\x01\x01\x12\x13\n" +
-	"\x02to\x18\x04 \x01(\tH\x01R\x02to\x88\x01\x01B\a\n" +
+	"\x02to\x18\x04 \x01(\tH\x01R\x02to\x88\x01\x01\x12\x17\n" +
+	"\x04page\x18\x05 \x01(\x05H\x02R\x04page\x88\x01\x01\x12 \n" +
+	"\tpage_size\x18\x06 \x01(\x05H\x03R\bpageSize\x88\x01\x01B\a\n" +
 	"\x05_fromB\x05\n" +
-	"\x03_to\"\xd8\x01\n" +
+	"\x03_toB\a\n" +
+	"\x05_pageB\f\n" +
+	"\n" +
+	"_page_size\"\xaa\x02\n" +
 	"\x18ListLessonsByPairRequest\x12\x19\n" +
 	"\btutor_id\x18\x01 \x01(\tR\atutorId\x12\x1d\n" +
 	"\n" +
 	"student_id\x18\x02 \x01(\tR\tstudentId\x12D\n" +
 	"\rstatus_filter\x18\x03 \x03(\x0e2\x1f.schedule.v1.LessonStatusFilterR\fstatusFilter\x12\x17\n" +
 	"\x04from\x18\x04 \x01(\tH\x00R\x04from\x88\x01\x01\x12\x13\n" +
-	"\x02to\x18\x05 \x01(\tH\x01R\x02to\x88\x01\x01B\a\n" +
+	"\x02to\x18\x05 \x01(\tH\x01R\x02to\x88\x01\x01\x12\x17\n" +
+	"\x04page\x18\x06 \x01(\x05H\x02R\x04page\x88\x01\x01\x12 \n" +
+	"\tpage_size\x18\a \x01(\x05H\x03R\bpageSize\x88\x01\x01B\a\n" +
 	"\x05_fromB\x05\n" +
-	"\x03_to\"\xd5\x01\n" +
+	"\x03_toB\a\n" +
+	"\x05_pageB\f\n" +
+	"\n" +
+	"_page_size\"\xd5\x01\n" +
 	"!ListCompletedUnpaidLessonsRequest\x125\n" +
 	"\x05after\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\x05after\x88\x01\x01\x127\n" +
 	"\x06before\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampH\x01R\x06before\x88\x01\x01\x12\x1e\n" +
 	"\btutor_id\x18\x03 \x01(\tH\x02R\atutorId\x88\x01\x01B\b\n" +
 	"\x06_afterB\t\n" +
 	"\a_beforeB\v\n" +
-	"\t_tutor_id\"D\n" +
+	"\t_tutor_id\"y\n" +
 	"\x13ListLessonsResponse\x12-\n" +
-	"\alessons\x18\x01 \x03(\v2\x13.schedule.v1.LessonR\alessons\"\x81\x04\n" +
+	"\alessons\x18\x01 \x03(\v2\x13.schedule.v1.LessonR\alessons\x12\x12\n" +
+	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1f\n" +
+	"\vtotal_count\x18\x03 \x01(\x03R\n" +
+	"totalCount\"\x81\x04\n" +
 	"\x06Lesson\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\aslot_id\x18\x02 \x01(\tR\x06slotId\x12\x1d\n" +
@@ -1381,7 +1463,7 @@ const file_schedule_service_proto_rawDesc = "" +
 	"\x12ListLessonsByTutor\x12&.schedule.v1.ListLessonsByTutorRequest\x1a .schedule.v1.ListLessonsResponse\x12b\n" +
 	"\x14ListLessonsByStudent\x12(.schedule.v1.ListLessonsByStudentRequest\x1a .schedule.v1.ListLessonsResponse\x12\\\n" +
 	"\x11ListLessonsByPair\x12%.schedule.v1.ListLessonsByPairRequest\x1a .schedule.v1.ListLessonsResponse\x12n\n" +
-	"\x1aListCompletedUnpaidLessons\x12..schedule.v1.ListCompletedUnpaidLessonsRequest\x1a .schedule.v1.ListLessonsResponseB\vZ\t./pkg/pkgb\x06proto3"
+	"\x1aListCompletedUnpaidLessons\x12..schedule.v1.ListCompletedUnpaidLessonsRequest\x1a .schedule.v1.ListLessonsResponseB\vZ\t./pkg/apib\x06proto3"
 
 var (
 	file_schedule_service_proto_rawDescOnce sync.Once

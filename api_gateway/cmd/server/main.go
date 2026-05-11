@@ -6,8 +6,10 @@ import (
 	"apigateway/internal/config"
 	"apigateway/internal/handler"
 	"apigateway/internal/middleware"
+	auditpb "audit_service/pkg/api"
 	"common_library/logging"
 	"context"
+	faqpb "faq_service/pkg/api"
 	filepb "fileservice/pkg/api"
 	"fmt"
 	"github.com/go-chi/chi/v5"
@@ -72,6 +74,12 @@ func main() {
 	scheduleGrpcClient, closeFunc := client.New(ctx, cfg.ScheduleServiceURL)
 	defer closeFunc()
 
+	faqGrpcClient, closeFunc := client.New(ctx, cfg.FAQServiceURL)
+	defer closeFunc()
+
+	auditGrpcClient, closeFunc := client.New(ctx, cfg.AuditServiceURL)
+	defer closeFunc()
+
 	redisConn := redis.NewClient(&redis.Options{
 		Addr: cfg.RedisURL,
 	})
@@ -94,12 +102,19 @@ func main() {
 	scheduleClient := schedulepb.NewScheduleServiceClient(scheduleGrpcClient)
 	scheduleHandler := handler.NewScheduleHandler(scheduleClient)
 
+	faqClient := faqpb.NewFAQServiceClient(faqGrpcClient)
+	faqHandler := handler.NewFAQHandler(faqClient, redisCache)
+
+	auditClient := auditpb.NewAuditServiceClient(auditGrpcClient)
+	auditMiddleware := middleware.NewAuditMiddleware(auditClient, zapLogger)
+
 	authMiddleware := middleware.NewAuthMiddleware(userClient)
 	r := chi.NewRouter()
 	r.Use(middleware.NewLoggingMiddleware(logger))
 	r.Use(func(next http.Handler) http.Handler {
 		return http.MaxBytesHandler(next, 10<<20) // 10 MB
 	})
+	r.Use(auditMiddleware)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -126,6 +141,8 @@ func main() {
 	r.Route("/homework", func(r chi.Router) {
 		homeworkHandler.RegisterRoutes(r, authMiddleware)
 	})
+
+	faqHandler.RegisterRoutes(r)
 
 	port := fmt.Sprintf(":%d", cfg.HTTPPort)
 	logger.Info(ctx, "Starting server", zap.String("port", port))

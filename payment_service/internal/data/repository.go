@@ -114,24 +114,48 @@ func (r *PaymentRepo) GetReceiptByLessonID(ctx context.Context, lessonID uuid.UU
 	return pr, nil
 }
 
-// ListReceiptsByTutor returns all receipts for a tutor ordered by created_at desc.
-func (r *PaymentRepo) ListReceiptsByTutor(ctx context.Context, tutorID string) ([]*models.PaymentReceipt, error) {
-	query := selectReceipt + ` WHERE tutor_id = $1 ORDER BY created_at DESC`
-	var receipts []*models.PaymentReceipt
-	if err := pgxscan.Select(ctx, r.db, &receipts, query, tutorID); err != nil {
-		return nil, handleError(err)
+// ListReceiptsByTutor returns receipts for a tutor ordered by created_at desc with pagination.
+// limit=0 means no pagination.
+func (r *PaymentRepo) ListReceiptsByTutor(ctx context.Context, tutorID string, limit, offset int) ([]*models.PaymentReceipt, int64, error) {
+	countQuery := `SELECT COUNT(*) FROM receipts WHERE tutor_id = $1`
+	var totalCount int64
+	if err := r.db.QueryRow(ctx, countQuery, tutorID).Scan(&totalCount); err != nil {
+		return nil, 0, handleError(err)
 	}
-	return receipts, nil
+
+	query := selectReceipt + ` WHERE tutor_id = $1 ORDER BY created_at DESC`
+	args := []any{tutorID}
+	if limit > 0 {
+		query += ` LIMIT $2 OFFSET $3`
+		args = append(args, limit, offset)
+	}
+	var receipts []*models.PaymentReceipt
+	if err := pgxscan.Select(ctx, r.db, &receipts, query, args...); err != nil {
+		return nil, 0, handleError(err)
+	}
+	return receipts, totalCount, nil
 }
 
-// ListReceiptsByStudent returns all receipts for a student ordered by created_at desc.
-func (r *PaymentRepo) ListReceiptsByStudent(ctx context.Context, studentID string) ([]*models.PaymentReceipt, error) {
-	query := selectReceipt + ` WHERE student_id = $1 ORDER BY created_at DESC`
-	var receipts []*models.PaymentReceipt
-	if err := pgxscan.Select(ctx, r.db, &receipts, query, studentID); err != nil {
-		return nil, handleError(err)
+// ListReceiptsByStudent returns receipts for a student ordered by created_at desc with pagination.
+// limit=0 means no pagination.
+func (r *PaymentRepo) ListReceiptsByStudent(ctx context.Context, studentID string, limit, offset int) ([]*models.PaymentReceipt, int64, error) {
+	countQuery := `SELECT COUNT(*) FROM receipts WHERE student_id = $1`
+	var totalCount int64
+	if err := r.db.QueryRow(ctx, countQuery, studentID).Scan(&totalCount); err != nil {
+		return nil, 0, handleError(err)
 	}
-	return receipts, nil
+
+	query := selectReceipt + ` WHERE student_id = $1 ORDER BY created_at DESC`
+	args := []any{studentID}
+	if limit > 0 {
+		query += ` LIMIT $2 OFFSET $3`
+		args = append(args, limit, offset)
+	}
+	var receipts []*models.PaymentReceipt
+	if err := pgxscan.Select(ctx, r.db, &receipts, query, args...); err != nil {
+		return nil, 0, handleError(err)
+	}
+	return receipts, totalCount, nil
 }
 
 func (r *PaymentRepo) GetTutorRevenue(ctx context.Context, tutorID string, from, to *time.Time) (int64, error) {

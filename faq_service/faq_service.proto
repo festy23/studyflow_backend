@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package faq_service.v1;
+
+option go_package = "./pkg/api";
+
+import "google/protobuf/timestamp.proto";
+
+service FAQService {
+  rpc CreateFAQ(CreateFAQRequest) returns (FAQ);
+  rpc GetFAQ(GetFAQRequest) returns (FAQ);
+  rpc UpdateFAQ(UpdateFAQRequest) returns (FAQ);
+  rpc DeleteFAQ(DeleteFAQRequest) returns (Empty);
+  rpc ListFAQs(ListFAQsRequest) returns (ListFAQsResponse);
+  rpc ListCategories(Empty) returns (ListCategoriesResponse);
+}
+
+message CreateFAQRequest {
+  string question = 1;
+  string answer = 2;
+  optional string category = 3;
+  optional int32 sort_order = 4;
+}
+
+message GetFAQRequest {
+  string id = 1;
+}
+
+message UpdateFAQRequest {
+  string id = 1;
+  optional string question = 2;
+  optional string answer = 3;
+  optional string category = 4;
+  optional int32 sort_order = 5;
+}
+
+message DeleteFAQRequest {
+  string id = 1;
+}
+
+message ListFAQsRequest {
+  optional string category = 1;
+  optional int32 page = 2;
+  optional int32 page_size = 3;
+}
+
+message FAQ {
+  string id = 1;
+  string question = 2;
+  string answer = 3;
+  optional string category = 4;
+  int32 sort_order = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp edited_at = 7;
+}
+
+message ListFAQsResponse {
+  repeated FAQ faqs = 1;
+  int32 page = 2;
+  int64 total_count = 3;
+}
+
+message ListCategoriesResponse {
+  repeated string categories = 1;
+}
+
+message Empty {}

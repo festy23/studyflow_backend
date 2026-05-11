@@ -50,19 +50,19 @@ func (m *MockAssignmentService) DeleteAssignment(ctx context.Context, id uuid.UU
 	return args.Error(0)
 }
 
-func (m *MockAssignmentService) ListAssignmentsByTutor(ctx context.Context, tutorID uuid.UUID, statuses []domain.AssignmentStatus) ([]*domain.Assignment, error) {
-	args := m.Called(ctx, tutorID, statuses)
-	return args.Get(0).([]*domain.Assignment), args.Error(1)
+func (m *MockAssignmentService) ListAssignmentsByTutor(ctx context.Context, tutorID uuid.UUID, statuses []domain.AssignmentStatus, page, pageSize *int32) ([]*domain.Assignment, int64, error) {
+	args := m.Called(ctx, tutorID, statuses, page, pageSize)
+	return args.Get(0).([]*domain.Assignment), args.Get(1).(int64), args.Error(2)
 }
 
-func (m *MockAssignmentService) ListAssignmentsByStudent(ctx context.Context, studentID uuid.UUID, statuses []domain.AssignmentStatus) ([]*domain.Assignment, error) {
-	args := m.Called(ctx, studentID, statuses)
-	return args.Get(0).([]*domain.Assignment), args.Error(1)
+func (m *MockAssignmentService) ListAssignmentsByStudent(ctx context.Context, studentID uuid.UUID, statuses []domain.AssignmentStatus, page, pageSize *int32) ([]*domain.Assignment, int64, error) {
+	args := m.Called(ctx, studentID, statuses, page, pageSize)
+	return args.Get(0).([]*domain.Assignment), args.Get(1).(int64), args.Error(2)
 }
 
-func (m *MockAssignmentService) ListAssignmentsByPair(ctx context.Context, tutorID, studentID uuid.UUID, statuses []domain.AssignmentStatus) ([]*domain.Assignment, error) {
-	args := m.Called(ctx, tutorID, studentID, statuses)
-	return args.Get(0).([]*domain.Assignment), args.Error(1)
+func (m *MockAssignmentService) ListAssignmentsByPair(ctx context.Context, tutorID, studentID uuid.UUID, statuses []domain.AssignmentStatus, page, pageSize *int32) ([]*domain.Assignment, int64, error) {
+	args := m.Called(ctx, tutorID, studentID, statuses, page, pageSize)
+	return args.Get(0).([]*domain.Assignment), args.Get(1).(int64), args.Error(2)
 }
 
 func (m *MockAssignmentService) GetAssignmentFileURL(ctx context.Context, id uuid.UUID) (string, error) {

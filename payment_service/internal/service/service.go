@@ -33,9 +33,9 @@ type IPaymentRepo interface {
 
 	GetReceiptByLessonID(ctx context.Context, lessonID uuid.UUID) (*models.PaymentReceipt, error)
 
-	ListReceiptsByTutor(ctx context.Context, tutorID string) ([]*models.PaymentReceipt, error)
+	ListReceiptsByTutor(ctx context.Context, tutorID string, limit, offset int) ([]*models.PaymentReceipt, int64, error)
 
-	ListReceiptsByStudent(ctx context.Context, studentID string) ([]*models.PaymentReceipt, error)
+	ListReceiptsByStudent(ctx context.Context, studentID string, limit, offset int) ([]*models.PaymentReceipt, int64, error)
 
 	GetTutorRevenue(ctx context.Context, tutorID string, from, to *time.Time) (int64, error)
 }
@@ -308,24 +308,52 @@ func (s *PaymentService) GetReceiptFile(ctx context.Context, input *models.GetRe
 	return receiptFileURL, nil
 }
 
-func (s *PaymentService) ListReceipts(ctx context.Context, input *models.ListReceiptsInput) ([]*models.PaymentReceipt, error) {
+// listResult is a helper for wrapping ListReceiptsByTutor / ListReceiptsByStudent
+// in RetryWithBackoff, which requires a single return type.
+type listResult struct {
+	receipts []*models.PaymentReceipt
+	total    int64
+}
+
+func (s *PaymentService) ListReceipts(ctx context.Context, input *models.ListReceiptsInput) ([]*models.PaymentReceipt, int64, error) {
 	callerID, ok := ctxdata.GetUserID(ctx)
 	if !ok || callerID == "" {
-		return nil, errdefs.ErrPermissionDenied
+		return nil, 0, errdefs.ErrPermissionDenied
 	}
+	limit, offset := input.Paginate()
 	switch {
 	case input.TutorID != "":
 		if callerID != input.TutorID {
-			return nil, errdefs.ErrPermissionDenied
+			return nil, 0, errdefs.ErrPermissionDenied
 		}
-		return s.repo.ListReceiptsByTutor(ctx, input.TutorID)
+		result, err := utils.RetryWithBackoff[*listResult](ctx, maxRetries, retryDelay, func() (*listResult, error) {
+			receipts, total, repoErr := s.repo.ListReceiptsByTutor(ctxWithMetadata(ctx), input.TutorID, limit, offset)
+			if repoErr != nil {
+				return nil, repoErr
+			}
+			return &listResult{receipts: receipts, total: total}, nil
+		})
+		if err != nil {
+			return nil, 0, err
+		}
+		return result.receipts, result.total, nil
 	case input.StudentID != "":
 		if callerID != input.StudentID {
-			return nil, errdefs.ErrPermissionDenied
+			return nil, 0, errdefs.ErrPermissionDenied
 		}
-		return s.repo.ListReceiptsByStudent(ctx, input.StudentID)
+		result, err := utils.RetryWithBackoff[*listResult](ctx, maxRetries, retryDelay, func() (*listResult, error) {
+			receipts, total, repoErr := s.repo.ListReceiptsByStudent(ctxWithMetadata(ctx), input.StudentID, limit, offset)
+			if repoErr != nil {
+				return nil, repoErr
+			}
+			return &listResult{receipts: receipts, total: total}, nil
+		})
+		if err != nil {
+			return nil, 0, err
+		}
+		return result.receipts, result.total, nil
 	default:
-		return nil, errdefs.ErrInvalidArgument
+		return nil, 0, errdefs.ErrInvalidArgument
 	}
 }
 

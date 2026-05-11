@@ -1,0 +1,147 @@
+name: Service CI
+
+on:
+  workflow_call:
+    inputs:
+      service_path:
+        required: true
+        type: string
+      test_package:
+        required: true
+        type: string
+      has_dockerfile:
+        required: true
+        type: boolean
+      go_version:
+        required: false
+        type: string
+        default: "1.24"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go_version }}
+
+      - name: Cache golangci-lint
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/golangci-lint
+          key: golangci-lint-${{ inputs.service_path }}-${{ hashFiles(format('{0}/go.sum', inputs.service_path)) }}
+          restore-keys: |
+            golangci-lint-${{ inputs.service_path }}-
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: go-mod-${{ inputs.service_path }}-${{ hashFiles(format('{0}/go.sum', inputs.service_path)) }}
+          restore-keys: |
+            go-mod-${{ inputs.service_path }}-
+
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+
+      - name: Run golangci-lint
+        working-directory: ${{ inputs.service_path }}
+        run: golangci-lint run --config=../.golangci.yml ./...
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go_version }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: go-mod-${{ inputs.service_path }}-${{ hashFiles(format('{0}/go.sum', inputs.service_path)) }}
+          restore-keys: |
+            go-mod-${{ inputs.service_path }}-
+
+      - name: Run tests
+        working-directory: ${{ inputs.service_path }}
+        run: |
+          go test -coverprofile=coverage.out -covermode=atomic ${{ inputs.test_package }} 2>&1 | tee test_output.txt
+          if grep -q "no packages to test\|no test files\|no tests to run" test_output.txt; then
+            echo "No tests found - skipping coverage check"
+            exit 0
+          fi
+          if [ -f coverage.out ] && [ -s coverage.out ]; then
+            COV=$(go tool cover -func coverage.out | tail -1 | awk '{print $3}' | sed 's/%//')
+            echo "Coverage: ${COV}%"
+            if [ "$(echo "$COV < 30" | bc)" -eq 1 ]; then
+              echo "::error::Coverage ${COV}% is below 30% threshold"
+              exit 1
+            fi
+          else
+            echo "No coverage data generated"
+          fi
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ inputs.service_path }}
+          path: ${{ inputs.service_path }}/coverage.out
+          retention-days: 7
+
+  sast:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go_version }}
+
+      - name: Install gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+      - name: Run gosec
+        working-directory: ${{ inputs.service_path }}
+        run: gosec -exclude-dir=pkg/api ./...
+        continue-on-error: true
+
+  build:
+    if: ${{ inputs.has_dockerfile && github.ref == 'refs/heads/master' }}
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.service_path }}
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  scan:
+    if: ${{ inputs.has_dockerfile && github.ref == 'refs/heads/master' }}
+    runs-on: ubuntu-latest
+    needs: [build]
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: ${{ inputs.service_path }}
+          severity: CRITICAL,HIGH
+          exit-code: 0

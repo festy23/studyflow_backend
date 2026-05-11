@@ -138,21 +138,37 @@ func parseListLessons(ctx context.Context, r *http.Request) (context.Context, an
 		toPtr = &v
 	}
 
+	page := parseInt32Ptr(q.Get("page"))
+	pageSize := parseInt32Ptr(q.Get("page_size"))
+
+	// Validate pagination: page must be >= 1, page_size must be 1..100.
+	if page != nil && *page < 1 {
+		page = nil
+	}
+	if pageSize != nil {
+		switch {
+		case *pageSize <= 0:
+			pageSize = nil
+		case *pageSize > 100:
+			pageSize = nil
+		}
+	}
+
 	switch {
 	case tutorID != "" && studentID != "":
-		req := &schedulepb.ListLessonsByPairRequest{TutorId: tutorID, StudentId: studentID, From: fromPtr, To: toPtr}
+		req := &schedulepb.ListLessonsByPairRequest{TutorId: tutorID, StudentId: studentID, From: fromPtr, To: toPtr, Page: page, PageSize: pageSize}
 		for _, s := range statusParams {
 			req.StatusFilter = append(req.StatusFilter, parseStatus(s))
 		}
 		return ctx, req, nil
 	case tutorID != "":
-		req := &schedulepb.ListLessonsByTutorRequest{TutorId: tutorID, From: fromPtr, To: toPtr}
+		req := &schedulepb.ListLessonsByTutorRequest{TutorId: tutorID, From: fromPtr, To: toPtr, Page: page, PageSize: pageSize}
 		for _, s := range statusParams {
 			req.StatusFilter = append(req.StatusFilter, parseStatus(s))
 		}
 		return ctx, req, nil
 	case studentID != "":
-		req := &schedulepb.ListLessonsByStudentRequest{StudentId: studentID, From: fromPtr, To: toPtr}
+		req := &schedulepb.ListLessonsByStudentRequest{StudentId: studentID, From: fromPtr, To: toPtr, Page: page, PageSize: pageSize}
 		for _, s := range statusParams {
 			req.StatusFilter = append(req.StatusFilter, parseStatus(s))
 		}
@@ -272,6 +288,8 @@ func (h *ScheduleHandler) ListLessons(w http.ResponseWriter, r *http.Request) {
 				grpcReq.StatusFilter = req.StatusFilter
 				grpcReq.From = req.From
 				grpcReq.To = req.To
+				grpcReq.Page = req.Page
+				grpcReq.PageSize = req.PageSize
 				return nil
 			}, false,
 		)
@@ -287,6 +305,8 @@ func (h *ScheduleHandler) ListLessons(w http.ResponseWriter, r *http.Request) {
 				grpcReq.StatusFilter = req.StatusFilter
 				grpcReq.From = req.From
 				grpcReq.To = req.To
+				grpcReq.Page = req.Page
+				grpcReq.PageSize = req.PageSize
 				return nil
 			}, false)
 		if err != nil {
@@ -302,6 +322,8 @@ func (h *ScheduleHandler) ListLessons(w http.ResponseWriter, r *http.Request) {
 				grpcReq.StatusFilter = req.StatusFilter
 				grpcReq.From = req.From
 				grpcReq.To = req.To
+				grpcReq.Page = req.Page
+				grpcReq.PageSize = req.PageSize
 				return nil
 			}, false)
 		if err != nil {

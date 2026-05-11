@@ -43,6 +43,8 @@ message GetReceiptFileRequest {
 message ListReceiptsRequest {
   optional string tutor_id   = 1;
   optional string student_id = 2;
+  optional int32 page = 3;
+  optional int32 page_size = 4;
 }
 
 message GetTutorAnalyticsRequest {
@@ -76,6 +78,8 @@ message ReceiptFileURL {
 
 message ListReceiptsResponse {
   repeated Receipt receipts = 1;
+  int32 page = 2;
+  int64 total_count = 3;
 }
 
 message TutorAnalytics {
