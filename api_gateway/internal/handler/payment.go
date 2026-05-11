@@ -3,8 +3,10 @@ package handler
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	paymentpb "paymentservice/pkg/api"
 )
 
@@ -19,6 +21,7 @@ func NewPaymentHandler(c paymentpb.PaymentServiceClient) *PaymentHandler {
 func (h *PaymentHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
 	r.With(authMiddleware).Group(func(r chi.Router) {
 		r.Get("/info/{lesson_id}", h.GetPaymentInfo)
+		r.Get("/analytics/tutor/{tutor_id}", h.GetTutorAnalytics)
 		r.Get("/receipts", h.ListReceipts)
 		r.Post("/receipts", h.SubmitReceipt)
 		r.Get("/receipts/{id}", h.GetReceipt)
@@ -73,6 +76,31 @@ func parseGetReceiptFile(ctx context.Context, r *http.Request, req *paymentpb.Ge
 	return nil
 }
 
+func parseGetTutorAnalytics(ctx context.Context, r *http.Request, req *paymentpb.GetTutorAnalyticsRequest) error {
+	tutorID, err := parsePathParam(r, "tutor_id")
+	if err != nil {
+		return err
+	}
+	req.TutorId = tutorID
+
+	query := r.URL.Query()
+	if raw := query.Get("from"); raw != "" {
+		from, err := time.Parse(time.RFC3339, raw)
+		if err != nil {
+			return ErrBadRequest
+		}
+		req.From = timestamppb.New(from)
+	}
+	if raw := query.Get("to"); raw != "" {
+		to, err := time.Parse(time.RFC3339, raw)
+		if err != nil {
+			return ErrBadRequest
+		}
+		req.To = timestamppb.New(to)
+	}
+	return nil
+}
+
 func (h *PaymentHandler) GetPaymentInfo(w http.ResponseWriter, r *http.Request) {
 	handler, err := Handle[paymentpb.GetPaymentInfoRequest, paymentpb.PaymentInfo](h.c.GetPaymentInfo, parseGetPaymentInfo, false)
 	if err != nil {
@@ -115,6 +143,14 @@ func (h *PaymentHandler) GetReceiptFile(w http.ResponseWriter, r *http.Request) 
 
 func (h *PaymentHandler) ListReceipts(w http.ResponseWriter, r *http.Request) {
 	handler, err := Handle[paymentpb.ListReceiptsRequest, paymentpb.ListReceiptsResponse](h.c.ListReceipts, parseListReceipts, false)
+	if err != nil {
+		panic(err)
+	}
+	handler(w, r)
+}
+
+func (h *PaymentHandler) GetTutorAnalytics(w http.ResponseWriter, r *http.Request) {
+	handler, err := Handle[paymentpb.GetTutorAnalyticsRequest, paymentpb.TutorAnalytics](h.c.GetTutorAnalytics, parseGetTutorAnalytics, false)
 	if err != nil {
 		panic(err)
 	}

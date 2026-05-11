@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -266,6 +267,72 @@ func TestSubmitPaymentReceipt(t *testing.T) {
 
 		_, err = svc.SubmitPaymentReceipt(ctx, &models.SubmitPaymentReceiptInput{LessonId: lessonID, FileId: fileID})
 		assert.True(t, errors.Is(err, errdefs.ErrAlreadyExists))
+	})
+}
+
+func TestGetTutorAnalytics(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		ctrl, svc, mockRepo, _, _, mockSchedule := setup(t)
+		defer ctrl.Finish()
+
+		tutorID := uuid.New().String()
+		from := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+		to := time.Date(2026, 5, 31, 23, 59, 59, 0, time.UTC)
+
+		mockRepo.EXPECT().
+			GetTutorRevenue(gomock.Any(), tutorID, &from, &to).
+			Return(int64(4500), nil)
+		mockSchedule.EXPECT().
+			ListLessonsByTutor(gomock.Any(), gomock.AssignableToTypeOf(&api.ListLessonsByTutorRequest{})).
+			DoAndReturn(func(_ context.Context, req *api.ListLessonsByTutorRequest, _ ...grpc.CallOption) (*api.ListLessonsResponse, error) {
+				assert.Equal(t, tutorID, req.TutorId)
+				assert.NotNil(t, req.From)
+				assert.NotNil(t, req.To)
+				return &api.ListLessonsResponse{Lessons: []*api.Lesson{
+					{Status: "completed", IsPaid: true, StudentId: "student-1"},
+					{Status: "completed", IsPaid: false, StudentId: "student-2"},
+					{Status: "cancelled", IsPaid: false, StudentId: "student-3"},
+					{Status: "booked", IsPaid: false, StudentId: "student-1"},
+				}}, nil
+			})
+
+		got, err := svc.GetTutorAnalytics(tutorCtxWithID(tutorID), &models.GetTutorAnalyticsInput{
+			TutorID: tutorID,
+			From:    &from,
+			To:      &to,
+		})
+
+		assert.NoError(t, err)
+		assert.Equal(t, int64(4500), got.TotalRevenueRub)
+		assert.Equal(t, int64(2), got.CompletedLessonsCount)
+		assert.Equal(t, int64(1), got.CancelledLessonsCount)
+		assert.Equal(t, int64(2), got.ActiveStudentsCount)
+		assert.Equal(t, int64(1), got.UnpaidLessonsCount)
+	})
+
+	t.Run("PermissionDenied_DifferentTutor", func(t *testing.T) {
+		_, svc, _, _, _, _ := setup(t)
+
+		_, err := svc.GetTutorAnalytics(tutorCtxWithID(uuid.New().String()), &models.GetTutorAnalyticsInput{
+			TutorID: uuid.New().String(),
+		})
+
+		assert.ErrorIs(t, err, errdefs.ErrPermissionDenied)
+	})
+
+	t.Run("InvalidTimeRange", func(t *testing.T) {
+		_, svc, _, _, _, _ := setup(t)
+		tutorID := uuid.New().String()
+		from := time.Date(2026, 5, 31, 0, 0, 0, 0, time.UTC)
+		to := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+
+		_, err := svc.GetTutorAnalytics(tutorCtxWithID(tutorID), &models.GetTutorAnalyticsInput{
+			TutorID: tutorID,
+			From:    &from,
+			To:      &to,
+		})
+
+		assert.ErrorIs(t, err, errdefs.ErrInvalidArgument)
 	})
 }
 

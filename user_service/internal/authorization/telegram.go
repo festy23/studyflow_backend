@@ -4,14 +4,24 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 	"userservice/internal/errdefs"
 )
 
+const initDataTTL = 24 * time.Hour
+
 func GetTelegramId(secret string, header string) (int64, error) {
+	header = strings.TrimSpace(header)
+	if strings.Contains(header, "auth_date=") && strings.Contains(header, "hash=") {
+		return GetTelegramIDFromInitData(secret, header, initDataTTL)
+	}
+
 	payload := strings.Split(header, ":")
 	if len(payload) != 3 {
 		return 0, fmt.Errorf(
@@ -55,8 +65,71 @@ func GetTelegramId(secret string, header string) (int64, error) {
 	return tgId, nil
 }
 
+func GetTelegramIDFromInitData(botToken string, initData string, ttl time.Duration) (int64, error) {
+	values, err := url.ParseQuery(initData)
+	if err != nil {
+		return 0, fmt.Errorf("authorization: invalid initData: %w", errdefs.ErrAuthentication)
+	}
+
+	actualHash := values.Get("hash")
+	if actualHash == "" {
+		return 0, fmt.Errorf("authorization: initData hash is empty: %w", errdefs.ErrAuthentication)
+	}
+	values.Del("hash")
+
+	authDateRaw := values.Get("auth_date")
+	authDate, err := strconv.ParseInt(authDateRaw, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("authorization: invalid auth_date %s: %w", authDateRaw, errdefs.ErrAuthentication)
+	}
+	if ttl > 0 {
+		now := time.Now()
+		authTime := time.Unix(authDate, 0)
+		if authTime.After(now.Add(5*time.Minute)) || now.Sub(authTime) > ttl {
+			return 0, fmt.Errorf("authorization: initData expired: %w", errdefs.ErrAuthentication)
+		}
+	}
+
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	checkParts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		checkParts = append(checkParts, key+"="+values.Get(key))
+	}
+	checkString := strings.Join(checkParts, "\n")
+
+	secretKeyMAC := hmac.New(sha256.New, []byte("WebAppData"))
+	secretKeyMAC.Write([]byte(botToken))
+	secretKey := secretKeyMAC.Sum(nil)
+
+	if !validMACBytes(checkString, secretKey, actualHash) {
+		return 0, fmt.Errorf("authorization: invalid initData hmac: %w", errdefs.ErrAuthentication)
+	}
+
+	var tgUser struct {
+		ID int64 `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(values.Get("user")), &tgUser); err != nil || tgUser.ID == 0 {
+		return 0, fmt.Errorf("authorization: invalid initData user: %w", errdefs.ErrAuthentication)
+	}
+
+	return tgUser.ID, nil
+}
+
 func ValidMAC(message, key, messageMAC string) bool {
 	mac := hmac.New(sha256.New, []byte(key))
+	mac.Write([]byte(message))
+	expectedMAC := mac.Sum(nil)
+	expectedHex := hex.EncodeToString(expectedMAC)
+	return hmac.Equal([]byte(messageMAC), []byte(expectedHex))
+}
+
+func validMACBytes(message string, key []byte, messageMAC string) bool {
+	mac := hmac.New(sha256.New, key)
 	mac.Write([]byte(message))
 	expectedMAC := mac.Sum(nil)
 	expectedHex := hex.EncodeToString(expectedMAC)

@@ -7,6 +7,7 @@ import (
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	errdefs "paymentservice/internal/errors"
 	"paymentservice/internal/mocks"
 	"paymentservice/internal/models"
@@ -63,6 +64,51 @@ func TestGetPaymentInfo_InvalidLessonID(t *testing.T) {
 	ctx := context.Background()
 	str := "invalid-uuid"
 	_, err := h.GetPaymentInfo(ctx, &pb.GetPaymentInfoRequest{LessonId: &str})
+	assert.Error(t, err)
+	assert.Equal(t, codes.InvalidArgument, status.Code(err))
+}
+
+func TestGetTutorAnalytics_Success(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tutorID := uuid.New().String()
+	from := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 5, 31, 23, 59, 59, 0, time.UTC)
+	mockSvc := mocks.NewMockPaymentService(ctrl)
+	h := &PaymentServiceServer{service: mockSvc}
+	ctx := context.Background()
+	input := &models.GetTutorAnalyticsInput{TutorID: tutorID, From: &from, To: &to}
+	response := &models.TutorAnalytics{
+		TutorID:               tutorID,
+		From:                  &from,
+		To:                    &to,
+		TotalRevenueRub:       5000,
+		CompletedLessonsCount: 4,
+		CancelledLessonsCount: 1,
+		ActiveStudentsCount:   3,
+		UnpaidLessonsCount:    2,
+	}
+	mockSvc.EXPECT().GetTutorAnalytics(ctx, input).Return(response, nil)
+
+	res, err := h.GetTutorAnalytics(ctx, &pb.GetTutorAnalyticsRequest{
+		TutorId: tutorID,
+		From:    timestamppb.New(from),
+		To:      timestamppb.New(to),
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, tutorID, res.TutorId)
+	assert.Equal(t, int64(5000), res.TotalRevenueRub)
+	assert.Equal(t, int64(4), res.CompletedLessonsCount)
+	assert.Equal(t, int64(1), res.CancelledLessonsCount)
+	assert.Equal(t, int64(3), res.ActiveStudentsCount)
+	assert.Equal(t, int64(2), res.UnpaidLessonsCount)
+}
+
+func TestGetTutorAnalytics_InvalidTutorID(t *testing.T) {
+	h := &PaymentServiceServer{}
+	_, err := h.GetTutorAnalytics(context.Background(), &pb.GetTutorAnalyticsRequest{})
 	assert.Error(t, err)
 	assert.Equal(t, codes.InvalidArgument, status.Code(err))
 }

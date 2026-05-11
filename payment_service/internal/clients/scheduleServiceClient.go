@@ -15,5 +15,6 @@ type ScheduleServiceClient interface {
 	UpdateLesson(ctx context.Context, req *api3.UpdateLessonRequest, opts ...grpc.CallOption) (*api3.Lesson, error)
 	CancelLesson(ctx context.Context, req *api3.CancelLessonRequest, opts ...grpc.CallOption) (*api3.Lesson, error)
 	MarkAsPaid(ctx context.Context, req *api3.MarkAsPaidRequest, opts ...grpc.CallOption) (*api3.Lesson, error)
+	ListLessonsByTutor(ctx context.Context, req *api3.ListLessonsByTutorRequest, opts ...grpc.CallOption) (*api3.ListLessonsResponse, error)
 	ListCompletedUnpaidLessons(ctx context.Context, req *api3.ListCompletedUnpaidLessonsRequest, opts ...grpc.CallOption) (*api3.ListLessonsResponse, error)
 }

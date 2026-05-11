@@ -152,3 +152,24 @@ func TestPaymentRepo_GetReceiptByLessonID_NotFound(t *testing.T) {
 	_, err = repo.GetReceiptByLessonID(ctx, lessonID)
 	assert.ErrorIs(t, err, errdefs.ErrNotFound)
 }
+
+func TestPaymentRepo_GetTutorRevenue(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mockPool.Close()
+
+	repo := NewPaymentRepository(mockPool)
+	ctx := context.Background()
+	tutorID := "tutor-123"
+	from := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 5, 31, 23, 59, 59, 0, time.UTC)
+
+	mockPool.ExpectQuery("SELECT COALESCE").
+		WithArgs(tutorID, from, to).
+		WillReturnRows(pgxmock.NewRows([]string{"sum"}).AddRow(int64(7500)))
+
+	revenue, err := repo.GetTutorRevenue(ctx, tutorID, &from, &to)
+
+	assert.NoError(t, err)
+	assert.Equal(t, int64(7500), revenue)
+}
