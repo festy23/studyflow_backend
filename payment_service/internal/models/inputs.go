@@ -1,6 +1,10 @@
 package models
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type GetPaymentInfoInput struct {
 	LessonId uuid.UUID
@@ -26,4 +30,10 @@ type GetReceiptFileInput struct {
 type ListReceiptsInput struct {
 	TutorID   string
 	StudentID string
+}
+
+type GetTutorAnalyticsInput struct {
+	TutorID string
+	From    *time.Time
+	To      *time.Time
 }

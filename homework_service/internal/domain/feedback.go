@@ -10,6 +10,7 @@ type Feedback struct {
 	SubmissionID uuid.UUID
 	FileID       *uuid.UUID
 	Comment      *string
+	Grade        *int32
 	CreatedAt    time.Time
 	EditedAt     time.Time
 }

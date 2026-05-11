@@ -1,0 +1,2 @@
+ALTER TABLE feedbacks
+ADD COLUMN grade INTEGER CHECK (grade BETWEEN 1 AND 5);

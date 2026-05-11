@@ -139,9 +139,15 @@ func (s *UserService) RegisterViaTelegram(ctx context.Context, input *model.Regi
 }
 
 func (s *UserService) Authorize(ctx context.Context, input *model.AuthorizeInput) (*model.User, error) {
-	header := input.AuthorizationHeader
+	header := strings.TrimSpace(input.AuthorizationHeader)
 	if strings.HasPrefix(header, "telegram") {
 		return s.authorizeWithTelegram(ctx, strings.Trim(strings.TrimPrefix(header, "telegram"), " "))
+	}
+	if strings.HasPrefix(header, "tma ") {
+		return s.authorizeWithTelegram(ctx, strings.TrimSpace(strings.TrimPrefix(header, "tma ")))
+	}
+	if strings.HasPrefix(header, "Bearer ") {
+		return s.authorizeWithTelegram(ctx, strings.TrimSpace(strings.TrimPrefix(header, "Bearer ")))
 	}
 
 	return nil, errdefs.ErrAuthentication

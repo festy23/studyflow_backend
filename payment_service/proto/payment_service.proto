@@ -13,6 +13,7 @@ service PaymentService {
   rpc VerifyReceipt(VerifyReceiptRequest) returns (Receipt);
   rpc GetReceiptFile(GetReceiptFileRequest) returns (ReceiptFileURL);
   rpc ListReceipts(ListReceiptsRequest) returns (ListReceiptsResponse);
+  rpc GetTutorAnalytics(GetTutorAnalyticsRequest) returns (TutorAnalytics);
 }
 
 // ==== REQUESTS ====
@@ -44,6 +45,12 @@ message ListReceiptsRequest {
   optional string student_id = 2;
 }
 
+message GetTutorAnalyticsRequest {
+  string tutor_id = 1;
+  optional google.protobuf.Timestamp from = 2;
+  optional google.protobuf.Timestamp to = 3;
+}
+
 
 // ==== RESPONSES ====
 
@@ -69,4 +76,15 @@ message ReceiptFileURL {
 
 message ListReceiptsResponse {
   repeated Receipt receipts = 1;
+}
+
+message TutorAnalytics {
+  string tutor_id = 1;
+  optional google.protobuf.Timestamp from = 2;
+  optional google.protobuf.Timestamp to = 3;
+  int64 total_revenue_rub = 4;
+  int64 completed_lessons_count = 5;
+  int64 cancelled_lessons_count = 6;
+  int64 active_students_count = 7;
+  int64 unpaid_lessons_count = 8;
 }

@@ -96,11 +96,12 @@ components:
     Error:
       type: object
       properties:
+        error:
+          type: string
         message:
           type: string
-
-
-
+      example:
+        error: Not Found
     InitUploadResponse:
       type: object
       properties:
@@ -121,6 +122,11 @@ components:
           type: string
         filename:
           type: string
+        createdAt:
+          type: string
+          format: date-time
+        isUploaded:
+          type: boolean
 
 
 
@@ -164,6 +170,8 @@ components:
           type: integer
         paymentInfo:
           type: string
+        rescheduledFromLessonId:
+          type: string
         createdAt:
           type: string
           format: date-time
@@ -198,6 +206,8 @@ components:
           type: string
         isVerified:
           type: boolean
+        priceRub:
+          type: integer
         createdAt:
           type: string
           format: date-time
@@ -209,6 +219,32 @@ components:
       properties:
         url:
           type: string
+    TutorAnalytics:
+      type: object
+      properties:
+        tutorId:
+          type: string
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        totalRevenueRub:
+          type: integer
+          format: int64
+        completedLessonsCount:
+          type: integer
+          format: int64
+        cancelledLessonsCount:
+          type: integer
+          format: int64
+        activeStudentsCount:
+          type: integer
+          format: int64
+        unpaidLessonsCount:
+          type: integer
+          format: int64
 
 
 
@@ -268,6 +304,10 @@ components:
           type: string
         comment:
           type: string
+        grade:
+          type: integer
+          minimum: 1
+          maximum: 5
         createdAt:
           type: string
           format: date-time
@@ -286,6 +326,47 @@ components:
         - UNREVIEWED
         - REVIEWED
         - OVERDUE
+  responses:
+    Unauthorized:
+      description: Authentication is missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Unauthorized
+    Forbidden:
+      description: Permission denied
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Forbidden
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Not Found
+    Conflict:
+      description: Resource conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Conflict
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Internal Server Error
 
 
 
@@ -793,6 +874,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /files/{id}/confirm-upload:
+    post:
+      summary: Confirm a file upload completed successfully
+      operationId: confirmUpload
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Upload confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
 
   # schedule
@@ -1004,6 +1110,18 @@ paths:
             $ref: '#/components/schemas/LessonStatus'
           explode: true
           style: form
+        - name: from
+          in: query
+          description: RFC3339 lower bound by slot start time
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: RFC3339 upper bound by slot start time
+          schema:
+            type: string
+            format: date-time
       responses:
         '200':
           description: List of lessons
@@ -1178,9 +1296,92 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /schedule/lessons/{id}/reschedule:
+    post:
+      summary: Cancel current lesson and create a replacement in another slot
+      operationId: rescheduleLesson
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                newSlotId:
+                  type: string
+              required:
+                - newSlotId
+      responses:
+        '200':
+          description: Replacement lesson created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lesson'
+        '400':
+          description: Invalid argument
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
 
   # payment
+  /payment/analytics/tutor/{tutor_id}:
+    get:
+      summary: Get basic tutor analytics for a period
+      operationId: getTutorAnalytics
+      parameters:
+        - name: tutor_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Tutor analytics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TutorAnalytics'
+        '400':
+          description: Invalid date range or query parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /payment/info/{lesson_id}:
     get:
       summary: Get payment info for a lesson
@@ -1211,6 +1412,42 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /payment/receipts:
+    get:
+      summary: List receipts by tutor or student
+      operationId: listReceipts
+      parameters:
+        - name: tutor_id
+          in: query
+          schema:
+            type: string
+        - name: student_id
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of receipts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  receipts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Receipt'
+        '400':
+          description: Exactly one of tutor_id or student_id must be set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
     post:
       summary: Submit a payment receipt
       operationId: submitPaymentReceipt
@@ -1707,6 +1944,10 @@ paths:
                   type: string
                 comment:
                   type: string
+                grade:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
               required:
                 - submission_id
                 - file_id
@@ -1756,6 +1997,10 @@ paths:
                   type: string
                 comment:
                   type: string
+                grade:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
       responses:
         '200':
           description: Feedback updated

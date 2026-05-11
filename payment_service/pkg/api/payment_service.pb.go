@@ -303,6 +303,66 @@ func (x *ListReceiptsRequest) GetStudentId() string {
 	return ""
 }
 
+type GetTutorAnalyticsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TutorId       string                 `protobuf:"bytes,1,opt,name=tutor_id,json=tutorId,proto3" json:"tutor_id,omitempty"`
+	From          *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=from,proto3,oneof" json:"from,omitempty"`
+	To            *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=to,proto3,oneof" json:"to,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTutorAnalyticsRequest) Reset() {
+	*x = GetTutorAnalyticsRequest{}
+	mi := &file_payment_service_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTutorAnalyticsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTutorAnalyticsRequest) ProtoMessage() {}
+
+func (x *GetTutorAnalyticsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payment_service_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTutorAnalyticsRequest.ProtoReflect.Descriptor instead.
+func (*GetTutorAnalyticsRequest) Descriptor() ([]byte, []int) {
+	return file_payment_service_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *GetTutorAnalyticsRequest) GetTutorId() string {
+	if x != nil {
+		return x.TutorId
+	}
+	return ""
+}
+
+func (x *GetTutorAnalyticsRequest) GetFrom() *timestamppb.Timestamp {
+	if x != nil {
+		return x.From
+	}
+	return nil
+}
+
+func (x *GetTutorAnalyticsRequest) GetTo() *timestamppb.Timestamp {
+	if x != nil {
+		return x.To
+	}
+	return nil
+}
+
 type PaymentInfo struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	LessonId      *string                `protobuf:"bytes,1,opt,name=lesson_id,json=lessonId,proto3,oneof" json:"lesson_id,omitempty"`
@@ -314,7 +374,7 @@ type PaymentInfo struct {
 
 func (x *PaymentInfo) Reset() {
 	*x = PaymentInfo{}
-	mi := &file_payment_service_proto_msgTypes[6]
+	mi := &file_payment_service_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -326,7 +386,7 @@ func (x *PaymentInfo) String() string {
 func (*PaymentInfo) ProtoMessage() {}
 
 func (x *PaymentInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_payment_service_proto_msgTypes[6]
+	mi := &file_payment_service_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -339,7 +399,7 @@ func (x *PaymentInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PaymentInfo.ProtoReflect.Descriptor instead.
 func (*PaymentInfo) Descriptor() ([]byte, []int) {
-	return file_payment_service_proto_rawDescGZIP(), []int{6}
+	return file_payment_service_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *PaymentInfo) GetLessonId() string {
@@ -378,7 +438,7 @@ type Receipt struct {
 
 func (x *Receipt) Reset() {
 	*x = Receipt{}
-	mi := &file_payment_service_proto_msgTypes[7]
+	mi := &file_payment_service_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -390,7 +450,7 @@ func (x *Receipt) String() string {
 func (*Receipt) ProtoMessage() {}
 
 func (x *Receipt) ProtoReflect() protoreflect.Message {
-	mi := &file_payment_service_proto_msgTypes[7]
+	mi := &file_payment_service_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -403,7 +463,7 @@ func (x *Receipt) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Receipt.ProtoReflect.Descriptor instead.
 func (*Receipt) Descriptor() ([]byte, []int) {
-	return file_payment_service_proto_rawDescGZIP(), []int{7}
+	return file_payment_service_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Receipt) GetId() string {
@@ -464,7 +524,7 @@ type ReceiptFileURL struct {
 
 func (x *ReceiptFileURL) Reset() {
 	*x = ReceiptFileURL{}
-	mi := &file_payment_service_proto_msgTypes[8]
+	mi := &file_payment_service_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -476,7 +536,7 @@ func (x *ReceiptFileURL) String() string {
 func (*ReceiptFileURL) ProtoMessage() {}
 
 func (x *ReceiptFileURL) ProtoReflect() protoreflect.Message {
-	mi := &file_payment_service_proto_msgTypes[8]
+	mi := &file_payment_service_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -489,7 +549,7 @@ func (x *ReceiptFileURL) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReceiptFileURL.ProtoReflect.Descriptor instead.
 func (*ReceiptFileURL) Descriptor() ([]byte, []int) {
-	return file_payment_service_proto_rawDescGZIP(), []int{8}
+	return file_payment_service_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ReceiptFileURL) GetUrl() string {
@@ -508,7 +568,7 @@ type ListReceiptsResponse struct {
 
 func (x *ListReceiptsResponse) Reset() {
 	*x = ListReceiptsResponse{}
-	mi := &file_payment_service_proto_msgTypes[9]
+	mi := &file_payment_service_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -520,7 +580,7 @@ func (x *ListReceiptsResponse) String() string {
 func (*ListReceiptsResponse) ProtoMessage() {}
 
 func (x *ListReceiptsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payment_service_proto_msgTypes[9]
+	mi := &file_payment_service_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -533,7 +593,7 @@ func (x *ListReceiptsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListReceiptsResponse.ProtoReflect.Descriptor instead.
 func (*ListReceiptsResponse) Descriptor() ([]byte, []int) {
-	return file_payment_service_proto_rawDescGZIP(), []int{9}
+	return file_payment_service_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListReceiptsResponse) GetReceipts() []*Receipt {
@@ -541,6 +601,106 @@ func (x *ListReceiptsResponse) GetReceipts() []*Receipt {
 		return x.Receipts
 	}
 	return nil
+}
+
+type TutorAnalytics struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	TutorId               string                 `protobuf:"bytes,1,opt,name=tutor_id,json=tutorId,proto3" json:"tutor_id,omitempty"`
+	From                  *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=from,proto3,oneof" json:"from,omitempty"`
+	To                    *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=to,proto3,oneof" json:"to,omitempty"`
+	TotalRevenueRub       int64                  `protobuf:"varint,4,opt,name=total_revenue_rub,json=totalRevenueRub,proto3" json:"total_revenue_rub,omitempty"`
+	CompletedLessonsCount int64                  `protobuf:"varint,5,opt,name=completed_lessons_count,json=completedLessonsCount,proto3" json:"completed_lessons_count,omitempty"`
+	CancelledLessonsCount int64                  `protobuf:"varint,6,opt,name=cancelled_lessons_count,json=cancelledLessonsCount,proto3" json:"cancelled_lessons_count,omitempty"`
+	ActiveStudentsCount   int64                  `protobuf:"varint,7,opt,name=active_students_count,json=activeStudentsCount,proto3" json:"active_students_count,omitempty"`
+	UnpaidLessonsCount    int64                  `protobuf:"varint,8,opt,name=unpaid_lessons_count,json=unpaidLessonsCount,proto3" json:"unpaid_lessons_count,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *TutorAnalytics) Reset() {
+	*x = TutorAnalytics{}
+	mi := &file_payment_service_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TutorAnalytics) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TutorAnalytics) ProtoMessage() {}
+
+func (x *TutorAnalytics) ProtoReflect() protoreflect.Message {
+	mi := &file_payment_service_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TutorAnalytics.ProtoReflect.Descriptor instead.
+func (*TutorAnalytics) Descriptor() ([]byte, []int) {
+	return file_payment_service_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *TutorAnalytics) GetTutorId() string {
+	if x != nil {
+		return x.TutorId
+	}
+	return ""
+}
+
+func (x *TutorAnalytics) GetFrom() *timestamppb.Timestamp {
+	if x != nil {
+		return x.From
+	}
+	return nil
+}
+
+func (x *TutorAnalytics) GetTo() *timestamppb.Timestamp {
+	if x != nil {
+		return x.To
+	}
+	return nil
+}
+
+func (x *TutorAnalytics) GetTotalRevenueRub() int64 {
+	if x != nil {
+		return x.TotalRevenueRub
+	}
+	return 0
+}
+
+func (x *TutorAnalytics) GetCompletedLessonsCount() int64 {
+	if x != nil {
+		return x.CompletedLessonsCount
+	}
+	return 0
+}
+
+func (x *TutorAnalytics) GetCancelledLessonsCount() int64 {
+	if x != nil {
+		return x.CancelledLessonsCount
+	}
+	return 0
+}
+
+func (x *TutorAnalytics) GetActiveStudentsCount() int64 {
+	if x != nil {
+		return x.ActiveStudentsCount
+	}
+	return 0
+}
+
+func (x *TutorAnalytics) GetUnpaidLessonsCount() int64 {
+	if x != nil {
+		return x.UnpaidLessonsCount
+	}
+	return 0
 }
 
 var File_payment_service_proto protoreflect.FileDescriptor
@@ -574,7 +734,13 @@ const file_payment_service_proto_rawDesc = "" +
 	"\n" +
 	"student_id\x18\x02 \x01(\tH\x01R\tstudentId\x88\x01\x01B\v\n" +
 	"\t_tutor_idB\r\n" +
-	"\v_student_id\"\xa6\x01\n" +
+	"\v_student_id\"\xab\x01\n" +
+	"\x18GetTutorAnalyticsRequest\x12\x19\n" +
+	"\btutor_id\x18\x01 \x01(\tR\atutorId\x123\n" +
+	"\x04from\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\x04from\x88\x01\x01\x12/\n" +
+	"\x02to\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampH\x01R\x02to\x88\x01\x01B\a\n" +
+	"\x05_fromB\x05\n" +
+	"\x03_to\"\xa6\x01\n" +
 	"\vPaymentInfo\x12 \n" +
 	"\tlesson_id\x18\x01 \x01(\tH\x00R\blessonId\x88\x01\x01\x12 \n" +
 	"\tprice_rub\x18\x02 \x01(\x05H\x01R\bpriceRub\x88\x01\x01\x12&\n" +
@@ -604,7 +770,18 @@ const file_payment_service_proto_rawDesc = "" +
 	"\x03url\x18\x01 \x01(\tH\x00R\x03url\x88\x01\x01B\x06\n" +
 	"\x04_url\"G\n" +
 	"\x14ListReceiptsResponse\x12/\n" +
-	"\breceipts\x18\x01 \x03(\v2\x13.payment.v1.ReceiptR\breceipts2\xe2\x03\n" +
+	"\breceipts\x18\x01 \x03(\v2\x13.payment.v1.ReceiptR\breceipts\"\xa3\x03\n" +
+	"\x0eTutorAnalytics\x12\x19\n" +
+	"\btutor_id\x18\x01 \x01(\tR\atutorId\x123\n" +
+	"\x04from\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\x04from\x88\x01\x01\x12/\n" +
+	"\x02to\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampH\x01R\x02to\x88\x01\x01\x12*\n" +
+	"\x11total_revenue_rub\x18\x04 \x01(\x03R\x0ftotalRevenueRub\x126\n" +
+	"\x17completed_lessons_count\x18\x05 \x01(\x03R\x15completedLessonsCount\x126\n" +
+	"\x17cancelled_lessons_count\x18\x06 \x01(\x03R\x15cancelledLessonsCount\x122\n" +
+	"\x15active_students_count\x18\a \x01(\x03R\x13activeStudentsCount\x120\n" +
+	"\x14unpaid_lessons_count\x18\b \x01(\x03R\x12unpaidLessonsCountB\a\n" +
+	"\x05_fromB\x05\n" +
+	"\x03_to2\xb9\x04\n" +
 	"\x0ePaymentService\x12L\n" +
 	"\x0eGetPaymentInfo\x12!.payment.v1.GetPaymentInfoRequest\x1a\x17.payment.v1.PaymentInfo\x12T\n" +
 	"\x14SubmitPaymentReceipt\x12'.payment.v1.SubmitPaymentReceiptRequest\x1a\x13.payment.v1.Receipt\x12@\n" +
@@ -612,7 +789,8 @@ const file_payment_service_proto_rawDesc = "" +
 	"GetReceipt\x12\x1d.payment.v1.GetReceiptRequest\x1a\x13.payment.v1.Receipt\x12F\n" +
 	"\rVerifyReceipt\x12 .payment.v1.VerifyReceiptRequest\x1a\x13.payment.v1.Receipt\x12O\n" +
 	"\x0eGetReceiptFile\x12!.payment.v1.GetReceiptFileRequest\x1a\x1a.payment.v1.ReceiptFileURL\x12Q\n" +
-	"\fListReceipts\x12\x1f.payment.v1.ListReceiptsRequest\x1a .payment.v1.ListReceiptsResponseB\x17Z\x15payment_service/protob\x06proto3"
+	"\fListReceipts\x12\x1f.payment.v1.ListReceiptsRequest\x1a .payment.v1.ListReceiptsResponse\x12U\n" +
+	"\x11GetTutorAnalytics\x12$.payment.v1.GetTutorAnalyticsRequest\x1a\x1a.payment.v1.TutorAnalyticsB\x17Z\x15payment_service/protob\x06proto3"
 
 var (
 	file_payment_service_proto_rawDescOnce sync.Once
@@ -626,7 +804,7 @@ func file_payment_service_proto_rawDescGZIP() []byte {
 	return file_payment_service_proto_rawDescData
 }
 
-var file_payment_service_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_payment_service_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_payment_service_proto_goTypes = []any{
 	(*GetPaymentInfoRequest)(nil),       // 0: payment.v1.GetPaymentInfoRequest
 	(*SubmitPaymentReceiptRequest)(nil), // 1: payment.v1.SubmitPaymentReceiptRequest
@@ -634,33 +812,41 @@ var file_payment_service_proto_goTypes = []any{
 	(*VerifyReceiptRequest)(nil),        // 3: payment.v1.VerifyReceiptRequest
 	(*GetReceiptFileRequest)(nil),       // 4: payment.v1.GetReceiptFileRequest
 	(*ListReceiptsRequest)(nil),         // 5: payment.v1.ListReceiptsRequest
-	(*PaymentInfo)(nil),                 // 6: payment.v1.PaymentInfo
-	(*Receipt)(nil),                     // 7: payment.v1.Receipt
-	(*ReceiptFileURL)(nil),              // 8: payment.v1.ReceiptFileURL
-	(*ListReceiptsResponse)(nil),        // 9: payment.v1.ListReceiptsResponse
-	(*timestamppb.Timestamp)(nil),       // 10: google.protobuf.Timestamp
+	(*GetTutorAnalyticsRequest)(nil),    // 6: payment.v1.GetTutorAnalyticsRequest
+	(*PaymentInfo)(nil),                 // 7: payment.v1.PaymentInfo
+	(*Receipt)(nil),                     // 8: payment.v1.Receipt
+	(*ReceiptFileURL)(nil),              // 9: payment.v1.ReceiptFileURL
+	(*ListReceiptsResponse)(nil),        // 10: payment.v1.ListReceiptsResponse
+	(*TutorAnalytics)(nil),              // 11: payment.v1.TutorAnalytics
+	(*timestamppb.Timestamp)(nil),       // 12: google.protobuf.Timestamp
 }
 var file_payment_service_proto_depIdxs = []int32{
-	10, // 0: payment.v1.Receipt.created_at:type_name -> google.protobuf.Timestamp
-	10, // 1: payment.v1.Receipt.edited_at:type_name -> google.protobuf.Timestamp
-	7,  // 2: payment.v1.ListReceiptsResponse.receipts:type_name -> payment.v1.Receipt
-	0,  // 3: payment.v1.PaymentService.GetPaymentInfo:input_type -> payment.v1.GetPaymentInfoRequest
-	1,  // 4: payment.v1.PaymentService.SubmitPaymentReceipt:input_type -> payment.v1.SubmitPaymentReceiptRequest
-	2,  // 5: payment.v1.PaymentService.GetReceipt:input_type -> payment.v1.GetReceiptRequest
-	3,  // 6: payment.v1.PaymentService.VerifyReceipt:input_type -> payment.v1.VerifyReceiptRequest
-	4,  // 7: payment.v1.PaymentService.GetReceiptFile:input_type -> payment.v1.GetReceiptFileRequest
-	5,  // 8: payment.v1.PaymentService.ListReceipts:input_type -> payment.v1.ListReceiptsRequest
-	6,  // 9: payment.v1.PaymentService.GetPaymentInfo:output_type -> payment.v1.PaymentInfo
-	7,  // 10: payment.v1.PaymentService.SubmitPaymentReceipt:output_type -> payment.v1.Receipt
-	7,  // 11: payment.v1.PaymentService.GetReceipt:output_type -> payment.v1.Receipt
-	7,  // 12: payment.v1.PaymentService.VerifyReceipt:output_type -> payment.v1.Receipt
-	8,  // 13: payment.v1.PaymentService.GetReceiptFile:output_type -> payment.v1.ReceiptFileURL
-	9,  // 14: payment.v1.PaymentService.ListReceipts:output_type -> payment.v1.ListReceiptsResponse
-	9,  // [9:15] is the sub-list for method output_type
-	3,  // [3:9] is the sub-list for method input_type
-	3,  // [3:3] is the sub-list for extension type_name
-	3,  // [3:3] is the sub-list for extension extendee
-	0,  // [0:3] is the sub-list for field type_name
+	12, // 0: payment.v1.GetTutorAnalyticsRequest.from:type_name -> google.protobuf.Timestamp
+	12, // 1: payment.v1.GetTutorAnalyticsRequest.to:type_name -> google.protobuf.Timestamp
+	12, // 2: payment.v1.Receipt.created_at:type_name -> google.protobuf.Timestamp
+	12, // 3: payment.v1.Receipt.edited_at:type_name -> google.protobuf.Timestamp
+	8,  // 4: payment.v1.ListReceiptsResponse.receipts:type_name -> payment.v1.Receipt
+	12, // 5: payment.v1.TutorAnalytics.from:type_name -> google.protobuf.Timestamp
+	12, // 6: payment.v1.TutorAnalytics.to:type_name -> google.protobuf.Timestamp
+	0,  // 7: payment.v1.PaymentService.GetPaymentInfo:input_type -> payment.v1.GetPaymentInfoRequest
+	1,  // 8: payment.v1.PaymentService.SubmitPaymentReceipt:input_type -> payment.v1.SubmitPaymentReceiptRequest
+	2,  // 9: payment.v1.PaymentService.GetReceipt:input_type -> payment.v1.GetReceiptRequest
+	3,  // 10: payment.v1.PaymentService.VerifyReceipt:input_type -> payment.v1.VerifyReceiptRequest
+	4,  // 11: payment.v1.PaymentService.GetReceiptFile:input_type -> payment.v1.GetReceiptFileRequest
+	5,  // 12: payment.v1.PaymentService.ListReceipts:input_type -> payment.v1.ListReceiptsRequest
+	6,  // 13: payment.v1.PaymentService.GetTutorAnalytics:input_type -> payment.v1.GetTutorAnalyticsRequest
+	7,  // 14: payment.v1.PaymentService.GetPaymentInfo:output_type -> payment.v1.PaymentInfo
+	8,  // 15: payment.v1.PaymentService.SubmitPaymentReceipt:output_type -> payment.v1.Receipt
+	8,  // 16: payment.v1.PaymentService.GetReceipt:output_type -> payment.v1.Receipt
+	8,  // 17: payment.v1.PaymentService.VerifyReceipt:output_type -> payment.v1.Receipt
+	9,  // 18: payment.v1.PaymentService.GetReceiptFile:output_type -> payment.v1.ReceiptFileURL
+	10, // 19: payment.v1.PaymentService.ListReceipts:output_type -> payment.v1.ListReceiptsResponse
+	11, // 20: payment.v1.PaymentService.GetTutorAnalytics:output_type -> payment.v1.TutorAnalytics
+	14, // [14:21] is the sub-list for method output_type
+	7,  // [7:14] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_payment_service_proto_init() }
@@ -674,13 +860,15 @@ func file_payment_service_proto_init() {
 	file_payment_service_proto_msgTypes[6].OneofWrappers = []any{}
 	file_payment_service_proto_msgTypes[7].OneofWrappers = []any{}
 	file_payment_service_proto_msgTypes[8].OneofWrappers = []any{}
+	file_payment_service_proto_msgTypes[9].OneofWrappers = []any{}
+	file_payment_service_proto_msgTypes[11].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payment_service_proto_rawDesc), len(file_payment_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
