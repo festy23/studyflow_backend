@@ -23,7 +23,7 @@ func NewPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 }
 
 func RunMigrations(dsn string) error {
-	m, err := migrate.New("file://migrations", dsn+"&x-migrations-table=schema_migrations_faq")
+	m, err := migrate.New("file:///migrations", dsn+"&x-migrations-table=schema_migrations_faq")
 	if err != nil {
 		return fmt.Errorf("failed to init migrations: %w", err)
 	}

@@ -30,9 +30,9 @@ func NewAuthMiddleware(userClient userpb.UserServiceClient) func(http.Handler) h
 			defer cancel()
 			resp, err := userClient.AuthorizeByAuthHeader(authCtx, req)
 			if err != nil {
-				if status.Code(err) == codes.PermissionDenied {
+				if status.Code(err) == codes.PermissionDenied || status.Code(err) == codes.Unauthenticated {
 					if logger, ok := logging.GetFromContext(ctx); ok {
-						logger.Info(ctx, "permission denied", zap.String("path", r.URL.Path))
+						logger.Info(ctx, "auth failed", zap.String("path", r.URL.Path), zap.String("code", status.Code(err).String()))
 					}
 					w.WriteHeader(http.StatusUnauthorized)
 					return

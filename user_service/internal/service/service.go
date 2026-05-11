@@ -44,17 +44,19 @@ type TutorStudentsRepository interface {
 }
 
 type UserService struct {
-	userRepository     UserRepository
-	tsRepository       TutorStudentsRepository
-	telegramAuthSecret string
+	userRepository         UserRepository
+	tsRepository           TutorStudentsRepository
+	telegramAuthSecret     string
+	authDisableLegacyHMAC  bool
 }
 
 func NewUserService(
 	userRepository UserRepository,
 	tutorStudentsRepository TutorStudentsRepository,
 	telegramAuthSecret string,
+	authDisableLegacyHMAC bool,
 ) *UserService {
-	return &UserService{userRepository, tutorStudentsRepository, telegramAuthSecret}
+	return &UserService{userRepository, tutorStudentsRepository, telegramAuthSecret, authDisableLegacyHMAC}
 }
 
 func (s *UserService) RegisterViaTelegram(ctx context.Context, input *model.RegisterViaTelegramInput) (*model.User, error) {
@@ -140,8 +142,11 @@ func (s *UserService) RegisterViaTelegram(ctx context.Context, input *model.Regi
 
 func (s *UserService) Authorize(ctx context.Context, input *model.AuthorizeInput) (*model.User, error) {
 	header := strings.TrimSpace(input.AuthorizationHeader)
-	if strings.HasPrefix(header, "telegram") {
-		return s.authorizeWithTelegram(ctx, strings.Trim(strings.TrimPrefix(header, "telegram"), " "))
+	if strings.HasPrefix(header, "telegram ") {
+		if s.authDisableLegacyHMAC {
+			return nil, errdefs.ErrAuthentication
+		}
+		return s.authorizeWithTelegram(ctx, strings.TrimSpace(strings.TrimPrefix(header, "telegram ")))
 	}
 	if strings.HasPrefix(header, "tma ") {
 		return s.authorizeWithTelegram(ctx, strings.TrimSpace(strings.TrimPrefix(header, "tma ")))
