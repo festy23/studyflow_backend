@@ -219,7 +219,7 @@ func verifyReceipt(t *testing.T, tutorAuth, receiptID string) map[string]any {
 
 func createTutorStudent(t *testing.T, tutorAuth, tutorID, studentID string) map[string]any {
 	t.Helper()
-	resp := doRequest(t, "POST", "/users/users/tutor-students", map[string]any{
+	resp := doRequest(t, "POST", "/users/tutor-students", map[string]any{
 		"tutorId":   tutorID,
 		"studentId": studentID,
 	}, map[string]string{"Authorization": tutorAuth})
@@ -229,7 +229,7 @@ func createTutorStudent(t *testing.T, tutorAuth, tutorID, studentID string) map[
 
 func acceptInvitation(t *testing.T, studentAuth, tutorID string) {
 	t.Helper()
-	resp := doRequest(t, "POST", "/users/users/tutor-students/"+tutorID+"/accept", nil, map[string]string{
+	resp := doRequest(t, "POST", "/users/tutor-students/"+tutorID+"/accept", nil, map[string]string{
 		"Authorization": studentAuth,
 	})
 	assertStatus(t, resp, http.StatusOK)

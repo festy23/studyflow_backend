@@ -135,26 +135,41 @@ func (h *HomeworkHandler) ListAssignments(w http.ResponseWriter, r *http.Request
 
 	switch x := req.(type) {
 	case *homeworkpb.ListAssignmentsByTutorRequest:
-		handler, herr := Handle[homeworkpb.ListAssignmentsByTutorRequest, homeworkpb.ListAssignmentsResponse](h.c.ListAssignmentsByTutor, nil, false)
+		handler, herr := Handle[homeworkpb.ListAssignmentsByTutorRequest, homeworkpb.ListAssignmentsResponse](
+			h.c.ListAssignmentsByTutor,
+			func(_ context.Context, _ *http.Request, grpcReq *homeworkpb.ListAssignmentsByTutorRequest) error {
+				*grpcReq = *x
+				return nil
+			}, false)
 		if herr != nil {
 			handlerInitError(w, r, herr)
 			return
 		}
-		handler(w, r.WithContext(context.WithValue(ctx, contextKey("req"), x)))
+		handler(w, r)
 	case *homeworkpb.ListAssignmentsByStudentRequest:
-		handler, herr := Handle[homeworkpb.ListAssignmentsByStudentRequest, homeworkpb.ListAssignmentsResponse](h.c.ListAssignmentsByStudent, nil, false)
+		handler, herr := Handle[homeworkpb.ListAssignmentsByStudentRequest, homeworkpb.ListAssignmentsResponse](
+			h.c.ListAssignmentsByStudent,
+			func(_ context.Context, _ *http.Request, grpcReq *homeworkpb.ListAssignmentsByStudentRequest) error {
+				*grpcReq = *x
+				return nil
+			}, false)
 		if herr != nil {
 			handlerInitError(w, r, herr)
 			return
 		}
-		handler(w, r.WithContext(context.WithValue(ctx, contextKey("req"), x)))
+		handler(w, r)
 	case *homeworkpb.ListAssignmentsByPairRequest:
-		handler, herr := Handle[homeworkpb.ListAssignmentsByPairRequest, homeworkpb.ListAssignmentsResponse](h.c.ListAssignmentsByPair, nil, false)
+		handler, herr := Handle[homeworkpb.ListAssignmentsByPairRequest, homeworkpb.ListAssignmentsResponse](
+			h.c.ListAssignmentsByPair,
+			func(_ context.Context, _ *http.Request, grpcReq *homeworkpb.ListAssignmentsByPairRequest) error {
+				*grpcReq = *x
+				return nil
+			}, false)
 		if herr != nil {
 			handlerInitError(w, r, herr)
 			return
 		}
-		handler(w, r.WithContext(context.WithValue(ctx, contextKey("req"), x)))
+		handler(w, r)
 	default:
 		http.Error(w, "invalid query", http.StatusBadRequest)
 	}
