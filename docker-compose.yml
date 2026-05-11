@@ -167,7 +167,7 @@ services:
       S3_SECRET_ACCESS_KEY: PASSWORD
       S3_ENDPOINT: http://minio:9000
       S3_REGION: us-east-1
-      GATEWAY_PUBLIC_URL: http://localhost:80
+      GATEWAY_PUBLIC_URL: ${GATEWAY_PUBLIC_URL:-http://localhost:80}
 
   homework-service:
     restart: unless-stopped
