@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package faq.v1;
+package faq_service.v1;
 
 option go_package = "./pkg/api";
 

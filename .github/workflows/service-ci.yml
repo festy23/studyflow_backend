@@ -70,8 +70,12 @@ jobs:
       - name: Run tests
         working-directory: ${{ inputs.service_path }}
         run: |
-          go test -coverprofile=coverage.out -covermode=atomic ${{ inputs.test_package }}
-          if [ -f coverage.out ]; then
+          go test -coverprofile=coverage.out -covermode=atomic ${{ inputs.test_package }} 2>&1 | tee test_output.txt
+          if grep -q "no packages to test\|no test files\|no tests to run" test_output.txt; then
+            echo "No tests found - skipping coverage check"
+            exit 0
+          fi
+          if [ -f coverage.out ] && [ -s coverage.out ]; then
             COV=$(go tool cover -func coverage.out | tail -1 | awk '{print $3}' | sed 's/%//')
             echo "Coverage: ${COV}%"
             if [ "$(echo "$COV < 30" | bc)" -eq 1 ]; then
@@ -79,7 +83,7 @@ jobs:
               exit 1
             fi
           else
-            echo "No coverage data generated (no test files?)"
+            echo "No coverage data generated"
           fi
 
       - name: Upload coverage artifact

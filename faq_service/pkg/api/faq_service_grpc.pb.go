@@ -19,12 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	FAQService_CreateFAQ_FullMethodName      = "/faq.v1.FAQService/CreateFAQ"
-	FAQService_GetFAQ_FullMethodName         = "/faq.v1.FAQService/GetFAQ"
-	FAQService_UpdateFAQ_FullMethodName      = "/faq.v1.FAQService/UpdateFAQ"
-	FAQService_DeleteFAQ_FullMethodName      = "/faq.v1.FAQService/DeleteFAQ"
-	FAQService_ListFAQs_FullMethodName       = "/faq.v1.FAQService/ListFAQs"
-	FAQService_ListCategories_FullMethodName = "/faq.v1.FAQService/ListCategories"
+	FAQService_CreateFAQ_FullMethodName      = "/faq_service.v1.FAQService/CreateFAQ"
+	FAQService_GetFAQ_FullMethodName         = "/faq_service.v1.FAQService/GetFAQ"
+	FAQService_UpdateFAQ_FullMethodName      = "/faq_service.v1.FAQService/UpdateFAQ"
+	FAQService_DeleteFAQ_FullMethodName      = "/faq_service.v1.FAQService/DeleteFAQ"
+	FAQService_ListFAQs_FullMethodName       = "/faq_service.v1.FAQService/ListFAQs"
+	FAQService_ListCategories_FullMethodName = "/faq_service.v1.FAQService/ListCategories"
 )
 
 // FAQServiceClient is the client API for FAQService service.
@@ -278,7 +278,7 @@ func _FAQService_ListCategories_Handler(srv interface{}, ctx context.Context, de
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var FAQService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "faq.v1.FAQService",
+	ServiceName: "faq_service.v1.FAQService",
 	HandlerType: (*FAQServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

@@ -41,3 +41,23 @@ func (r *RedisCache) Delete(ctx context.Context, key string) {
 		r.logger.Error(ctx, "failed to delete cache", zap.String("key", key), zap.Error(err))
 	}
 }
+
+func (r *RedisCache) DeleteByPattern(ctx context.Context, pattern string) {
+	var cursor uint64
+	for {
+		keys, nextCursor, err := r.rdb.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			r.logger.Error(ctx, "scan failed", zap.String("pattern", pattern), zap.Error(err))
+			return
+		}
+		if len(keys) > 0 {
+			if err := r.rdb.Del(ctx, keys...).Err(); err != nil {
+				r.logger.Error(ctx, "failed to delete cache keys", zap.String("pattern", pattern), zap.Error(err))
+			}
+		}
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
+	}
+}

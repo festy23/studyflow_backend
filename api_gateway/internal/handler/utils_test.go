@@ -227,6 +227,17 @@ func (m *mockCache) Delete(_ context.Context, key string) {
 	delete(m.store, key)
 }
 
+func (m *mockCache) DeleteByPattern(_ context.Context, pattern string) {
+	// Simplify Redis glob to prefix match for mock: "faq:list:*" matches
+	// any key starting with "faq:list:".
+	prefix := strings.TrimSuffix(pattern, "*")
+	for k := range m.store {
+		if strings.HasPrefix(k, prefix) {
+			delete(m.store, k)
+		}
+	}
+}
+
 func TestHandleWithCache(t *testing.T) {
 	t.Run("CacheHit", func(t *testing.T) {
 		cache := newMockCache()

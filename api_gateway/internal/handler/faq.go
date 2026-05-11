@@ -73,9 +73,13 @@ func (h *FAQHandler) CreateFAQ(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	handler(w, r)
 
-	h.invalidateListCache(r.Context())
+	rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+	handler(rec, r)
+
+	if rec.status < http.StatusMultipleChoices {
+		h.invalidateListCache(r.Context())
+	}
 }
 
 func (h *FAQHandler) UpdateFAQ(w http.ResponseWriter, r *http.Request) {
@@ -85,12 +89,16 @@ func (h *FAQHandler) UpdateFAQ(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	handler(w, r)
 
-	if id != "" {
-		h.cache.Delete(r.Context(), fmt.Sprintf("faq:%s", id))
+	rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+	handler(rec, r)
+
+	if rec.status < http.StatusMultipleChoices {
+		if id != "" {
+			h.cache.Delete(r.Context(), fmt.Sprintf("faq:%s", id))
+		}
+		h.invalidateListCache(r.Context())
 	}
-	h.invalidateListCache(r.Context())
 }
 
 func (h *FAQHandler) DeleteFAQ(w http.ResponseWriter, r *http.Request) {
@@ -100,23 +108,26 @@ func (h *FAQHandler) DeleteFAQ(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	handler(w, r)
 
-	if id != "" {
-		h.cache.Delete(r.Context(), fmt.Sprintf("faq:%s", id))
+	rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+	handler(rec, r)
+
+	if rec.status < http.StatusMultipleChoices {
+		if id != "" {
+			h.cache.Delete(r.Context(), fmt.Sprintf("faq:%s", id))
+		}
+		h.invalidateListCache(r.Context())
 	}
-	h.invalidateListCache(r.Context())
 }
 
 // ---------------------------------------------------------------------------
 // Cache helpers
 // ---------------------------------------------------------------------------
 
-// invalidateListCache removes the default list and categories cache entries.
-// Category-specific list entries are not individually invalidated; they will
-// expire naturally via their TTL.
+// invalidateListCache removes all faq:list:* entries and the categories
+// cache entry using Redis SCAN-based pattern deletion.
 func (h *FAQHandler) invalidateListCache(ctx context.Context) {
-	h.cache.Delete(ctx, "faq:list:")
+	h.cache.DeleteByPattern(ctx, "faq:list:*")
 	h.cache.Delete(ctx, "faq:categories")
 }
 

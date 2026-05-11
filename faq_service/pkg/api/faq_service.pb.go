@@ -550,7 +550,7 @@ var File_faq_service_proto protoreflect.FileDescriptor
 
 const file_faq_service_proto_rawDesc = "" +
 	"\n" +
-	"\x11faq_service.proto\x12\x06faq.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa7\x01\n" +
+	"\x11faq_service.proto\x12\x0efaq_service.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa7\x01\n" +
 	"\x10CreateFAQRequest\x12\x1a\n" +
 	"\bquestion\x18\x01 \x01(\tR\bquestion\x12\x16\n" +
 	"\x06answer\x18\x02 \x01(\tR\x06answer\x12\x1f\n" +
@@ -592,9 +592,9 @@ const file_faq_service_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x127\n" +
 	"\tedited_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\beditedAtB\v\n" +
-	"\t_category\"h\n" +
-	"\x10ListFAQsResponse\x12\x1f\n" +
-	"\x04faqs\x18\x01 \x03(\v2\v.faq.v1.FAQR\x04faqs\x12\x12\n" +
+	"\t_category\"p\n" +
+	"\x10ListFAQsResponse\x12'\n" +
+	"\x04faqs\x18\x01 \x03(\v2\x13.faq_service.v1.FAQR\x04faqs\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x03R\n" +
 	"totalCount\"8\n" +
@@ -602,15 +602,15 @@ const file_faq_service_proto_rawDesc = "" +
 	"\n" +
 	"categories\x18\x01 \x03(\tR\n" +
 	"categories\"\a\n" +
-	"\x05Empty2\xd8\x02\n" +
+	"\x05Empty2\xb8\x03\n" +
 	"\n" +
-	"FAQService\x122\n" +
-	"\tCreateFAQ\x12\x18.faq.v1.CreateFAQRequest\x1a\v.faq.v1.FAQ\x12,\n" +
-	"\x06GetFAQ\x12\x15.faq.v1.GetFAQRequest\x1a\v.faq.v1.FAQ\x122\n" +
-	"\tUpdateFAQ\x12\x18.faq.v1.UpdateFAQRequest\x1a\v.faq.v1.FAQ\x124\n" +
-	"\tDeleteFAQ\x12\x18.faq.v1.DeleteFAQRequest\x1a\r.faq.v1.Empty\x12=\n" +
-	"\bListFAQs\x12\x17.faq.v1.ListFAQsRequest\x1a\x18.faq.v1.ListFAQsResponse\x12?\n" +
-	"\x0eListCategories\x12\r.faq.v1.Empty\x1a\x1e.faq.v1.ListCategoriesResponseB\vZ\t./pkg/apib\x06proto3"
+	"FAQService\x12B\n" +
+	"\tCreateFAQ\x12 .faq_service.v1.CreateFAQRequest\x1a\x13.faq_service.v1.FAQ\x12<\n" +
+	"\x06GetFAQ\x12\x1d.faq_service.v1.GetFAQRequest\x1a\x13.faq_service.v1.FAQ\x12B\n" +
+	"\tUpdateFAQ\x12 .faq_service.v1.UpdateFAQRequest\x1a\x13.faq_service.v1.FAQ\x12D\n" +
+	"\tDeleteFAQ\x12 .faq_service.v1.DeleteFAQRequest\x1a\x15.faq_service.v1.Empty\x12M\n" +
+	"\bListFAQs\x12\x1f.faq_service.v1.ListFAQsRequest\x1a .faq_service.v1.ListFAQsResponse\x12O\n" +
+	"\x0eListCategories\x12\x15.faq_service.v1.Empty\x1a&.faq_service.v1.ListCategoriesResponseB\vZ\t./pkg/apib\x06proto3"
 
 var (
 	file_faq_service_proto_rawDescOnce sync.Once
@@ -626,33 +626,33 @@ func file_faq_service_proto_rawDescGZIP() []byte {
 
 var file_faq_service_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_faq_service_proto_goTypes = []any{
-	(*CreateFAQRequest)(nil),       // 0: faq.v1.CreateFAQRequest
-	(*GetFAQRequest)(nil),          // 1: faq.v1.GetFAQRequest
-	(*UpdateFAQRequest)(nil),       // 2: faq.v1.UpdateFAQRequest
-	(*DeleteFAQRequest)(nil),       // 3: faq.v1.DeleteFAQRequest
-	(*ListFAQsRequest)(nil),        // 4: faq.v1.ListFAQsRequest
-	(*FAQ)(nil),                    // 5: faq.v1.FAQ
-	(*ListFAQsResponse)(nil),       // 6: faq.v1.ListFAQsResponse
-	(*ListCategoriesResponse)(nil), // 7: faq.v1.ListCategoriesResponse
-	(*Empty)(nil),                  // 8: faq.v1.Empty
+	(*CreateFAQRequest)(nil),       // 0: faq_service.v1.CreateFAQRequest
+	(*GetFAQRequest)(nil),          // 1: faq_service.v1.GetFAQRequest
+	(*UpdateFAQRequest)(nil),       // 2: faq_service.v1.UpdateFAQRequest
+	(*DeleteFAQRequest)(nil),       // 3: faq_service.v1.DeleteFAQRequest
+	(*ListFAQsRequest)(nil),        // 4: faq_service.v1.ListFAQsRequest
+	(*FAQ)(nil),                    // 5: faq_service.v1.FAQ
+	(*ListFAQsResponse)(nil),       // 6: faq_service.v1.ListFAQsResponse
+	(*ListCategoriesResponse)(nil), // 7: faq_service.v1.ListCategoriesResponse
+	(*Empty)(nil),                  // 8: faq_service.v1.Empty
 	(*timestamppb.Timestamp)(nil),  // 9: google.protobuf.Timestamp
 }
 var file_faq_service_proto_depIdxs = []int32{
-	9, // 0: faq.v1.FAQ.created_at:type_name -> google.protobuf.Timestamp
-	9, // 1: faq.v1.FAQ.edited_at:type_name -> google.protobuf.Timestamp
-	5, // 2: faq.v1.ListFAQsResponse.faqs:type_name -> faq.v1.FAQ
-	0, // 3: faq.v1.FAQService.CreateFAQ:input_type -> faq.v1.CreateFAQRequest
-	1, // 4: faq.v1.FAQService.GetFAQ:input_type -> faq.v1.GetFAQRequest
-	2, // 5: faq.v1.FAQService.UpdateFAQ:input_type -> faq.v1.UpdateFAQRequest
-	3, // 6: faq.v1.FAQService.DeleteFAQ:input_type -> faq.v1.DeleteFAQRequest
-	4, // 7: faq.v1.FAQService.ListFAQs:input_type -> faq.v1.ListFAQsRequest
-	8, // 8: faq.v1.FAQService.ListCategories:input_type -> faq.v1.Empty
-	5, // 9: faq.v1.FAQService.CreateFAQ:output_type -> faq.v1.FAQ
-	5, // 10: faq.v1.FAQService.GetFAQ:output_type -> faq.v1.FAQ
-	5, // 11: faq.v1.FAQService.UpdateFAQ:output_type -> faq.v1.FAQ
-	8, // 12: faq.v1.FAQService.DeleteFAQ:output_type -> faq.v1.Empty
-	6, // 13: faq.v1.FAQService.ListFAQs:output_type -> faq.v1.ListFAQsResponse
-	7, // 14: faq.v1.FAQService.ListCategories:output_type -> faq.v1.ListCategoriesResponse
+	9, // 0: faq_service.v1.FAQ.created_at:type_name -> google.protobuf.Timestamp
+	9, // 1: faq_service.v1.FAQ.edited_at:type_name -> google.protobuf.Timestamp
+	5, // 2: faq_service.v1.ListFAQsResponse.faqs:type_name -> faq_service.v1.FAQ
+	0, // 3: faq_service.v1.FAQService.CreateFAQ:input_type -> faq_service.v1.CreateFAQRequest
+	1, // 4: faq_service.v1.FAQService.GetFAQ:input_type -> faq_service.v1.GetFAQRequest
+	2, // 5: faq_service.v1.FAQService.UpdateFAQ:input_type -> faq_service.v1.UpdateFAQRequest
+	3, // 6: faq_service.v1.FAQService.DeleteFAQ:input_type -> faq_service.v1.DeleteFAQRequest
+	4, // 7: faq_service.v1.FAQService.ListFAQs:input_type -> faq_service.v1.ListFAQsRequest
+	8, // 8: faq_service.v1.FAQService.ListCategories:input_type -> faq_service.v1.Empty
+	5, // 9: faq_service.v1.FAQService.CreateFAQ:output_type -> faq_service.v1.FAQ
+	5, // 10: faq_service.v1.FAQService.GetFAQ:output_type -> faq_service.v1.FAQ
+	5, // 11: faq_service.v1.FAQService.UpdateFAQ:output_type -> faq_service.v1.FAQ
+	8, // 12: faq_service.v1.FAQService.DeleteFAQ:output_type -> faq_service.v1.Empty
+	6, // 13: faq_service.v1.FAQService.ListFAQs:output_type -> faq_service.v1.ListFAQsResponse
+	7, // 14: faq_service.v1.FAQService.ListCategories:output_type -> faq_service.v1.ListCategoriesResponse
 	9, // [9:15] is the sub-list for method output_type
 	3, // [3:9] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name

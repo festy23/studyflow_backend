@@ -141,6 +141,19 @@ func parseListLessons(ctx context.Context, r *http.Request) (context.Context, an
 	page := parseInt32Ptr(q.Get("page"))
 	pageSize := parseInt32Ptr(q.Get("page_size"))
 
+	// Validate pagination: page must be >= 1, page_size must be 1..100.
+	if page != nil && *page < 1 {
+		page = nil
+	}
+	if pageSize != nil {
+		switch {
+		case *pageSize <= 0:
+			pageSize = nil
+		case *pageSize > 100:
+			pageSize = nil
+		}
+	}
+
 	switch {
 	case tutorID != "" && studentID != "":
 		req := &schedulepb.ListLessonsByPairRequest{TutorId: tutorID, StudentId: studentID, From: fromPtr, To: toPtr, Page: page, PageSize: pageSize}

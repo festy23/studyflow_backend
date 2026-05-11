@@ -1,5 +1,5 @@
 syntax = "proto3";
-package audit.v1;
+package audit_service.v1;
 option go_package = "./pkg/api";
 
 import "google/protobuf/timestamp.proto";
