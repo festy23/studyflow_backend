@@ -322,13 +322,11 @@ services:
       audit-db:
         condition: service_healthy
     environment:
-      AUDIT_DB_HOST: audit-db
-      AUDIT_DB_PORT: 5432
-      AUDIT_DB_USER: postgres
-      AUDIT_DB_PASSWORD: postgres
-      AUDIT_DB_NAME: auditdb
-      AUDIT_DB_SSLMODE: disable
-      AUDIT_GRPC_PORT: 50051
+      GRPC_PORT: 50051
+      POSTGRES_URL: postgres://postgres:postgres@audit-db:5432/auditdb?sslmode=disable
+      POSTGRES_MAX_CONN: 5
+      POSTGRES_MIN_CONN: 1
+      POSTGRES_AUTO_MIGRATE: true
 
   api-gateway:
     restart: unless-stopped

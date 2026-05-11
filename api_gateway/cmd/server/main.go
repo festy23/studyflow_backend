@@ -110,6 +110,7 @@ func main() {
 
 	authMiddleware := middleware.NewAuthMiddleware(userClient)
 	r := chi.NewRouter()
+	r.Use(middleware.NewCORSMiddleware())
 	r.Use(middleware.NewLoggingMiddleware(logger))
 	r.Use(func(next http.Handler) http.Handler {
 		return http.MaxBytesHandler(next, 10<<20) // 10 MB

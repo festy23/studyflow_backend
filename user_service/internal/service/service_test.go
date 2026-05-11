@@ -27,7 +27,7 @@ func setup(t *testing.T) (
 
 	mockUserRepo := mocks.NewMockUserRepository(ctrl)
 	mockTSRepo := mocks.NewMockTutorStudentsRepository(ctrl)
-	svc := service.NewUserService(mockUserRepo, mockTSRepo, "test-secret")
+	svc := service.NewUserService(mockUserRepo, mockTSRepo, "test-secret", false)
 
 	return svc, mockUserRepo, mockTSRepo, ctrl
 }

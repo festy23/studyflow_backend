@@ -46,7 +46,7 @@ func main() {
 	userRepo := data.NewUserRepository(database)
 	tsRepo := data.NewTutorStudentRepository(database)
 
-	userService := service.NewUserService(userRepo, tsRepo, cfg.TelegramSecret)
+	userService := service.NewUserService(userRepo, tsRepo, cfg.TelegramSecret, cfg.AuthDisableLegacyHMAC)
 
 	userHandler := handler.NewUserServiceServer(userService)
 
