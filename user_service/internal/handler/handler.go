@@ -25,6 +25,7 @@ type UserService interface {
 	UpdateTutorProfile(ctx context.Context, userId uuid.UUID, input *model.UpdateTutorProfileInput) (*model.TutorProfile, error)
 	CreateTutorStudent(ctx context.Context, input *model.CreateTutorStudentInput) (*model.TutorStudent, error)
 	GetTutorStudent(ctx context.Context, tutorId uuid.UUID, studentId uuid.UUID) (*model.TutorStudent, error)
+	GetTelegramChatId(ctx context.Context, userId uuid.UUID) (int64, error)
 	UpdateTutorStudent(ctx context.Context, tutorId uuid.UUID, studentId uuid.UUID, input *model.UpdateTutorStudentInput) (*model.TutorStudent, error)
 	DeleteTutorStudent(ctx context.Context, tutorId uuid.UUID, studentId uuid.UUID) error
 	ListTutorStudents(ctx context.Context, tutorId uuid.UUID) ([]*model.TutorStudent, error)
@@ -192,6 +193,18 @@ func (h *UserServiceServer) CreateTutorStudent(ctx context.Context, req *pb.Crea
 	}
 
 	return toPbTutorStudent(tutorStudent), nil
+}
+
+func (h *UserServiceServer) GetTelegramChatId(ctx context.Context, req *pb.GetTelegramChatIdRequest) (*pb.GetTelegramChatIdResponse, error) {
+	userId, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	telegramId, err := h.service.GetTelegramChatId(ctx, userId)
+	if err != nil {
+		return nil, mapError(err, errdefs.ErrNotFound)
+	}
+	return &pb.GetTelegramChatIdResponse{TelegramId: telegramId}, nil
 }
 
 func (h *UserServiceServer) GetTutorStudent(ctx context.Context, req *pb.GetTutorStudentRequest) (*pb.TutorStudent, error) {

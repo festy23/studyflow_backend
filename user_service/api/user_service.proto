@@ -27,6 +27,10 @@ service UserService {
 
 	rpc ResolveTutorStudentContext(ResolveTutorStudentContextRequest) returns (ResolvedTutorStudentContext);
 	rpc AcceptInvitationFromTutor(AcceptInvitationFromTutorRequest) returns (Empty);
+
+	// Internal: resolve Telegram chat_id (== telegram_id) for a user.
+	// Used by notification_service to deliver Telegram messages.
+	rpc GetTelegramChatId(GetTelegramChatIdRequest) returns (GetTelegramChatIdResponse);
 }
 
 // ==== REQUESTS ====
@@ -122,6 +126,14 @@ message ResolvedTutorStudentContext {
 
 message AcceptInvitationFromTutorRequest {
 	string tutor_id = 1;
+}
+
+message GetTelegramChatIdRequest {
+	string user_id = 1;
+}
+
+message GetTelegramChatIdResponse {
+	int64 telegram_id = 1;
 }
 
 message Empty {}
