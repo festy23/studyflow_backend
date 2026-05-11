@@ -115,3 +115,122 @@ func signUp(t *testing.T, role string) (tgID int64, auth string, user map[string
 	user = readJSON(t, resp)
 	return tgID, auth, user
 }
+
+// ---------- schedule helpers ----------
+
+func createSlot(t *testing.T, tutorAuth string, tutorID string, startsAt, endsAt time.Time) map[string]any {
+	t.Helper()
+	resp := doRequest(t, "POST", "/schedule/slots", map[string]any{
+		"tutorId":  tutorID,
+		"startsAt": startsAt.Format(time.RFC3339),
+		"endsAt":   endsAt.Format(time.RFC3339),
+	}, map[string]string{"Authorization": tutorAuth})
+	assertStatus(t, resp, http.StatusOK)
+	return readJSON(t, resp)
+}
+
+func bookLesson(t *testing.T, auth string, slotID, studentID string) map[string]any {
+	t.Helper()
+	resp := doRequest(t, "POST", "/schedule/lessons", map[string]any{
+		"slotId":    slotID,
+		"studentId": studentID,
+	}, map[string]string{"Authorization": auth})
+	assertStatus(t, resp, http.StatusOK)
+	return readJSON(t, resp)
+}
+
+// ---------- homework helpers ----------
+
+func createAssignment(t *testing.T, tutorAuth, tutorID, studentID, title string) map[string]any {
+	t.Helper()
+	resp := doRequest(t, "POST", "/homework/assignments", map[string]any{
+		"tutorId":   tutorID,
+		"studentId": studentID,
+		"title":     title,
+	}, map[string]string{"Authorization": tutorAuth})
+	assertStatus(t, resp, http.StatusOK)
+	return readJSON(t, resp)
+}
+
+func createSubmission(t *testing.T, studentAuth, assignmentID string, comment string) map[string]any {
+	t.Helper()
+	resp := doRequest(t, "POST", "/homework/submissions", map[string]any{
+		"assignmentId": assignmentID,
+		"comment":      comment,
+	}, map[string]string{"Authorization": studentAuth})
+	assertStatus(t, resp, http.StatusOK)
+	return readJSON(t, resp)
+}
+
+func createFeedback(t *testing.T, tutorAuth, submissionID string, grade int, comment string) map[string]any {
+	t.Helper()
+	resp := doRequest(t, "POST", "/homework/feedbacks", map[string]any{
+		"submissionId": submissionID,
+		"grade":        grade,
+		"comment":      comment,
+	}, map[string]string{"Authorization": tutorAuth})
+	assertStatus(t, resp, http.StatusOK)
+	return readJSON(t, resp)
+}
+
+// ---------- file helpers ----------
+
+func initUpload(t *testing.T, auth, uploadedBy, filename string) map[string]any {
+	t.Helper()
+	resp := doRequest(t, "POST", "/files/init-upload", map[string]any{
+		"uploadedBy": uploadedBy,
+		"filename":   filename,
+	}, map[string]string{"Authorization": auth})
+	assertStatus(t, resp, http.StatusOK)
+	return readJSON(t, resp)
+}
+
+func confirmUpload(t *testing.T, auth, fileID string) map[string]any {
+	t.Helper()
+	resp := doRequest(t, "POST", "/files/"+fileID+"/confirm-upload", nil, map[string]string{
+		"Authorization": auth,
+	})
+	assertStatus(t, resp, http.StatusOK)
+	return readJSON(t, resp)
+}
+
+// ---------- payment helpers ----------
+
+func submitReceipt(t *testing.T, studentAuth, lessonID, fileID string) map[string]any {
+	t.Helper()
+	resp := doRequest(t, "POST", "/payment/receipts", map[string]any{
+		"lessonId": lessonID,
+		"fileId":   fileID,
+	}, map[string]string{"Authorization": studentAuth})
+	assertStatus(t, resp, http.StatusOK)
+	return readJSON(t, resp)
+}
+
+func verifyReceipt(t *testing.T, tutorAuth, receiptID string) map[string]any {
+	t.Helper()
+	resp := doRequest(t, "POST", "/payment/receipts/"+receiptID+"/verify", nil, map[string]string{
+		"Authorization": tutorAuth,
+	})
+	assertStatus(t, resp, http.StatusOK)
+	return readJSON(t, resp)
+}
+
+// ---------- relationship helpers ----------
+
+func createTutorStudent(t *testing.T, tutorAuth, tutorID, studentID string) map[string]any {
+	t.Helper()
+	resp := doRequest(t, "POST", "/users/users/tutor-students", map[string]any{
+		"tutorId":   tutorID,
+		"studentId": studentID,
+	}, map[string]string{"Authorization": tutorAuth})
+	assertStatus(t, resp, http.StatusOK)
+	return readJSON(t, resp)
+}
+
+func acceptInvitation(t *testing.T, studentAuth, tutorID string) {
+	t.Helper()
+	resp := doRequest(t, "POST", "/users/users/tutor-students/"+tutorID+"/accept", nil, map[string]string{
+		"Authorization": studentAuth,
+	})
+	assertStatus(t, resp, http.StatusOK)
+}
