@@ -65,3 +65,29 @@ Set `AUTH_DISABLE_LEGACY_HMAC=true` in the `user-service` environment. This make
 |----------|---------|----------|-------------|
 | `TELEGRAM_SECRET` | user-service | yes | Telegram bot token (`123456:ABC-DEF` format) |
 | `AUTH_DISABLE_LEGACY_HMAC` | user-service | no | Set to `true` to disable legacy HMAC auth (default: `false`) |
+| `GATEWAY_PUBLIC_URL` | file-service, api-gateway | no | Public base URL for file download links. Set to ngrok URL when testing. |
+
+## ngrok Setup (development)
+
+```bash
+# 1. Start ngrok
+ngrok http 80
+
+# 2. Auto-configure GATEWAY_PUBLIC_URL from ngrok
+./scripts/configure-ngrok.sh
+
+# 3. Start services (if not already running)
+docker compose up -d
+```
+
+After these steps:
+- Public URL: check `https://dashboard.ngrok.com` or `http://127.0.0.1:4040`
+- Frontend uses this URL as the API base
+- CORS is enabled (allows any origin)
+- Include `ngrok-skip-browser-warning: true` header to bypass ngrok's interstitial page (free tier)
+
+### ngrok Browser Warning
+
+ngrok free tier shows a warning page before first request from a new browser. Workarounds:
+1. Set header `ngrok-skip-browser-warning: true` in every request (CORS allows this header)
+2. Or open the URL in browser once and click "Visit Site"
