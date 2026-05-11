@@ -105,34 +105,25 @@ func TestTruncateBytes(t *testing.T) {
 	})
 }
 
-func TestProcessMessage(t *testing.T) {
+func TestLogOnlyDispatcher(t *testing.T) {
 	logger := zap.NewNop()
+	d := logOnlyDispatcher{logger: logger}
+	ctx := context.Background()
 
-	t.Run("valid JSON payload returns nil", func(t *testing.T) {
+	t.Run("valid JSON payload commits", func(t *testing.T) {
 		msg := kafka.Message{
-			Topic:     "lesson-reminders",
-			Partition: 0,
-			Offset:    42,
-			Value:     []byte(`{"lesson_id":"abc","event_type":"booked","telegram_id":12345}`),
+			Topic:  "lesson-reminders",
+			Offset: 42,
+			Value:  []byte(`{"lesson_id":"abc","event_type":"booked"}`),
 		}
-		if err := processMessage(logger, msg); err != nil {
+		if err := d.Dispatch(ctx, msg); err != nil {
 			t.Errorf("expected nil, got %v", err)
 		}
 	})
 
-	t.Run("invalid JSON payload returns nil (non-retriable)", func(t *testing.T) {
-		msg := kafka.Message{
-			Topic: "lesson-reminders",
-			Value: []byte("not-json"),
-		}
-		if err := processMessage(logger, msg); err != nil {
-			t.Errorf("expected nil, got %v", err)
-		}
-	})
-
-	t.Run("empty payload returns nil", func(t *testing.T) {
-		msg := kafka.Message{Topic: "test-topic", Value: []byte{}}
-		if err := processMessage(logger, msg); err != nil {
+	t.Run("malformed JSON commits (non-retriable)", func(t *testing.T) {
+		msg := kafka.Message{Topic: "lesson-reminders", Value: []byte("not-json")}
+		if err := d.Dispatch(ctx, msg); err != nil {
 			t.Errorf("expected nil, got %v", err)
 		}
 	})
@@ -199,7 +190,7 @@ func TestRunConsumer_GracefulDrain(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		runConsumer(ctx, logger, fr)
+		runConsumer(ctx, logger, fr, logOnlyDispatcher{logger: logger})
 		close(done)
 	}()
 
@@ -253,7 +244,7 @@ func TestRunConsumer_CancelDuringFetch(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		runConsumer(ctx, logger, fr)
+		runConsumer(ctx, logger, fr, logOnlyDispatcher{logger: logger})
 		close(done)
 	}()
 
