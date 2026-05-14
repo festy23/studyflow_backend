@@ -25,6 +25,7 @@ func (h *UserHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		r.Get("/users/me", h.GetMe)
 		r.Get("/users/{id}", h.GetUser)
 		r.Patch("/users/{id}", h.UpdateUser)
+		r.Delete("/users/{id}", h.DeleteUser)
 		r.Get("/tutor-profiles/{id}", h.GetTutorProfile)
 		r.Patch("/tutor-profiles/{id}", h.UpdateTutorProfile)
 		r.Get("/tutor-students/by-tutor/{id}", h.ListTutorStudentByTutor)
@@ -63,6 +64,24 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 
 func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	handler, err := Handle[userpb.UpdateUserRequest, userpb.User](h.c.UpdateUser, updateUserParsePath, true)
+	if err != nil {
+		panic(err)
+	}
+
+	handler(w, r)
+
+	key, err := buildUserKey(r)
+	if err == nil {
+		h.cache.Delete(r.Context(), key)
+	}
+	key, err = buildUserPublicKey(r)
+	if err == nil {
+		h.cache.Delete(r.Context(), key)
+	}
+}
+
+func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	handler, err := Handle[userpb.DeleteUserRequest, userpb.User](h.c.DeleteUser, deleteUserParsePath, false)
 	if err != nil {
 		panic(err)
 	}
@@ -207,6 +226,18 @@ func getUserParsePath(ctx context.Context, httpReq *http.Request, grpcReq *userp
 }
 
 func updateUserParsePath(ctx context.Context, httpReq *http.Request, grpcReq *userpb.UpdateUserRequest) error {
+	userId := chi.URLParam(httpReq, "id")
+	if userId == "" {
+		return fmt.Errorf("%w: %s", ErrBadRequest, "userId is required")
+	}
+	grpcReq.Id = userId
+	if logger, ok := logging.GetFromContext(ctx); ok {
+		logger.Debug(ctx, "user id added to request", zap.Any("req", grpcReq))
+	}
+	return nil
+}
+
+func deleteUserParsePath(ctx context.Context, httpReq *http.Request, grpcReq *userpb.DeleteUserRequest) error {
 	userId := chi.URLParam(httpReq, "id")
 	if userId == "" {
 		return fmt.Errorf("%w: %s", ErrBadRequest, "userId is required")
