@@ -35,6 +35,10 @@ const (
 	UserService_ListTutorsForStudent_FullMethodName       = "/user.v1.UserService/ListTutorsForStudent"
 	UserService_ResolveTutorStudentContext_FullMethodName = "/user.v1.UserService/ResolveTutorStudentContext"
 	UserService_AcceptInvitationFromTutor_FullMethodName  = "/user.v1.UserService/AcceptInvitationFromTutor"
+	UserService_CreateInvitation_FullMethodName           = "/user.v1.UserService/CreateInvitation"
+	UserService_ListInvitations_FullMethodName            = "/user.v1.UserService/ListInvitations"
+	UserService_RevokeInvitation_FullMethodName           = "/user.v1.UserService/RevokeInvitation"
+	UserService_AcceptInvitation_FullMethodName           = "/user.v1.UserService/AcceptInvitation"
 	UserService_GetTelegramChatId_FullMethodName          = "/user.v1.UserService/GetTelegramChatId"
 )
 
@@ -58,6 +62,11 @@ type UserServiceClient interface {
 	ListTutorsForStudent(ctx context.Context, in *ListTutorsForStudentRequest, opts ...grpc.CallOption) (*ListTutorsForStudentResponse, error)
 	ResolveTutorStudentContext(ctx context.Context, in *ResolveTutorStudentContextRequest, opts ...grpc.CallOption) (*ResolvedTutorStudentContext, error)
 	AcceptInvitationFromTutor(ctx context.Context, in *AcceptInvitationFromTutorRequest, opts ...grpc.CallOption) (*Empty, error)
+	// Invitations (token-based, anonymous, one-time use).
+	CreateInvitation(ctx context.Context, in *CreateInvitationRequest, opts ...grpc.CallOption) (*Invitation, error)
+	ListInvitations(ctx context.Context, in *ListInvitationsRequest, opts ...grpc.CallOption) (*ListInvitationsResponse, error)
+	RevokeInvitation(ctx context.Context, in *RevokeInvitationRequest, opts ...grpc.CallOption) (*Empty, error)
+	AcceptInvitation(ctx context.Context, in *AcceptInvitationRequest, opts ...grpc.CallOption) (*TutorStudent, error)
 	// Internal: resolve Telegram chat_id (== telegram_id) for a user.
 	// Used by notification_service to deliver Telegram messages.
 	GetTelegramChatId(ctx context.Context, in *GetTelegramChatIdRequest, opts ...grpc.CallOption) (*GetTelegramChatIdResponse, error)
@@ -231,6 +240,46 @@ func (c *userServiceClient) AcceptInvitationFromTutor(ctx context.Context, in *A
 	return out, nil
 }
 
+func (c *userServiceClient) CreateInvitation(ctx context.Context, in *CreateInvitationRequest, opts ...grpc.CallOption) (*Invitation, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Invitation)
+	err := c.cc.Invoke(ctx, UserService_CreateInvitation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) ListInvitations(ctx context.Context, in *ListInvitationsRequest, opts ...grpc.CallOption) (*ListInvitationsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListInvitationsResponse)
+	err := c.cc.Invoke(ctx, UserService_ListInvitations_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) RevokeInvitation(ctx context.Context, in *RevokeInvitationRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, UserService_RevokeInvitation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) AcceptInvitation(ctx context.Context, in *AcceptInvitationRequest, opts ...grpc.CallOption) (*TutorStudent, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TutorStudent)
+	err := c.cc.Invoke(ctx, UserService_AcceptInvitation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *userServiceClient) GetTelegramChatId(ctx context.Context, in *GetTelegramChatIdRequest, opts ...grpc.CallOption) (*GetTelegramChatIdResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetTelegramChatIdResponse)
@@ -261,6 +310,11 @@ type UserServiceServer interface {
 	ListTutorsForStudent(context.Context, *ListTutorsForStudentRequest) (*ListTutorsForStudentResponse, error)
 	ResolveTutorStudentContext(context.Context, *ResolveTutorStudentContextRequest) (*ResolvedTutorStudentContext, error)
 	AcceptInvitationFromTutor(context.Context, *AcceptInvitationFromTutorRequest) (*Empty, error)
+	// Invitations (token-based, anonymous, one-time use).
+	CreateInvitation(context.Context, *CreateInvitationRequest) (*Invitation, error)
+	ListInvitations(context.Context, *ListInvitationsRequest) (*ListInvitationsResponse, error)
+	RevokeInvitation(context.Context, *RevokeInvitationRequest) (*Empty, error)
+	AcceptInvitation(context.Context, *AcceptInvitationRequest) (*TutorStudent, error)
 	// Internal: resolve Telegram chat_id (== telegram_id) for a user.
 	// Used by notification_service to deliver Telegram messages.
 	GetTelegramChatId(context.Context, *GetTelegramChatIdRequest) (*GetTelegramChatIdResponse, error)
@@ -321,6 +375,18 @@ func (UnimplementedUserServiceServer) ResolveTutorStudentContext(context.Context
 }
 func (UnimplementedUserServiceServer) AcceptInvitationFromTutor(context.Context, *AcceptInvitationFromTutorRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method AcceptInvitationFromTutor not implemented")
+}
+func (UnimplementedUserServiceServer) CreateInvitation(context.Context, *CreateInvitationRequest) (*Invitation, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateInvitation not implemented")
+}
+func (UnimplementedUserServiceServer) ListInvitations(context.Context, *ListInvitationsRequest) (*ListInvitationsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListInvitations not implemented")
+}
+func (UnimplementedUserServiceServer) RevokeInvitation(context.Context, *RevokeInvitationRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeInvitation not implemented")
+}
+func (UnimplementedUserServiceServer) AcceptInvitation(context.Context, *AcceptInvitationRequest) (*TutorStudent, error) {
+	return nil, status.Error(codes.Unimplemented, "method AcceptInvitation not implemented")
 }
 func (UnimplementedUserServiceServer) GetTelegramChatId(context.Context, *GetTelegramChatIdRequest) (*GetTelegramChatIdResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTelegramChatId not implemented")
@@ -634,6 +700,78 @@ func _UserService_AcceptInvitationFromTutor_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserService_CreateInvitation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateInvitationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).CreateInvitation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_CreateInvitation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).CreateInvitation(ctx, req.(*CreateInvitationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_ListInvitations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListInvitationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).ListInvitations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_ListInvitations_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).ListInvitations(ctx, req.(*ListInvitationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_RevokeInvitation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeInvitationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).RevokeInvitation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_RevokeInvitation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).RevokeInvitation(ctx, req.(*RevokeInvitationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_AcceptInvitation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AcceptInvitationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).AcceptInvitation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_AcceptInvitation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).AcceptInvitation(ctx, req.(*AcceptInvitationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _UserService_GetTelegramChatId_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetTelegramChatIdRequest)
 	if err := dec(in); err != nil {
@@ -722,6 +860,22 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AcceptInvitationFromTutor",
 			Handler:    _UserService_AcceptInvitationFromTutor_Handler,
+		},
+		{
+			MethodName: "CreateInvitation",
+			Handler:    _UserService_CreateInvitation_Handler,
+		},
+		{
+			MethodName: "ListInvitations",
+			Handler:    _UserService_ListInvitations_Handler,
+		},
+		{
+			MethodName: "RevokeInvitation",
+			Handler:    _UserService_RevokeInvitation_Handler,
+		},
+		{
+			MethodName: "AcceptInvitation",
+			Handler:    _UserService_AcceptInvitation_Handler,
 		},
 		{
 			MethodName: "GetTelegramChatId",

@@ -172,3 +172,114 @@ func TestSameUserBothRoles(t *testing.T) {
 		t.Errorf("second signup: expected 200 or 409, got %d: %s", code, body)
 	}
 }
+
+// ---- delete & reactivate ----
+
+func TestDeleteAndReactivate(t *testing.T) {
+	// 1. Sign up
+	tgID, auth, user := signUp(t, "student")
+	userID := user["id"].(string)
+
+	// 2. Delete
+	resp := doRequest(t, "DELETE", "/users/users/"+userID, nil, map[string]string{
+		"Authorization": auth,
+	})
+	assertStatus(t, resp, http.StatusOK)
+
+	// 3. GET /users/users/me should now return 404
+	resp = doRequest(t, "GET", "/users/users/me", nil, map[string]string{
+		"Authorization": auth,
+	})
+	assertStatus(t, resp, http.StatusNotFound)
+
+	// 4. Re-register with same telegram_id — should reactivate
+	resp = doRequest(t, "POST", "/users/sign-up/telegram", map[string]any{
+		"telegram_id": tgID,
+		"role":        "student",
+		"first_name":  "Reactivated",
+	}, map[string]string{
+		"Authorization": auth,
+	})
+	assertStatus(t, resp, http.StatusOK)
+	user2 := readJSON(t, resp)
+	if user2["status"] != "active" {
+		t.Errorf("expected status=active, got %v", user2["status"])
+	}
+
+	// 5. GET /users/users/me should work again
+	resp = doRequest(t, "GET", "/users/users/me", nil, map[string]string{
+		"Authorization": auth,
+	})
+	assertStatus(t, resp, http.StatusOK)
+	me := readJSON(t, resp)
+	if me["status"] != "active" {
+		t.Errorf("expected status=active, got %v", me["status"])
+	}
+}
+
+func TestStudyflowStatus(t *testing.T) {
+	resp := doRequest(t, "GET", "/studyflow/status", nil, nil)
+	assertStatus(t, resp, http.StatusOK)
+	body := readJSON(t, resp)
+	if body["status"] != "ok" {
+		t.Fatalf("expected status=ok, got %v", body)
+	}
+}
+
+// ---- invitations ----
+
+func TestInviteFlow(t *testing.T) {
+	// 1. Tutor creates invite
+	_, tutorAuth, _ := signUp(t, "tutor")
+	resp := doRequest(t, "POST", "/users/users/invitations", nil, map[string]string{
+		"Authorization": tutorAuth,
+	})
+	assertStatus(t, resp, http.StatusOK)
+	invite := readJSON(t, resp)
+	token := invite["token"].(string)
+	if token == "" {
+		t.Fatal("expected non-empty token")
+	}
+
+	// 2. Tutor lists invitations
+	resp = doRequest(t, "GET", "/users/users/invitations", nil, map[string]string{
+		"Authorization": tutorAuth,
+	})
+	assertStatus(t, resp, http.StatusOK)
+
+	// 3. Student accepts
+	_, studentAuth, _ := signUp(t, "student")
+	resp = doRequest(t, "POST", "/users/users/invitations/"+token+"/accept", nil, map[string]string{
+		"Authorization": studentAuth,
+	})
+	assertStatus(t, resp, http.StatusOK)
+	ts := readJSON(t, resp)
+	if ts["status"] != "active" {
+		t.Fatalf("expected status=active after accept, got %v", ts["status"])
+	}
+
+	// 4. Re-accept should fail (token already used)
+	resp = doRequest(t, "POST", "/users/users/invitations/"+token+"/accept", nil, map[string]string{
+		"Authorization": studentAuth,
+	})
+	assertStatus(t, resp, http.StatusNotFound)
+
+	// 5. Tutor revokes a new invite
+	resp = doRequest(t, "POST", "/users/users/invitations", nil, map[string]string{
+		"Authorization": tutorAuth,
+	})
+	assertStatus(t, resp, http.StatusOK)
+	invite2 := readJSON(t, resp)
+	inviteID := invite2["id"].(string)
+
+	resp = doRequest(t, "DELETE", "/users/users/invitations/"+inviteID, nil, map[string]string{
+		"Authorization": tutorAuth,
+	})
+	assertStatus(t, resp, http.StatusOK)
+
+	// Accepting revoked invite should fail
+	resp = doRequest(t, "POST", "/users/users/invitations/"+invite2["token"].(string)+"/accept", nil, map[string]string{
+		"Authorization": studentAuth,
+	})
+	assertStatus(t, resp, http.StatusNotFound)
+}

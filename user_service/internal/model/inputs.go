@@ -20,6 +20,7 @@ type UpdateUserInput struct {
 	LastName  *string
 	Timezone  *string
 	Role      *Role
+	Status    *UserStatus
 }
 
 type CreateTutorStudentInput struct {

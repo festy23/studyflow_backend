@@ -107,6 +107,7 @@ func main() {
 
 	auditClient := auditpb.NewAuditServiceClient(auditGrpcClient)
 	auditMiddleware := middleware.NewAuditMiddleware(auditClient, zapLogger)
+	statusHandler := handler.NewStatusHandler(userClient, redisConn)
 
 	authMiddleware := middleware.NewAuthMiddleware(userClient)
 	r := chi.NewRouter()
@@ -120,6 +121,10 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	})
+
+	r.Route("/studyflow", func(r chi.Router) {
+		statusHandler.RegisterRoutes(r)
 	})
 
 	r.Route("/users", func(r chi.Router) {
