@@ -31,6 +31,9 @@ func (s *stubUserService) GetUserPublic(ctx context.Context, id uuid.UUID) (*mod
 func (s *stubUserService) UpdateUser(ctx context.Context, id uuid.UUID, input *model.UpdateUserInput) (*model.User, error) {
 	return nil, nil
 }
+func (s *stubUserService) DeleteUser(ctx context.Context, id uuid.UUID) (*model.User, error) {
+	return nil, nil
+}
 func (s *stubUserService) GetTutorProfile(ctx context.Context, userId uuid.UUID) (*model.TutorProfile, error) {
 	return nil, nil
 }

@@ -497,6 +497,11 @@ paths:
                   type: string
                 timezone:
                   type: string
+                role:
+                  type: string
+                  enum:
+                    - tutor
+                    - student
       responses:
         '200':
           description: User updated
@@ -506,6 +511,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Soft-delete user account
+      operationId: deleteUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User deleted (status set to "deleted")
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
         '403':
           description: Permission denied
           content:

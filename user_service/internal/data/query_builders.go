@@ -29,6 +29,11 @@ func buildUserUpdateQuery(input *model.UpdateUserInput) (string, []any, error) {
 		args = append(args, input.Timezone)
 		argIdx++
 	}
+	if input.Role != nil {
+		set = append(set, fmt.Sprintf("role = $%d", argIdx))
+		args = append(args, input.Role)
+		argIdx++
+	}
 
 	if len(set) == 0 {
 		return "", nil, ErrNoFieldsToUpdate

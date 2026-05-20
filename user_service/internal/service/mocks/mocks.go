@@ -43,6 +43,36 @@ func (m *MockUserRepository) EXPECT() *MockUserRepositoryMockRecorder {
 	return m.recorder
 }
 
+// CreateTutorProfile mocks base method.
+func (m *MockUserRepository) CreateTutorProfile(ctx context.Context, input *model.RepositoryCreateTutorProfileInput) (*model.TutorProfile, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateTutorProfile", ctx, input)
+	ret0, _ := ret[0].(*model.TutorProfile)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateTutorProfile indicates an expected call of CreateTutorProfile.
+func (mr *MockUserRepositoryMockRecorder) CreateTutorProfile(ctx, input any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTutorProfile", reflect.TypeOf((*MockUserRepository)(nil).CreateTutorProfile), ctx, input)
+}
+
+// DeleteUser mocks base method.
+func (m *MockUserRepository) DeleteUser(ctx context.Context, id uuid.UUID) (*model.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteUser", ctx, id)
+	ret0, _ := ret[0].(*model.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteUser indicates an expected call of DeleteUser.
+func (mr *MockUserRepositoryMockRecorder) DeleteUser(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUser", reflect.TypeOf((*MockUserRepository)(nil).DeleteUser), ctx, id)
+}
+
 // GetTelegramAccount mocks base method.
 func (m *MockUserRepository) GetTelegramAccount(ctx context.Context, userId uuid.UUID) (*model.TelegramAccount, error) {
 	m.ctrl.T.Helper()
