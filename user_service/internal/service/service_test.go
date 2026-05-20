@@ -572,6 +572,8 @@ func TestRegisterViaTelegram(t *testing.T) {
 	t.Run("Success_Student", func(t *testing.T) {
 		svc, mockUserRepo, _, _, _ := setup(t)
 
+		mockUserRepo.EXPECT().GetTelegramAccountByTelegramId(gomock.Any(), gomock.Any()).Return(nil, errdefs.ErrNotFound)
+
 		mockTx := mocks.NewMockUserCreationRepositoryTx(gomock.NewController(t))
 		mockUserRepo.EXPECT().NewUserCreationRepositoryTx(gomock.Any()).Return(mockTx, nil)
 
@@ -596,6 +598,8 @@ func TestRegisterViaTelegram(t *testing.T) {
 	t.Run("Success_Tutor_CreatesTutorProfile", func(t *testing.T) {
 		svc, mockUserRepo, _, _, _ := setup(t)
 
+		mockUserRepo.EXPECT().GetTelegramAccountByTelegramId(gomock.Any(), gomock.Any()).Return(nil, errdefs.ErrNotFound)
+
 		mockTx := mocks.NewMockUserCreationRepositoryTx(gomock.NewController(t))
 		mockUserRepo.EXPECT().NewUserCreationRepositoryTx(gomock.Any()).Return(mockTx, nil)
 
@@ -619,6 +623,8 @@ func TestRegisterViaTelegram(t *testing.T) {
 
 	t.Run("Error_CreateUserFails", func(t *testing.T) {
 		svc, mockUserRepo, _, _, _ := setup(t)
+
+		mockUserRepo.EXPECT().GetTelegramAccountByTelegramId(gomock.Any(), gomock.Any()).Return(nil, errdefs.ErrNotFound)
 
 		mockTx := mocks.NewMockUserCreationRepositoryTx(gomock.NewController(t))
 		mockUserRepo.EXPECT().NewUserCreationRepositoryTx(gomock.Any()).Return(mockTx, nil)
