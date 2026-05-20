@@ -457,6 +457,21 @@ func (mr *MockInvitationRepositoryMockRecorder) ListInvitationsByTutor(ctx, tuto
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListInvitationsByTutor", reflect.TypeOf((*MockInvitationRepository)(nil).ListInvitationsByTutor), ctx, tutorId)
 }
 
+// MarkInvitationUsedIfActive mocks base method.
+func (m *MockInvitationRepository) MarkInvitationUsedIfActive(ctx context.Context, id uuid.UUID) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkInvitationUsedIfActive", ctx, id)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MarkInvitationUsedIfActive indicates an expected call of MarkInvitationUsedIfActive.
+func (mr *MockInvitationRepositoryMockRecorder) MarkInvitationUsedIfActive(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkInvitationUsedIfActive", reflect.TypeOf((*MockInvitationRepository)(nil).MarkInvitationUsedIfActive), ctx, id)
+}
+
 // UpdateInvitationStatus mocks base method.
 func (m *MockInvitationRepository) UpdateInvitationStatus(ctx context.Context, id uuid.UUID, status model.InvitationStatus) error {
 	m.ctrl.T.Helper()
