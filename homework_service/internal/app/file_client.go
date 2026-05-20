@@ -30,9 +30,7 @@ func (c *FileClient) outgoing(ctx context.Context) context.Context {
 	if id, ok := ctxdata.GetUserID(ctx); ok {
 		out = metadata.AppendToOutgoingContext(out, "x-user-id", id)
 	}
-	if role, ok := ctxdata.GetUserRole(ctx); ok {
-		out = metadata.AppendToOutgoingContext(out, "x-user-role", role)
-	}
+	out = metadata.AppendToOutgoingContext(out, "x-user-role", "service")
 	return out
 }
 

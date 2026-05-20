@@ -8,4 +8,5 @@ var (
 	ErrAuthentication   = errors.New("authentication error")
 	ErrNotFound         = errors.New("user not found")
 	ErrPermissionDenied = errors.New("permission denied")
+	ErrUserDeleted      = errors.New("user is deleted")
 )
